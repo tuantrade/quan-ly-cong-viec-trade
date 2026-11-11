@@ -414,14 +414,15 @@ insert into public.he_thong (ten, thu_tu) values
   ('Nhiều hệ thống', 9), ('Nội bộ', 10)
 on conflict (ten) do nothing;
 
--- Quy trình mẫu (chỉ thêm nếu chưa có mã đó)
+-- Quy trình mẫu (chỉ thêm nếu chưa có mã đó). Người làm / người duyệt đặt sau trong app: Quy trình mẫu > Sửa.
 with mau(ma, ten, mo_ta, thu_tu) as (values
-  ('ctkm-catalogue', 'CTKM catalogue siêu thị (MT)', 'Đăng ký và chạy chương trình giảm giá trên catalogue của chuỗi siêu thị', 1),
-  ('activation',     'Activation / Inline tại siêu thị', 'Dùng thử, PG bán hàng, hoạt động tại điểm bán', 2),
-  ('trung-bay',      'Trưng bày / thuê vị trí', 'Ụ, đầu kệ, quầy kệ riêng tại siêu thị hoặc cửa hàng', 3),
-  ('audit',          'Audit điểm bán định kỳ', 'Kiểm tra tồn, giá, trưng bày, đối thủ tại điểm bán', 4),
-  ('posm',           'Sản xuất và phân bổ POSM', 'Vật phẩm quảng cáo tại điểm bán', 5),
-  ('bao-cao-thang',  'Báo cáo tháng kênh MT', 'Ngày bắt đầu/kết thúc = đầu và cuối tháng báo cáo', 6)
+  ('ctkm-catalogue', 'CTKM Onpost (lên catalogue siêu thị)', 'Khuyến mãi đăng trên catalogue / tờ rơi của chuỗi siêu thị, cần BOD duyệt mức giảm', 1),
+  ('ctkm-offpost', 'CTKM Offpost (giảm giá tại quầy)', 'Giảm giá tại siêu thị, không lên catalogue, cần BOD duyệt mức giảm', 2),
+  ('activation', 'Activation / Inline tại siêu thị', 'Dùng thử, PG bán hàng, hoạt động tại điểm bán', 3),
+  ('trung-bay', 'Trưng bày / thuê vị trí', 'Ụ, đầu kệ, quầy kệ riêng tại siêu thị hoặc cửa hàng', 4),
+  ('audit', 'Audit điểm bán định kỳ', 'Kiểm tra tồn, giá, trưng bày, đối thủ tại điểm bán', 5),
+  ('posm', 'Sản xuất và phân bổ POSM', 'Vật phẩm quảng cáo tại điểm bán', 6),
+  ('bao-cao-thang', 'Báo cáo tháng kênh MT', 'Ngày bắt đầu/kết thúc = đầu và cuối tháng báo cáo', 7)
 ), moi as (
   insert into public.quy_trinh (ma, ten, mo_ta, thu_tu)
   select ma, ten, mo_ta, thu_tu from mau
@@ -432,56 +433,63 @@ insert into public.quy_trinh_buoc (quy_trinh_id, thu_tu, ten, vai_tro, moc, so_n
 select moi.id, b.thu_tu, b.ten, b.vai_tro, b.moc, b.so_ngay, b.ket_qua
 from moi
 join (values
-  ('ctkm-catalogue',1,'Nhận lịch catalogue và hạn chót đăng ký từ siêu thị','Sales MT','bat_dau',-60,'Lịch catalogue'),
+  ('ctkm-catalogue',1,'Lấy lịch catalogue và hạn chót đăng ký từ siêu thị','Trade MKT','bat_dau',-60,'Lịch catalogue'),
   ('ctkm-catalogue',2,'Chọn SKU, đề xuất mức giảm và tính chi phí','Trade MKT','bat_dau',-50,'File đề xuất có biên lợi nhuận'),
-  ('ctkm-catalogue',3,'Trình duyệt nội bộ','Trưởng nhóm','bat_dau',-45,'Email/tin nhắn duyệt'),
-  ('ctkm-catalogue',4,'Gửi đăng ký cho siêu thị','Sales MT','bat_dau',-40,'Form đăng ký đã gửi'),
-  ('ctkm-catalogue',5,'Siêu thị xác nhận tham gia','Sales MT','bat_dau',-30,'Xác nhận hoặc bản in thử catalogue'),
-  ('ctkm-catalogue',6,'Kiểm tra tồn kho, đặt hàng đủ cho đợt KM','Sales MT','bat_dau',-14,'Đơn đặt hàng'),
-  ('ctkm-catalogue',7,'Kiểm tra giá KM và trưng bày tại điểm bán','Sale rep','bat_dau',2,'Ảnh kệ, ảnh bảng giá'),
+  ('ctkm-catalogue',3,'Trình BOD duyệt mức giảm','Trưởng nhóm','bat_dau',-45,'Link file scan tờ trình BOD đã ký'),
+  ('ctkm-catalogue',4,'Gửi đăng ký cho siêu thị theo đúng % đã duyệt','Trade MKT','bat_dau',-40,'Form đăng ký đã gửi'),
+  ('ctkm-catalogue',5,'Theo dõi, lấy xác nhận tham gia và bản in thử catalogue','Trade MKT','bat_dau',-30,'Xác nhận hoặc bản in thử catalogue'),
+  ('ctkm-catalogue',6,'Kiểm tra tồn kho, đặt hàng đủ cho đợt KM','Trade MKT','bat_dau',-14,'Đơn đặt hàng'),
+  ('ctkm-catalogue',7,'Đi kiểm tra giá KM và trưng bày tại điểm bán','Trade MKT','bat_dau',2,'Ảnh kệ, ảnh bảng giá'),
   ('ctkm-catalogue',8,'Theo dõi bán ra giữa đợt','Trade MKT','bat_dau',7,'Số bán ra theo SKU'),
   ('ctkm-catalogue',9,'Đánh giá sau CTKM so với bán trơn','Trade MKT','ket_thuc',21,'Báo cáo đánh giá'),
 
+  ('ctkm-offpost',1,'Chọn siêu thị và thời gian chạy','Trade MKT','bat_dau',-30,'Danh sách siêu thị, thời gian'),
+  ('ctkm-offpost',2,'Chọn SKU, đề xuất mức giảm và tính chi phí','Trade MKT','bat_dau',-25,'File đề xuất có biên lợi nhuận'),
+  ('ctkm-offpost',3,'Trình BOD duyệt mức giảm','Trưởng nhóm','bat_dau',-21,'Link file scan tờ trình BOD đã ký'),
+  ('ctkm-offpost',4,'Gửi đề nghị giảm giá cho siêu thị theo đúng % đã duyệt','Trade MKT','bat_dau',-14,'Đề nghị đã gửi'),
+  ('ctkm-offpost',5,'Kiểm tra tồn kho, đặt hàng đủ cho đợt KM','Trade MKT','bat_dau',-10,'Đơn đặt hàng'),
+  ('ctkm-offpost',6,'Theo dõi siêu thị xác nhận và cập nhật giá trên hệ thống','Trade MKT','bat_dau',-3,'Xác nhận của siêu thị'),
+  ('ctkm-offpost',7,'Đi kiểm tra giá KM tại điểm bán','Trade MKT','bat_dau',1,'Ảnh bảng giá, ảnh kệ'),
+  ('ctkm-offpost',8,'Theo dõi bán ra giữa đợt','Trade MKT','bat_dau',7,'Số bán ra theo SKU'),
+  ('ctkm-offpost',9,'Đánh giá sau CTKM so với bán trơn','Trade MKT','ket_thuc',14,'Báo cáo đánh giá'),
+
   ('activation',1,'Chọn điểm bán và lên ý tưởng hoạt động','Trade MKT','bat_dau',-30,'Danh sách điểm, ý tưởng'),
   ('activation',2,'Lập ngân sách và chỉ số đo lường','Trade MKT','bat_dau',-25,'Bảng ngân sách, chỉ tiêu'),
-  ('activation',3,'Trình duyệt','Trưởng nhóm','bat_dau',-21,'Duyệt đề xuất'),
-  ('activation',4,'Xin phép siêu thị, đăng ký vị trí','Sales MT','bat_dau',-14,'Xác nhận của siêu thị'),
-  ('activation',5,'Tuyển và đào tạo PG','Trade MKT','bat_dau',-7,'Danh sách PG, tài liệu đào tạo'),
-  ('activation',6,'Chuẩn bị vật phẩm, hàng dùng thử, quà','Trade MKT','bat_dau',-5,'Biên bản giao nhận'),
-  ('activation',7,'Triển khai và báo cáo hằng ngày','Sale rep','bat_dau',0,'Báo cáo ngày, ảnh'),
-  ('activation',8,'Kiểm tra đột xuất tại điểm','Trade MKT','bat_dau',3,'Ảnh, ghi chú kiểm tra'),
-  ('activation',9,'Tổng kết, so sánh bán ra với bán trơn trước đó','Trade MKT','ket_thuc',14,'Báo cáo tổng kết'),
+  ('activation',3,'Xin phép siêu thị, đăng ký vị trí','Trade MKT','bat_dau',-14,'Xác nhận của siêu thị'),
+  ('activation',4,'Tuyển và đào tạo PG','Trade MKT','bat_dau',-7,'Danh sách PG, tài liệu đào tạo'),
+  ('activation',5,'Chuẩn bị vật phẩm, hàng dùng thử, quà','Trade MKT','bat_dau',-5,'Biên bản giao nhận'),
+  ('activation',6,'Theo dõi triển khai, nhận báo cáo ngày từ PG','Trade MKT','bat_dau',0,'Báo cáo ngày, ảnh'),
+  ('activation',7,'Đi kiểm tra đột xuất tại điểm','Trade MKT','bat_dau',3,'Ảnh, ghi chú kiểm tra'),
+  ('activation',8,'Tổng kết, so sánh bán ra với bán trơn trước đó','Trade MKT','ket_thuc',14,'Báo cáo tổng kết'),
 
   ('trung-bay',1,'Chọn điểm bán và vị trí','Trade MKT','bat_dau',-30,'Danh sách điểm, vị trí'),
-  ('trung-bay',2,'Thương lượng phí và ký thỏa thuận','Sales MT','bat_dau',-21,'Thỏa thuận/hợp đồng'),
-  ('trung-bay',3,'Trình duyệt','Trưởng nhóm','bat_dau',-18,'Duyệt chi phí'),
+  ('trung-bay',2,'Thương lượng phí, đề xuất chi phí','Trade MKT','bat_dau',-21,'Đề xuất chi phí'),
+  ('trung-bay',3,'Ký thỏa thuận với siêu thị','Trade MKT','bat_dau',-18,'Thỏa thuận/hợp đồng'),
   ('trung-bay',4,'Sản xuất vật phẩm trưng bày','Trade MKT','bat_dau',-10,'Vật phẩm đã nhận'),
-  ('trung-bay',5,'Lắp đặt và chụp ảnh nghiệm thu','Sale rep','bat_dau',0,'Ảnh nghiệm thu'),
-  ('trung-bay',6,'Kiểm tra định kỳ','Sale rep','bat_dau',14,'Ảnh kiểm tra'),
+  ('trung-bay',5,'Đi lắp đặt và chụp ảnh nghiệm thu','Trade MKT','bat_dau',0,'Ảnh nghiệm thu'),
+  ('trung-bay',6,'Đi kiểm tra định kỳ','Trade MKT','bat_dau',14,'Ảnh kiểm tra'),
   ('trung-bay',7,'Nghiệm thu và thanh toán','Trade MKT','ket_thuc',7,'Biên bản, hóa đơn'),
   ('trung-bay',8,'Đánh giá hiệu quả','Trade MKT','ket_thuc',14,'Báo cáo đánh giá'),
 
-  ('audit',1,'Lên danh sách điểm và phân công','Trade MKT','bat_dau',-5,'Danh sách điểm theo người'),
-  ('audit',2,'Gửi form audit cho sale rep','Trade MKT','bat_dau',-2,'Link form'),
-  ('audit',3,'Sale rep thực hiện audit','Sale rep','ket_thuc',0,'Dữ liệu form đầy đủ'),
+  ('audit',1,'Lên danh sách điểm và chia tuyến cho nhóm','Trade MKT','bat_dau',-5,'Danh sách điểm theo người'),
+  ('audit',2,'Chuẩn bị form audit','Trade MKT','bat_dau',-2,'Link form'),
+  ('audit',3,'Đi audit tại điểm bán','Trade MKT','ket_thuc',0,'Dữ liệu form đầy đủ'),
   ('audit',4,'Kiểm tra dữ liệu đủ và đúng','Trade MKT','ket_thuc',1,'Danh sách điểm thiếu'),
-  ('audit',5,'Tổng hợp và báo cáo','Trade MKT','ket_thuc',3,'Báo cáo audit'),
+  ('audit',5,'Tổng hợp và báo cáo audit','Trade MKT','ket_thuc',3,'Báo cáo audit'),
   ('audit',6,'Giao việc khắc phục','Trưởng nhóm','ket_thuc',5,'Danh sách việc cần sửa'),
 
   ('posm',1,'Xác định nhu cầu và số lượng','Trade MKT','bat_dau',-30,'Bảng số lượng theo điểm'),
   ('posm',2,'Thiết kế','Trade MKT','bat_dau',-25,'File thiết kế'),
-  ('posm',3,'Duyệt thiết kế','Trưởng nhóm','bat_dau',-20,'Bản đã duyệt'),
-  ('posm',4,'Lấy báo giá và đặt in','Trade MKT','bat_dau',-18,'Báo giá, đơn đặt'),
-  ('posm',5,'Nhận hàng và kiểm tra chất lượng','Trade MKT','bat_dau',-5,'Biên bản nhận hàng'),
-  ('posm',6,'Phân bổ về điểm bán','Sales MT','bat_dau',-2,'Biên bản giao'),
-  ('posm',7,'Kiểm tra lắp đặt','Sale rep','bat_dau',5,'Ảnh tại điểm'),
+  ('posm',3,'Lấy báo giá và đặt in','Trade MKT','bat_dau',-18,'Báo giá, đơn đặt'),
+  ('posm',4,'Nhận hàng và kiểm tra chất lượng','Trade MKT','bat_dau',-5,'Biên bản nhận hàng'),
+  ('posm',5,'Giao POSM về điểm bán','Trade MKT','bat_dau',-2,'Biên bản giao'),
+  ('posm',6,'Đi kiểm tra lắp đặt tại điểm','Trade MKT','bat_dau',5,'Ảnh tại điểm'),
 
   ('bao-cao-thang',1,'Thu thập số sell-in','Trade MKT','ket_thuc',2,'Sổ chi tiết bán hàng'),
-  ('bao-cao-thang',2,'Thu thập số bán ra và tồn kho','Sales MT','ket_thuc',3,'File bán ra – tồn của chuỗi'),
+  ('bao-cao-thang',2,'Thu thập số bán ra và tồn kho từ chuỗi','Trade MKT','ket_thuc',3,'File bán ra – tồn của chuỗi'),
   ('bao-cao-thang',3,'Làm sạch và đối chiếu số liệu','Trade MKT','ket_thuc',4,'File số đã đối chiếu'),
-  ('bao-cao-thang',4,'Viết báo cáo','Trade MKT','ket_thuc',5,'Bản báo cáo'),
-  ('bao-cao-thang',5,'Gửi trưởng nhóm duyệt','Trưởng nhóm','ket_thuc',6,'Góp ý/duyệt'),
-  ('bao-cao-thang',6,'Gửi BOD','Trade MKT','ket_thuc',7,'Link/bản gửi BOD')
+  ('bao-cao-thang',4,'Viết báo cáo','Trade MKT','ket_thuc',6,'Bản báo cáo'),
+  ('bao-cao-thang',5,'Gửi BOD','Trade MKT','ket_thuc',7,'Link/bản gửi BOD')
 ) as b(ma, thu_tu, ten, vai_tro, moc, so_ngay, ket_qua) on b.ma = moi.ma;
 
 -- ---------------------------------------------------------------------
