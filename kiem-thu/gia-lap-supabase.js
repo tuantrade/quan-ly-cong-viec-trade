@@ -1,8 +1,10 @@
 (function(){
+// Supabase giả lập để chạy giao diện không cần mạng. Dữ liệu nằm trong window.__DB, tải lại trang là về ban đầu.
+// Thêm ?email=... vào địa chỉ để đăng nhập bằng người khác (mặc định a@x.com – quản lý).
 let seq=0;
 const DB={nhan_hang:[{id:1,ten:'Wil',thu_tu:1,dang_dung:true},{id:2,ten:'Gungon',thu_tu:2,dang_dung:true}],
 he_thong:[{id:1,ten:'Co.op',thu_tu:1,dang_dung:true}],
-thanh_vien:[{email:'a@x.com',ho_ten:'An',vai_tro:'quan_ly'}],
+thanh_vien:[{email:'a@x.com',ho_ten:'An',vai_tro:'quan_ly'},{email:'t@x.com',ho_ten:'Chị Thương',vai_tro:'thanh_vien'},{email:'tien@x.com',ho_ten:'Tiên',vai_tro:'thanh_vien'},{email:'k@x.com',ho_ten:'Khách A',vai_tro:'khach'}],
 quy_trinh:[{id:'q1',ten:'CTKM catalogue',mo_ta:'mô tả',thu_tu:1}],
 quy_trinh_buoc:[{id:'s1',quy_trinh_id:'q1',thu_tu:1,ten:'Nhận lịch',vai_tro:'Sales MT',moc:'bat_dau',so_ngay:-60,ket_qua:'x'},{id:'s2',quy_trinh_id:'q1',thu_tu:2,ten:'Đánh giá',vai_tro:'Trade MKT',moc:'ket_thuc',so_ngay:21,ket_qua:''}],
 hoat_dong:[{id:'h1',ten:'CTKM Tết Co.op',nhan_hang_id:1,he_thong_id:1,ngay_bat_dau:'2026-12-01',ngay_ket_thuc:'2026-12-20',quy_trinh_ten:'CTKM'}],buoc_cong_viec:[
@@ -10,21 +12,42 @@ hoat_dong:[{id:'h1',ten:'CTKM Tết Co.op',nhan_hang_id:1,he_thong_id:1,ngay_bat
 {id:'b2',hoat_dong_id:'h1',thu_tu:2,ten:'B',nguoi_lam:'Chị Thương',han:'2026-11-12',trang_thai:'dang_lam',ngay_xong:null},
 {id:'b3',hoat_dong_id:'h1',thu_tu:3,ten:'C',nguoi_lam:'Tiên',han:'2026-11-09',trang_thai:'chua_lam',ngay_xong:null},
 {id:'b4',hoat_dong_id:'h1',thu_tu:4,ten:'D',nguoi_lam:'Tiên',han:'2026-11-11',trang_thai:'xong',ngay_xong:'2026-11-12'},
-{id:'b5',hoat_dong_id:'h1',thu_tu:5,ten:'E',nguoi_lam:'',han:'2026-11-20',trang_thai:'chua_lam',ngay_xong:null}]};
+{id:'b5',hoat_dong_id:'h1',thu_tu:5,ten:'E',nguoi_lam:'',han:'2026-11-20',trang_thai:'chua_lam',ngay_xong:null}],
+lich_post:[], dong_bo_lich:[], lo_nhap_sell_out:[], sell_out_tuan:[]};
 window.__DB=DB;
-function qb(table){ let op='select',payload=null,filters=[],single=false;
- const b={select(){return b},order(){return b},range(){return b},eq(k,v){filters.push([k,v]);return b},
- insert(p){op='insert';payload=p;return b},update(p){op='update';payload=p;return b},delete(){op='delete';return b},single(){single=true;return b},
- then(res,rej){ return new Promise((ok,ko)=>{ try{ const match=r=>filters.every(([k,v])=>r[k]===v); let data;
-  if(op==='select') data=DB[table].filter(match).map(r=>({...r}));
-  if(op==='insert'){ data=(Array.isArray(payload)?payload:[payload]).map(p=>({id:'id'+(++seq),...(table==='buoc_cong_viec'?{trang_thai:'chua_lam',ngay_xong:null,ket_qua:'',ghi_chu:'',nguoi_lam:'',vai_tro:'',nguoi_duyet:'',ly_do_tra:'',ngay_nop:null}:{}),...p})); DB[table].push(...data); }
+const MAC_DINH={buoc_cong_viec:{trang_thai:'chua_lam',ngay_xong:null,ket_qua:'',ghi_chu:'',nguoi_lam:'',vai_tro:'',nguoi_duyet:'',ly_do_tra:'',ngay_nop:null},
+  lo_nhap_sell_out:{nguoi:'a@x.com',luc:new Date().toISOString(),so_dong:0}};
+// Bảng tổng hợp (view) tính từ sell_out_tuan
+function view(ten){
+  const g=new Map(), theoSku=ten==='sell_out_tuan_sku';
+  DB.sell_out_tuan.forEach(r=>{ const k=[r.chuoi,r.nhan_hang,r.tuan,theoSku?r.khoa_sku:''].join('|');
+    const o=g.get(k)||g.set(k,{chuoi:r.chuoi,nhan_hang:r.nhan_hang,tuan:r.tuan,...(theoSku?{khoa_sku:r.khoa_sku,ma_sku:r.ma_sku,ten_sku:r.ten_sku}:{}),so_luong:0,doanh_so:0,ton:null,_ch:new Set(),_sku:new Set()}).get(k);
+    o.so_luong+=+r.so_luong||0; o.doanh_so+=+r.doanh_so||0; if(r.ton!=null) o.ton=(o.ton||0)+(+r.ton);
+    if(+r.so_luong>0){ o._ch.add(r.cua_hang); o._sku.add(r.khoa_sku); } });
+  return [...g.values()].map(o=>{ const {_ch,_sku,...x}=o; return theoSku?{...x,so_cua_hang_ban:_ch.size}:{...x,so_cua_hang_ban:_ch.size,so_sku_ban:_sku.size}; });
+}
+function qb(table){ let op='select',payload=null,filters=[],single=false,conflict=null,lim=null,ord=null;
+ const b={select(){return b},order(k,o){ord=[k,o&&o.ascending===false];return b},range(){return b},limit(n){lim=n;return b},
+ eq(k,v){filters.push(r=>r[k]===v);return b}, gte(k,v){filters.push(r=>r[k]>=v);return b}, lte(k,v){filters.push(r=>r[k]<=v);return b}, in(k,v){filters.push(r=>v.includes(r[k]));return b},
+ insert(p){op='insert';payload=p;return b},upsert(p,o){op='upsert';payload=p;conflict=(o&&o.onConflict||'').split(',');return b},
+ update(p){op='update';payload=p;return b},delete(){op='delete';return b},single(){single=true;return b},
+ then(res,rej){ return new Promise((ok,ko)=>{ try{ const match=r=>filters.every(f=>f(r)); let data;
+  const bang=table.startsWith('sell_out_tuan_')?view(table):DB[table];
+  if(!bang) throw new Error('Không có bảng '+table);
+  if(op==='select'){ data=bang.filter(match).map(r=>({...r})); if(ord) data.sort((x,y)=>(x[ord[0]]>y[ord[0]]?1:x[ord[0]]<y[ord[0]]?-1:0)*(ord[1]?-1:1)); if(lim) data=data.slice(0,lim); }
+  if(op==='insert'){ data=(Array.isArray(payload)?payload:[payload]).map(p=>({id:'id'+(++seq),...(MAC_DINH[table]||{}),...p})); DB[table].push(...data); }
+  if(op==='upsert'){ data=[]; (Array.isArray(payload)?payload:[payload]).forEach(p=>{ const cu=DB[table].find(r=>conflict.every(k=>r[k]===p[k])); if(cu) Object.assign(cu,p); else DB[table].push({id:'id'+(++seq),...p}); }); }
   if(op==='update'){ DB[table].filter(match).forEach(r=>Object.assign(r,payload)); data=[]; }
-  if(op==='delete'){ const gone=DB[table].filter(match); DB[table]=DB[table].filter(r=>!match(r)); if(table==='hoat_dong') DB.buoc_cong_viec=DB.buoc_cong_viec.filter(s=>!gone.some(g=>g.id===s.hoat_dong_id)); if(table==='quy_trinh') DB.quy_trinh_buoc=DB.quy_trinh_buoc.filter(s=>!gone.some(g=>g.id===s.quy_trinh_id)); data=[]; }
+  if(op==='delete'){ const gone=DB[table].filter(match); DB[table]=DB[table].filter(r=>!match(r));
+    if(table==='hoat_dong') DB.buoc_cong_viec=DB.buoc_cong_viec.filter(s=>!gone.some(g=>g.id===s.hoat_dong_id));
+    if(table==='quy_trinh') DB.quy_trinh_buoc=DB.quy_trinh_buoc.filter(s=>!gone.some(g=>g.id===s.quy_trinh_id));
+    if(table==='lo_nhap_sell_out') DB.sell_out_tuan=DB.sell_out_tuan.filter(s=>!gone.some(g=>g.id===s.lo_nhap_id)); data=[]; }
   if(single) data=data[0];
   setTimeout(()=>ok({data,error:null}),5);
- }catch(e){ko(e)} }).then(res,rej) }}; return b; }
+ }catch(e){ setTimeout(()=>ok({data:null,error:{message:e.message}}),5); } }).then(res,rej) }}; return b; }
+const email=new URLSearchParams(location.search).get('email')||'a@x.com';
 const client={from:qb,rpc:async()=>({data:true,error:null}),
- auth:{onAuthStateChange(){},getSession:async()=>({data:{session:{user:{id:'u',email:'a@x.com'}}}}),signOut:async()=>{}},
+ auth:{onAuthStateChange(){},getSession:async()=>({data:{session:{user:{id:'u',email}}}}),signOut:async()=>{}},
  channel(){return {on(){return this},subscribe(){return this}}},removeChannel(){}};
 window.supabase={createClient:()=>client};
 })();

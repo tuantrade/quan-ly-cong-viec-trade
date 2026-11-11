@@ -13,6 +13,7 @@
 --   hoat_dong -> buoc_cong_viec: hoạt động thật và tiến độ từng bước
 --   nhat_ky_buoc               : lịch sử đổi trạng thái / hạn / người làm (để đo lường)
 --   lich_post                  : lịch CTKM / kỳ post của từng siêu thị, đồng bộ từ Google Sheet
+--   sell_out_tuan              : số bán ra (sell-out) theo tuần × chuỗi × SKU × cửa hàng, nhập bằng file mẫu
 -- =====================================================================
 
 create extension if not exists pgcrypto;
@@ -625,5 +626,76 @@ begin
     execute 'alter publication supabase_realtime add table public.lich_post';
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------
+-- 13. SELL-OUT THEO TUẦN – nhập bằng file mẫu trong app (trang Sell-out)
+--     Mỗi dòng: 1 chuỗi × 1 tuần (ngày thứ Hai) × 1 SKU × 1 cửa hàng (để trống = cả chuỗi).
+--     Nhập lại cùng chuỗi/tuần/SKU/cửa hàng thì ghi đè số cũ, không cộng dồn.
+-- ---------------------------------------------------------------------
+create table if not exists public.lo_nhap_sell_out (
+  id        uuid primary key default gen_random_uuid(),
+  ten_file  text not null default '',
+  chuoi     text not null default '',      -- các chuỗi có trong file, cách nhau dấu phẩy
+  tu_tuan   date,
+  den_tuan  date,
+  so_dong   integer not null default 0,
+  nguoi     text not null default public.email_hien_tai(),
+  luc       timestamptz not null default now()
+);
+
+create table if not exists public.sell_out_tuan (
+  id           bigint generated always as identity primary key,
+  chuoi        text not null check (length(trim(chuoi)) > 0),
+  tuan         date not null check (extract(isodow from tuan) = 1),   -- luôn là thứ Hai
+  khoa_sku     text not null check (length(khoa_sku) > 0),            -- mã SKU, hoặc tên SKU nếu không có mã
+  ma_sku       text not null default '',
+  ten_sku      text not null default '',
+  nhan_hang    text not null default '',
+  cua_hang     text not null default '',
+  so_luong     numeric not null default 0,
+  doanh_so     numeric not null default 0,
+  ton          numeric,
+  lo_nhap_id   uuid references public.lo_nhap_sell_out(id) on delete cascade,
+  constraint sell_out_tuan_khoa unique (chuoi, tuan, khoa_sku, cua_hang)
+);
+create index if not exists sell_out_tuan_loc_idx on public.sell_out_tuan (chuoi, nhan_hang, tuan);
+create index if not exists sell_out_tuan_lo_idx  on public.sell_out_tuan (lo_nhap_id);
+
+alter table public.lo_nhap_sell_out enable row level security;
+alter table public.sell_out_tuan    enable row level security;
+grant select, insert, update, delete on public.lo_nhap_sell_out, public.sell_out_tuan to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+do $$
+declare bang text;
+begin
+  foreach bang in array array['lo_nhap_sell_out','sell_out_tuan'] loop
+    execute format('drop policy if exists "thanh_vien_xem" on public.%I', bang);
+    execute format('drop policy if exists "thanh_vien_them" on public.%I', bang);
+    execute format('drop policy if exists "thanh_vien_sua" on public.%I', bang);
+    execute format('drop policy if exists "thanh_vien_xoa" on public.%I', bang);
+    execute format('create policy "thanh_vien_xem" on public.%I for select to authenticated using (public.duoc_xem())', bang);
+    execute format('create policy "thanh_vien_them" on public.%I for insert to authenticated with check (public.la_thanh_vien())', bang);
+    execute format('create policy "thanh_vien_sua" on public.%I for update to authenticated using (public.la_thanh_vien()) with check (public.la_thanh_vien())', bang);
+    execute format('create policy "thanh_vien_xoa" on public.%I for delete to authenticated using (public.la_thanh_vien())', bang);
+  end loop;
+end $$;
+
+-- Bảng tổng hợp (view) để app đọc nhanh, vẫn theo phân quyền của bảng gốc (security_invoker)
+create or replace view public.sell_out_tuan_sku with (security_invoker = true) as
+select chuoi, nhan_hang, tuan, khoa_sku,
+       max(ma_sku) as ma_sku, max(ten_sku) as ten_sku,
+       sum(so_luong) as so_luong, sum(doanh_so) as doanh_so, sum(ton) as ton,
+       count(*) filter (where so_luong > 0) as so_cua_hang_ban
+from public.sell_out_tuan
+group by chuoi, nhan_hang, tuan, khoa_sku;
+
+create or replace view public.sell_out_tuan_nhan with (security_invoker = true) as
+select chuoi, nhan_hang, tuan,
+       sum(so_luong) as so_luong, sum(doanh_so) as doanh_so, sum(ton) as ton,
+       count(distinct cua_hang) filter (where so_luong > 0) as so_cua_hang_ban,
+       count(distinct khoa_sku) filter (where so_luong > 0) as so_sku_ban
+from public.sell_out_tuan
+group by chuoi, nhan_hang, tuan;
+grant select on public.sell_out_tuan_sku, public.sell_out_tuan_nhan to authenticated;
 
 -- Xong. Kiểm tra: select ten from public.quy_trinh order by thu_tu;
