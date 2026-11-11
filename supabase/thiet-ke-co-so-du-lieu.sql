@@ -395,9 +395,13 @@ end $$;
 -- ---------------------------------------------------------------------
 -- 10. DỮ LIỆU BAN ĐẦU
 -- ---------------------------------------------------------------------
--- >>> THAY EMAIL Ở DÒNG DƯỚI bằng email bạn đăng nhập app <<<
+-- >>> LẦN ĐẦU CÀI: THAY EMAIL Ở DÒNG DƯỚI bằng email bạn đăng nhập app <<<
+-- Chỉ thêm khi chưa có quản lý nào; chạy lại file trên dự án đang dùng thì dòng này không làm gì.
+-- Không bao giờ thêm email mẫu EMAIL_CUA_BAN.
 insert into public.thanh_vien (email, ho_ten, vai_tro)
-values (lower('EMAIL_CUA_BAN@gmail.com'), 'Quản lý', 'quan_ly')
+select lower('EMAIL_CUA_BAN@gmail.com'), 'Quản lý', 'quan_ly'
+where not exists (select 1 from public.thanh_vien where vai_tro = 'quan_ly')
+  and lower('EMAIL_CUA_BAN@gmail.com') not like 'email%cua%ban@%'
 on conflict (email) do nothing;
 
 insert into public.nhan_hang (ten, thu_tu) values
