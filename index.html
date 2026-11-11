@@ -111,6 +111,24 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)}
 
 .group h3{font-size:13px;padding:10px 16px;background:var(--soft);border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
 .group:first-child h3{border-top:0}
+.gantt{min-width:880px}
+.g-row{display:grid;grid-template-columns:210px 1fr;border-top:1px solid var(--line)}
+.g-row.head{border-top:0;position:sticky;top:0;background:var(--surface);z-index:2}
+.g-lab{padding:6px 10px;font-size:13px;line-height:1.3;border-right:1px solid var(--line)}
+.g-lab b{display:block}
+.g-lab.chuoi-dau{border-top:2px solid var(--line)}
+.g-track{position:relative;min-height:34px}
+.g-mon{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);font-size:12px;color:var(--muted);padding:8px 0 0 4px;white-space:nowrap;overflow:hidden}
+.g-sep{position:absolute;top:0;bottom:0;border-left:1px dashed var(--line)}
+.g-today{position:absolute;top:0;bottom:0;width:2px;background:var(--bad);opacity:.55;z-index:1}
+.g-bar{position:absolute;height:24px;border-radius:6px;padding:0 6px;font:inherit;font-size:12px;line-height:22px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border:1px solid var(--line);cursor:pointer;text-align:left;background:var(--soft);color:var(--ink)}
+.g-bar.on{background:var(--info-soft);color:var(--info);border-color:transparent}
+.g-bar.off{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.g-bar.co{box-shadow:inset 0 0 0 2px var(--ok)}
+.g-bar:hover,.g-bar:focus-visible{filter:brightness(.95);z-index:3}
+.g-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted);padding:8px 16px}
+.g-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.lp-nd{white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:10px 12px;margin:0}
 
 /* quy trình mẫu */
 .tpl-list{display:grid;gap:16px}
@@ -142,7 +160,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 .auth{max-width:420px;margin:40px auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:14px}
 .auth h2{font-size:18px}
 .auth .row{display:flex;gap:8px;flex-wrap:wrap}
-.auth .link{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-weight:500;text-decoration:underline}
+.link,.auth .link{background:none;text-align:left;font:inherit;border:0;color:var(--accent);cursor:pointer;padding:0;font-weight:500;text-decoration:underline}
 .err{color:var(--bad);font-size:13px;margin:0}
 .ok-msg{color:var(--ok);font-size:13px;margin:0}
 .addrow{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
@@ -158,6 +176,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
       <a href="#tong-quan" data-v="tong-quan">Tổng quan</a>
       <a href="#hoat-dong" data-v="hoat-dong">Hoạt động</a>
       <a href="#lich-viec" data-v="lich-viec">Lịch việc</a>
+      <a href="#lich-post" data-v="lich-post">Lịch post</a>
       <a href="#quy-trinh" data-v="quy-trinh">Quy trình mẫu</a>
       <a href="#thanh-vien" data-v="thanh-vien">Thành viên</a>
     </nav>
@@ -178,9 +197,10 @@ const TT_DB = {chua:'chua_lam', dang:'dang_lam', cho:'cho_duyet', xong:'xong', b
 const TT_APP = {chua_lam:'chua', dang_lam:'dang', cho_duyet:'cho', xong:'xong', khong_ap_dung:'bo'};
 const MOC_DB = {bd:'bat_dau', kt:'ket_thuc'}, MOC_APP = {bat_dau:'bd', ket_thuc:'kt'};
 const TTHD = {chuabd:['Chưa bắt đầu','neutral'], dangchay:['Đang chạy','info'], tre:['Có việc trễ','bad'], hoanthanh:['Hoàn thành','ok']};
-const VIEWS = ['tong-quan','hoat-dong','lich-viec','quy-trinh','thanh-vien'];
+const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','quy-trinh','thanh-vien'];
 
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
+let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tu:'', soThang:'3'};
 let loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
 let view = 'tong-quan', selectedId = null, pendingRender = false, notice = '';
 let filters = {q:'', nhan:'', kenh:'', tt:''}, calPerson = '';
@@ -203,8 +223,8 @@ const me = () => members.find(m=>m.email===myEmail());
 const isManager = () => me()?.vai_tro==='quan_ly';
 /* Khách: chỉ xem. Cơ sở dữ liệu đã chặn mọi thao tác ghi; phần dưới đây ẩn nút sửa cho gọn */
 const laKhach = () => me()?.vai_tro==='khach';
-const NUT_SUA = '[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
-const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen'];
+const NUT_SUA = '[data-tao-lp],[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
+const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo'];
 function khoaChiXem(goc){
   goc.querySelectorAll(NUT_SUA).forEach(el=>el.remove());
   goc.querySelectorAll('input,select,textarea').forEach(el=>{ if(!O_LOC.includes(el.id)) el.disabled=true; });
@@ -286,6 +306,10 @@ async function loadAll(){
       buoc:(g[h.id]||[]).sort(byThuTu).map(stepFromDb)}));
     if(notice.startsWith('Không tải')) notice='';
   }catch(e){ console.error(e); notice='Không tải được dữ liệu: '+errText(e); }
+  try{ // lịch post: bảng có thể chưa có nếu chưa chạy SQL mới, khi đó trang Lịch post báo trống
+    const [lp, db] = await Promise.all([fetchAll('lich_post','ngay_bat_dau'), sb.from('dong_bo_lich').select('*').then(r=>{ if(r.error) throw r.error; return r.data; })]);
+    lichPost = lp.map(x=>({...x, ngay_bat_dau:String(x.ngay_bat_dau).slice(0,10), ngay_ket_thuc:String(x.ngay_ket_thuc).slice(0,10)})); dongBoLich = (db||[])[0]||null;
+  }catch(e){ console.warn('Chưa đọc được lịch post', e); lichPost=[]; dongBoLich=null; }
   loaded=true; schedule();
 }
 function scheduleReload(){ clearTimeout(reloadTimer); reloadTimer=setTimeout(()=>{ if(inflight) return scheduleReload(); loadAll(); },600); }
@@ -333,6 +357,7 @@ function renderNow(){
   if(view==='hoat-dong' && selectedId && acts.find(a=>a.id===selectedId)) html+=renderDetail(acts.find(a=>a.id===selectedId));
   else if(view==='hoat-dong') html+=renderList();
   else if(view==='lich-viec') html+=renderCal();
+  else if(view==='lich-post') html+=renderLichPost();
   else if(view==='quy-trinh') html+=renderTpls();
   else if(view==='thanh-vien') html+=renderMembers();
   else html+=renderOverview();
@@ -492,6 +517,79 @@ function renderCal(){
   return h+'</section>';
 }
 
+/* ---------- Lịch post (từ Google Sheet kế hoạch) ---------- */
+const boDau = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase().replace(/[^a-z0-9]/g,'');
+function khopKenh(chuoi){ const c=boDau(chuoi); if(!c) return null;
+  return HT.find(h=>String(h.ten).split('/').map(boDau).some(t=>t && (t===c || (t.length>=3 && c.includes(t))))) || null; }
+function khopNhan(nhan){ const c=boDau(nhan); if(!c) return null;
+  return NH.find(n=>{ const t=boDau(n.ten); return t.length>=3 && c.includes(t); }) || null; }
+function hdCuaLp(lp){ const k=khopKenh(lp.chuoi), n=khopNhan(lp.nhan_hang); if(!k) return [];
+  return acts.filter(a=>a.bd && a.kt && a.bd<=lp.ngay_ket_thuc && a.kt>=lp.ngay_bat_dau && a.kenhId===k.id && (!n || a.nhanId===n.id)); }
+const dongDau = t => String(t||'').split('\n').map(x=>x.trim()).filter(Boolean)[0]||'';
+const thangCua = d => d.slice(0,7);
+function themThang(ym,n){ const [y,m]=ym.split('-').map(Number); const d=new Date(Date.UTC(y,m-1+n,1)); return d.toISOString().slice(0,7); }
+function tenThang(ym){ const [y,m]=ym.split('-'); return 'T'+Number(m)+'/'+y; }
+const LOAI_LP = {onpost:'Onpost', offpost:'Offpost', '':'Không ghi'};
+function renderLichPost(){
+  const t=todayStr();
+  if(!lichPost.length) return `<section class="card"><div class="card-h"><h2>Lịch post</h2><p>Lịch CTKM theo siêu thị, lấy từ Google Sheet kế hoạch</p></div><div class="empty">Chưa có dữ liệu lịch post. Lịch được đồng bộ tự động từ Google Sheet bằng script Google (xem README, mục “Lịch post”).</div></section>`;
+  const L=lichLoc;
+  const dsChuoi=[...new Set(lichPost.map(x=>x.chuoi).filter(Boolean))];
+  const dsNhan=[...new Set(lichPost.map(x=>x.nhan_hang).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi'));
+  const thangMin=thangCua(lichPost.reduce((m,x)=>x.ngay_bat_dau<m?x.ngay_bat_dau:m,'9999-12-31')), thangMax=thangCua(lichPost.reduce((m,x)=>x.ngay_ket_thuc>m?x.ngay_ket_thuc:m,'0000-01-01'));
+  const dsThang=[]; for(let m=thangMin; m<=thangMax && dsThang.length<60; m=themThang(m,1)) dsThang.push(m);
+  if(!L.tu || !dsThang.includes(L.tu)) L.tu = dsThang.includes(thangCua(t)) ? thangCua(t) : dsThang[0];
+  const so=Math.max(1,Number(L.soThang)||3);
+  const dau=L.tu+'-01', cuoi=addDays(themThang(L.tu,so)+'-01',-1), tongNgay=diff(dau,cuoi)+1;
+  const pct=d=>(diff(dau,d)/tongNgay*100);
+  const loc=lichPost.filter(x=>(!L.chuoi||x.chuoi===L.chuoi)&&(!L.nhan||x.nhan_hang===L.nhan)&&(!L.loai||x.loai===(L.loai==='khong'?'':L.loai)));
+  const trongKhung=loc.filter(x=>x.ngay_bat_dau<=cuoi && x.ngay_ket_thuc>=dau);
+  // nhóm theo chuỗi > (siêu thị) > nhãn; xếp các chương trình chồng ngày vào nhiều làn
+  const nhom=new Map();
+  trongKhung.forEach(x=>{ const k=x.chuoi+'|'+x.sieu_thi+'|'+x.nhan_hang; (nhom.get(k)||nhom.set(k,[]).get(k)).push(x); });
+  const thuTuChuoi=c=>dsChuoi.indexOf(c);
+  const hang=[...nhom.entries()].sort((a,b)=>thuTuChuoi(a[1][0].chuoi)-thuTuChuoi(b[1][0].chuoi) || a[1][0].dong-b[1][0].dong);
+  const thangs=[]; for(let m=L.tu,i=0;i<so;i++,m=themThang(m,1)) thangs.push(m);
+  const nenThang=thangs.map((m,i)=>i?`<div class="g-sep" style="left:${pct(m+'-01')}%"></div>`:'').join('');
+  const homNay=(t>=dau&&t<=cuoi)?`<div class="g-today" style="left:${pct(t)}%" title="Hôm nay"></div>`:'';
+  let chuoiTruoc='';
+  const rows=hang.map(([k,ds])=>{
+    ds.sort((a,b)=>a.ngay_bat_dau.localeCompare(b.ngay_bat_dau)); const lan=[];
+    const bars=ds.map(x=>{ let l=lan.findIndex(e=>e<x.ngay_bat_dau); if(l<0){ l=lan.length; lan.push(''); } lan[l]=x.ngay_ket_thuc;
+      const bd=x.ngay_bat_dau<dau?dau:x.ngay_bat_dau, kt=x.ngay_ket_thuc>cuoi?cuoi:x.ngay_ket_thuc;
+      const co=hdCuaLp(x).length>0;
+      return `<button type="button" class="g-bar ${x.loai==='onpost'?'on':x.loai==='offpost'?'off':''} ${co?'co':''}" data-lp="${x.id}" style="left:${pct(bd)}%;width:calc(${(diff(bd,kt)+1)/tongNgay*100}% - 2px);top:${5+l*28}px" title="${esc(fd(x.ngay_bat_dau)+' – '+fd(x.ngay_ket_thuc)+'\n'+x.noi_dung)}">${co?'✓ ':''}${esc(dongDau(x.noi_dung))}</button>`; }).join('');
+    const x0=ds[0]; const dauChuoi=x0.chuoi!==chuoiTruoc; chuoiTruoc=x0.chuoi;
+    return `<div class="g-row"><div class="g-lab ${dauChuoi?'chuoi-dau':''}">${dauChuoi?`<b>${esc(x0.chuoi||'—')}</b>`:''}${esc([x0.nhan_hang, /all\s*stores?/i.test(x0.sieu_thi)?'':x0.sieu_thi].filter(Boolean).join(' · ')||'—')}</div><div class="g-track" style="height:${10+lan.length*28}px">${nenThang}${homNay}${bars}</div></div>`; }).join('');
+  const sapToi=loc.filter(x=>x.ngay_bat_dau>=t && x.ngay_bat_dau<=addDays(t,45)).sort((a,b)=>a.ngay_bat_dau.localeCompare(b.ngay_bat_dau));
+  const opt=(arr,sel,blank)=>`<option value="">${blank}</option>`+arr.map(v=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v)}</option>`).join('');
+  return `<section class="card"><div class="card-h"><div><h2>Lịch post</h2><p>${dongBoLich?`Đồng bộ lần cuối ${new Date(dongBoLich.luc).toLocaleString('vi-VN')} từ “${esc(dongBoLich.nguon)}” · ${dongBoLich.so_dong} chương trình.`:''} Muốn sửa lịch thì sửa trên Google Sheet.</p></div></div>
+    <div class="filters">
+      <select id="lpChuoi" aria-label="Lọc chuỗi">${opt(dsChuoi,L.chuoi,'Tất cả chuỗi')}</select>
+      <select id="lpNhan" aria-label="Lọc nhãn hàng">${opt(dsNhan,L.nhan,'Tất cả nhãn')}</select>
+      <select id="lpLoai" aria-label="Lọc loại"><option value="">Onpost và offpost</option><option value="onpost" ${L.loai==='onpost'?'selected':''}>Chỉ Onpost</option><option value="offpost" ${L.loai==='offpost'?'selected':''}>Chỉ Offpost</option><option value="khong" ${L.loai==='khong'?'selected':''}>Không ghi loại</option></select>
+      <select id="lpTu" aria-label="Từ tháng">${dsThang.map(m=>`<option value="${m}" ${m===L.tu?'selected':''}>Từ ${tenThang(m)}</option>`).join('')}</select>
+      <select id="lpSo" aria-label="Số tháng hiển thị">${[1,2,3,6,12].map(n=>`<option value="${n}" ${String(n)===String(L.soThang)?'selected':''}>${n} tháng</option>`).join('')}</select>
+    </div>
+    <div class="g-legend"><span><i style="background:var(--info-soft)"></i>Onpost</span><span><i style="background:var(--warn-soft)"></i>Offpost</span><span><i style="background:var(--soft);border:1px solid var(--line)"></i>Không ghi loại</span><span><i style="box-shadow:inset 0 0 0 2px var(--ok)"></i>✓ đã có hoạt động trong app</span><span><i style="background:var(--bad);opacity:.55;width:3px"></i>Hôm nay</span><span>Bấm vào một thanh để xem chi tiết${laKhach()?'':' và tạo hoạt động CTKM'}.</span></div>
+    ${rows?`<div class="scroll"><div class="gantt"><div class="g-row head"><div class="g-lab"><b>Chuỗi · nhãn</b></div><div class="g-track" style="min-height:30px">${thangs.map((m,i)=>`<div class="g-mon" style="left:${pct(m+'-01')}%;width:${(diff(m+'-01',addDays(themThang(m,1)+'-01',-1))+1)/tongNgay*100}%">${tenThang(m)}</div>`).join('')}${homNay}</div></div>${rows}</div></div>`:'<div class="empty">Không có chương trình nào trong khoảng này.</div>'}
+  </section>
+  <section class="card"><div class="card-h"><h2>Sắp bắt đầu (45 ngày tới)</h2><p>${sapToi.length} chương trình · cột “Hoạt động” cho biết đã tạo CTKM trong app chưa</p></div>${sapToi.length?`<div class="scroll"><table><thead><tr><th>Bắt đầu</th><th>Chuỗi</th><th>Nhãn</th><th>Loại</th><th>Nội dung</th><th>Hoạt động trong app</th></tr></thead><tbody>${
+    sapToi.map(x=>{ const hd=hdCuaLp(x); return `<tr><td class="num">${fd(x.ngay_bat_dau)}<div class="sub">đến ${fd(x.ngay_ket_thuc)}</div></td><td>${esc(x.chuoi)}</td><td>${esc(x.nhan_hang||'—')}</td><td>${LOAI_LP[x.loai]}</td><td><button type="button" class="link" data-lp="${x.id}">${esc(dongDau(x.noi_dung))}</button></td><td>${hd.length?hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):`<button class="btn sm" data-tao-lp="${x.id}" type="button">Tạo CTKM</button>`}</td></tr>`; }).join('')
+  }</tbody></table></div>`:'<div class="empty">Không có chương trình nào sắp bắt đầu.</div>'}</section>`;
+}
+function moLp(id){ const x=lichPost.find(v=>String(v.id)===String(id)); if(!x) return; modal={type:'lp', d:{id:x.id}}; renderModal(); }
+function taoTuLp(id){
+  const x=lichPost.find(v=>String(v.id)===String(id)); if(!x) return;
+  const k=khopKenh(x.chuoi), n=khopNhan(x.nhan_hang);
+  const tp=templates.find(tp=>x.loai==='onpost'?/onpost/i.test(tp.ten):/offpost/i.test(tp.ten)) || templates.find(tp=>/ctkm/i.test(tp.ten)) || templates[0];
+  openNew();
+  Object.assign(modal.d, {tplId:tp?tp.id:'', ten:`CTKM ${x.nhan_hang||''} – ${x.chuoi} (${fd(x.ngay_bat_dau).slice(0,5)}–${fd(x.ngay_ket_thuc).slice(0,5)})`.replace(/\s+/g,' '), tenSua:true,
+    nhan:n?String(n.id):modal.d.nhan, kenh:k?String(k.id):modal.d.kenh, bd:x.ngay_bat_dau, kt:x.ngay_ket_thuc});
+  renderModal();
+  if(!k) toast(`Chưa có hệ thống “${x.chuoi}” trong danh mục, hãy chọn kênh phù hợp.`);
+}
+
 function renderTpls(){
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><p class="hint" style="max-width:640px">Mỗi quy trình mẫu là danh sách bước chuẩn. Khi tạo hoạt động mới, hạn của từng bước được tính tự động từ ngày bắt đầu hoặc ngày kết thúc chương trình. Bước có người duyệt chỉ tính xong khi người đó bấm Duyệt.</p><button class="btn pri" data-act="tao-qt" type="button">+ Thêm quy trình mẫu</button></div><div class="tpl-list">`;
   if(!templates.length) h+=`<div class="empty">Chưa có quy trình mẫu nào.</div>`;
@@ -591,6 +689,13 @@ function renderModalNow(){
   if(modal.type==='new') inner=renderNewModal();
   if(modal.type==='edit') inner=renderEditModal();
   if(modal.type==='tpl') inner=renderTplModal();
+  if(modal.type==='lp'){ const x=lichPost.find(v=>String(v.id)===String(modal.d.id)); const hd=x?hdCuaLp(x):[];
+    inner = x ? `<div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="ttLp"><header><h2 id="ttLp">${esc(x.chuoi)} · ${esc(x.nhan_hang||'—')}</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header>
+      <div class="body"><div class="chips"><span class="chip num">${fd(x.ngay_bat_dau)} – ${fd(x.ngay_ket_thuc)} (${diff(x.ngay_bat_dau,x.ngay_ket_thuc)+1} ngày)</span><span class="chip">${LOAI_LP[x.loai]}</span>${x.sieu_thi?`<span class="chip">${esc(x.sieu_thi)}</span>`:''}</div>
+      <p class="lp-nd">${esc(x.noi_dung)}</p>
+      <p class="hint" style="margin:0">Trong sheet: hàng ${x.dong}, cột ${x.cot}${x.nhom?' · '+esc(x.nhom):''}</p>
+      <div><b>Hoạt động trong app:</b> ${hd.length?hd.map(a=>`<button type="button" class="link" data-m="mo-hd" data-id="${esc(a.id)}">${esc(a.ten)}</button>`).join(', '):'<span class="muted">chưa có</span>'}</div></div>
+      <footer><button class="btn" data-m="close" type="button">Đóng</button>${laKhach()?'':`<button class="btn pri" data-m="tao-lp" type="button">Tạo hoạt động CTKM</button>`}</footer></div>` : ''; }
   if(modal.type==='tralai') inner=`<div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="ttTr"><header><h2 id="ttTr">Trả lại bước</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header><div class="body"><p style="margin:0 0 8px">“${esc(modal.d.ten)}” sẽ quay về ${esc(modal.d.nguoi)} ở trạng thái Đang làm.</p><div class="field"><label for="trLyDo">Lý do / cần sửa gì</label><textarea id="trLyDo" data-t="lyDo" rows="3">${esc(modal.d.lyDo)}</textarea></div></div><footer><button class="btn" data-m="close" type="button">Hủy</button><button class="btn pri" data-m="tralai-ok" type="button">Trả lại</button></footer></div>`;
   modalEl.innerHTML=`<div class="backdrop" data-m="bg">${inner}</div>`;
 }
@@ -682,6 +787,8 @@ modalEl.addEventListener('click', e=>{
   if(m==='tadd'){ modal.d.buoc.push({ten:'',vaiTro:'Trade MKT',moc:'bd',soNgay:0,ketQua:'',nguoiLam:'',nguoiDuyet:''}); rerenderKeepScroll(); return; }
   if(m==='tsave') return saveTpl();
   if(m==='tralai-ok') return traLai();
+  if(m==='tao-lp'){ const id=modal.d.id; closeModal(); if(!laKhach()) taoTuLp(id); return; }
+  if(m==='mo-hd'){ const id=t.dataset.id; closeModal(); selectedId=id; view='hoat-dong'; location.hash='hoat-dong'; render(); return; }
   if(m==='tdelete'){ const id=modal.d.id; askConfirm('Xóa quy trình mẫu?','Các hoạt động đã tạo từ mẫu này vẫn giữ nguyên.','Xóa',()=>{ templates=templates.filter(x=>x.id!==id); render(); run('qt'+id,()=>sb.from('quy_trinh').delete().eq('id',id)); }); return; }
 });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && modal) closeModal(); });
@@ -788,8 +895,10 @@ function traLai(){
 document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach()) openNew(); });
 main.addEventListener('click', e=>{
   if(!authed) return;
-  const t=e.target.closest('[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
+  const t=e.target.closest('[data-lp],[data-tao-lp],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
   if(laKhach() && t.matches(NUT_SUA)) return toast('Bạn đang xem với quyền khách nên không sửa được.');
+  if(t.dataset.lp!=null) return moLp(t.dataset.lp);
+  if(t.dataset.taoLp!=null) return taoTuLp(t.dataset.taoLp);
   if(t.dataset.pnav!=null){ const w=+t.dataset.pnav; period.off = w===0?0:period.off+w; return render(); }
   if(t.dataset.person!=null){ calPerson=t.dataset.person==='Chưa giao'?'__none':t.dataset.person; selectedId=null; location.hash='lich-viec'; return; }
   if(t.dataset.duyet){ e.stopPropagation(); const [id,i]=t.dataset.duyet.split(':'); return updateStep(id,+i,'trangThai','xong'); }
@@ -824,6 +933,11 @@ main.addEventListener('change', e=>{
   if(el.id==='fkenh'){ filters.kenh=el.value; render(); }
   if(el.id==='ftt'){ filters.tt=el.value; render(); }
   if(el.id==='fnguoi'){ calPerson=el.value; render(); }
+  if(el.id==='lpChuoi'){ lichLoc.chuoi=el.value; render(); }
+  if(el.id==='lpNhan'){ lichLoc.nhan=el.value; render(); }
+  if(el.id==='lpLoai'){ lichLoc.loai=el.value; render(); }
+  if(el.id==='lpTu'){ lichLoc.tu=el.value; render(); }
+  if(el.id==='lpSo'){ lichLoc.soThang=el.value; render(); }
 });
 main.addEventListener('input', e=>{ if(e.target.id==='fq'){ filters.q=e.target.value; clearTimeout(main._q); main._q=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const f=document.getElementById('fq'); if(f){ f.focus(); try{f.setSelectionRange(pos,pos);}catch(_){} } },250); } });
 

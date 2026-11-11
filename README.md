@@ -13,6 +13,7 @@ App web quản lý các hoạt động trade theo quy trình mẫu: giao việc,
 | `cau-hinh.js` | Điền địa chỉ và khóa Supabase (chỉ sửa file này) |
 | `supabase/thiet-ke-co-so-du-lieu.sql` | Tạo bảng, phân quyền và quy trình mẫu trong Supabase (chạy 1 lần) |
 | `nhac-han-email/nhac-han-qua-email.gs` | Script Google gửi email nhắc hạn mỗi sáng (xem mục “Nhắc hạn qua email”) |
+| `nhac-han-email/dong-bo-lich-post.gs` | Script Google đồng bộ lịch CTKM / kỳ post từ Google Sheet kế hoạch vào app (xem mục “Lịch post”) |
 
 ---
 
@@ -162,6 +163,23 @@ Mỗi sáng (khoảng 7h–8h, trừ Chủ nhật), một script Google gửi th
   `update public.cau_hinh_nhac set ma_bi_mat = replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');`
   rồi lấy mã mới (Bước 1) dán lại vào `MA_BI_MAT`. Người có mã chỉ đọc được danh sách nhắc việc, không sửa được gì.
 - Gmail cá nhân gửi tối đa khoảng 100 thư/ngày; nhóm nhỏ dùng không hết.
+
+## Lịch post (lịch CTKM theo siêu thị)
+Trang **Lịch post** hiện lịch CTKM của từng chuỗi / nhãn hàng dạng thanh thời gian, lấy từ Google Sheet kế hoạch (ví dụ tab `PLAN 2026` trong file *TRADE MASTER PLAN*).
+
+- Mỗi hàng là một chuỗi · nhãn hàng; mỗi thanh là một chương trình. Màu xanh = Onpost, màu vàng = Offpost (đọc từ chữ “onpost/offpost” trong ô hoặc ở cột siêu thị), xám = không ghi.
+- Thanh có viền xanh lá và dấu ✓ = đã có hoạt động trong app cùng kênh, cùng nhãn, trùng thời gian.
+- Bấm một thanh để xem đầy đủ nội dung và bấm **Tạo hoạt động CTKM**: app tự chọn mẫu Onpost/Offpost, điền tên, nhãn, kênh, ngày chạy; hạn các bước tự tính.
+- Bảng **Sắp bắt đầu (45 ngày tới)** cho biết chương trình nào chưa được tạo trong app.
+- **Sửa lịch thì sửa trên Google Sheet**, app chỉ đọc.
+
+**Cách app đọc sheet:** cột B = chuỗi, cột C = siêu thị (có thể ghi Onpost / Offpost), cột D = nhãn hàng; hàng tiêu đề có “THÁNG 1/2026”, hàng ngay dưới là số ngày, mỗi cột là một ngày. Mỗi chương trình là một ô (gộp ngang nhiều ngày): chữ trong ô là nội dung, độ dài ô gộp là thời gian chạy. Giữ đúng cách trình bày này thì sang năm (tab `PLAN 2027`) vẫn đọc được.
+
+**Cài đồng bộ tự động mỗi giờ** (làm 1 lần, cùng dự án Apps Script với phần nhắc hạn email):
+1. Trong dự án Apps Script, bấm **+** cạnh “Tệp” → **Tập lệnh**, đặt tên `dong-bo-lich-post`, dán nội dung file `nhac-han-email/dong-bo-lich-post.gs`, lưu. (Dự án phải có sẵn file nhắc hạn email vì dùng chung phần đọc thông số.)
+2. **Cài đặt dự án → Thuộc tính tập lệnh**, thêm `LICH_POST_SHEET_ID` = mã Google Sheet (đoạn giữa `/d/` và `/edit` trong link). Nếu tab kế hoạch không bắt đầu bằng “PLAN” thì thêm `LICH_POST_TAB` = tên tab.
+3. Chọn hàm **`dongBoLichPost`** → **Chạy** (lần đầu cho phép quyền đọc Google Sheet). Mở trang Lịch post, dòng đầu ghi thời điểm đồng bộ lần cuối.
+4. Chọn hàm **`batHenGioLichPost`** → **Chạy** để tự đồng bộ mỗi giờ. Muốn ngừng: chạy `tatHenGioLichPost`.
 
 ## Sửa danh mục nhãn hàng / hệ thống
 Supabase → **Table Editor** → bảng `nhan_hang` hoặc `he_thong` → **Insert row**. Muốn ẩn một mục mà không xóa thì đổi `dang_dung` thành `false`.

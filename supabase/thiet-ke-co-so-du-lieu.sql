@@ -12,6 +12,7 @@
 --   quy_trinh -> quy_trinh_buoc: quy trình mẫu và các bước chuẩn
 --   hoat_dong -> buoc_cong_viec: hoạt động thật và tiến độ từng bước
 --   nhat_ky_buoc               : lịch sử đổi trạng thái / hạn / người làm (để đo lường)
+--   lich_post                  : lịch CTKM / kỳ post của từng siêu thị, đồng bộ từ Google Sheet
 -- =====================================================================
 
 create extension if not exists pgcrypto;
@@ -411,7 +412,7 @@ on conflict (ten) do nothing;
 insert into public.he_thong (ten, thu_tu) values
   ('GO/BigC', 1), ('Co.op', 2), ('Emart', 3), ('Lotte', 4), ('BHX', 5),
   ('WinMart/WinMart+', 6), ('Thương mại điện tử', 7), ('GT', 8),
-  ('Nhiều hệ thống', 9), ('Nội bộ', 10)
+  ('Nhiều hệ thống', 9), ('Nội bộ', 10), ('King Food', 11), ('Satra', 12), ('Oshi', 13)
 on conflict (ten) do nothing;
 
 -- Quy trình mẫu (chỉ thêm nếu chưa có mã đó). Người làm / người duyệt đặt sau trong app: Quy trình mẫu > Sửa.
@@ -549,5 +550,80 @@ begin
 end $$;
 revoke all on function public.ds_nhac_viec(text, integer) from public;
 grant execute on function public.ds_nhac_viec(text, integer) to anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 12. LỊCH POST (CTKM theo siêu thị) – đồng bộ từ Google Sheet kế hoạch
+--     Script Google (nhac-han-email/dong-bo-lich-post.gs) đọc sheet rồi gọi
+--     dong_bo_lich_post(ma, nguon, du_lieu): thay toàn bộ lịch bằng bản mới nhất.
+--     Sửa lịch thì sửa trên Google Sheet, không sửa trong app.
+-- ---------------------------------------------------------------------
+create table if not exists public.lich_post (
+  id             bigint generated always as identity primary key,
+  nhom           text not null default '',
+  chuoi          text not null default '',
+  sieu_thi       text not null default '',
+  nhan_hang      text not null default '',
+  loai           text not null default '' check (loai in ('', 'onpost', 'offpost')),
+  noi_dung       text not null default '',
+  ngay_bat_dau   date not null,
+  ngay_ket_thuc  date not null,
+  dong           integer,          -- vị trí trong sheet, để tìm lại
+  cot            integer,
+  constraint lich_post_ngay_hop_le check (ngay_ket_thuc >= ngay_bat_dau)
+);
+create index if not exists lich_post_ngay_idx on public.lich_post (ngay_bat_dau);
+
+create table if not exists public.dong_bo_lich (
+  id      smallint primary key default 1 check (id = 1),
+  nguon   text not null default '',
+  so_dong integer not null default 0,
+  luc     timestamptz not null default now()
+);
+
+alter table public.lich_post    enable row level security;
+alter table public.dong_bo_lich enable row level security;
+grant select on public.lich_post, public.dong_bo_lich to authenticated;
+drop policy if exists "thanh_vien_xem" on public.lich_post;
+create policy "thanh_vien_xem" on public.lich_post for select to authenticated using (public.duoc_xem());
+drop policy if exists "thanh_vien_xem" on public.dong_bo_lich;
+create policy "thanh_vien_xem" on public.dong_bo_lich for select to authenticated using (public.duoc_xem());
+-- Không có quyền thêm/sửa/xóa trực tiếp: chỉ ghi qua hàm đồng bộ bên dưới
+
+create or replace function public.dong_bo_lich_post(ma text, nguon text, du_lieu jsonb)
+returns integer
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  so integer;
+begin
+  if ma is null or not exists (select 1 from public.cau_hinh_nhac where ma_bi_mat = ma) then
+    raise exception 'Sai mã bí mật';
+  end if;
+  if jsonb_typeof(du_lieu) <> 'array' then raise exception 'Dữ liệu phải là danh sách'; end if;
+  if jsonb_array_length(du_lieu) > 20000 then raise exception 'Quá nhiều dòng (tối đa 20000)'; end if;
+  delete from public.lich_post where true;
+  insert into public.lich_post (nhom, chuoi, sieu_thi, nhan_hang, loai, noi_dung, ngay_bat_dau, ngay_ket_thuc, dong, cot)
+  select left(coalesce(x.nhom, ''), 200), left(coalesce(x.chuoi, ''), 200), left(coalesce(x.sieu_thi, ''), 200),
+         left(coalesce(x.nhan_hang, ''), 200),
+         case when x.loai in ('onpost', 'offpost') then x.loai else '' end,
+         left(coalesce(x.noi_dung, ''), 4000), x.ngay_bat_dau, x.ngay_ket_thuc, x.dong, x.cot
+  from jsonb_to_recordset(du_lieu) as x(nhom text, chuoi text, sieu_thi text, nhan_hang text, loai text,
+                                         noi_dung text, ngay_bat_dau date, ngay_ket_thuc date, dong integer, cot integer)
+  where x.ngay_bat_dau is not null and x.ngay_ket_thuc is not null and x.ngay_ket_thuc >= x.ngay_bat_dau;
+  get diagnostics so = row_count;
+  insert into public.dong_bo_lich (id, nguon, so_dong, luc) values (1, left(coalesce(nguon, ''), 300), so, now())
+  on conflict (id) do update set nguon = excluded.nguon, so_dong = excluded.so_dong, luc = excluded.luc;
+  return so;
+end $$;
+revoke all on function public.dong_bo_lich_post(text, text, jsonb) from public;
+grant execute on function public.dong_bo_lich_post(text, text, jsonb) to anon, authenticated;
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables
+                     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'lich_post') then
+    execute 'alter publication supabase_realtime add table public.lich_post';
+  end if;
+end $$;
 
 -- Xong. Kiểm tra: select ten from public.quy_trinh order by thu_tu;
