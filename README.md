@@ -13,6 +13,7 @@ App web quản lý các hoạt động trade theo quy trình mẫu: giao việc,
 | `cau-hinh.js` | Điền địa chỉ và khóa Supabase (chỉ sửa file này) |
 | `supabase/thiet-ke-co-so-du-lieu.sql` | Tạo bảng, phân quyền và quy trình mẫu trong Supabase (chạy 1 lần) |
 | `nhac-han-email/nhac-han-qua-email.gs` | Script Google gửi email nhắc hạn mỗi sáng (xem mục “Nhắc hạn qua email”) |
+| `cong-cu/chep-so-ban-tu-dashboard.js` | Chép số bán ra / sell-in từ dashboard tổng hợp sang Supabase (xem mục “Số bán”) |
 | `nhac-han-email/dong-bo-lich-post.gs` | Script Google đồng bộ lịch CTKM / kỳ post từ Google Sheet kế hoạch vào app (xem mục “Lịch post”) |
 
 ---
@@ -181,22 +182,20 @@ Trang **Lịch post** hiện lịch CTKM của từng chuỗi / nhãn hàng dạ
 3. Chọn hàm **`dongBoLichPost`** → **Chạy** (lần đầu cho phép quyền đọc Google Sheet). Mở trang Lịch post, dòng đầu ghi thời điểm đồng bộ lần cuối.
 4. Chọn hàm **`batHenGioLichPost`** → **Chạy** để tự đồng bộ mỗi giờ. Muốn ngừng: chạy `tatHenGioLichPost`.
 
-## Sell-out theo tuần
-Trang **Sell-out** là kho số bán ra theo tuần (thứ Hai – Chủ nhật) của các chuỗi, dùng để đánh giá CTKM.
+## Số bán (sell-out và sell-in)
+Trang **Số bán** lấy số từ dashboard tổng hợp **“Data Sell-in/out kênh bán MT”** (trên Claude), gồm:
+- **Co.op bán ra**: theo tháng × cửa hàng × SKU, có tồn cuối kỳ (doanh số theo giá vốn Co.op);
+- **Emart bán ra**: theo tuần trong tháng (ngày 1–7, 8–14, 15–21, 22–28, 29–cuối tháng) × cửa hàng × sản phẩm (doanh số theo giá bán lẻ sau KM);
+- **Sell-in (giao vào)**: sổ chi tiết bán hàng theo ngày × hệ thống × mã hàng.
 
-**Nhập số**
-1. Bấm **⬇ Tải file mẫu**. File có tab **Sell-out tuần** (các cột: Chuỗi, Tuần, Mã SKU, Tên SKU, Nhãn hàng, Cửa hàng, Số lượng bán, Doanh số bán, Tồn cuối tuần) và tab **Hướng dẫn** (danh sách tên chuỗi, nhãn hàng hợp lệ).
-2. Dán số của chuỗi vào tab **Sell-out tuần**, giữ nguyên hàng tiêu đề. Một file có thể chứa nhiều chuỗi, nhiều tuần.
-   - **Tuần**: ghi ngày bất kỳ trong tuần, app tự đổi về thứ Hai.
-   - **Mã SKU**: có thì ghi; không có thì ghi Tên SKU và giữ một cách viết cố định.
-   - **Cửa hàng**: để trống nếu là tổng cả chuỗi. **Nhãn hàng**: để trống thì app đoán theo tên SKU.
-3. Bấm **⬆ Chọn file để nhập**, xem lại số dòng hợp lệ, tuần từ – đến, tổng số lượng / doanh số và các dòng lỗi (ghi rõ dòng số mấy, lỗi gì), rồi bấm **Nhập**.
-4. Nhập lại cùng **chuỗi + tuần + SKU + cửa hàng** thì số mới **ghi đè** số cũ (dùng khi chuỗi gửi số sửa lại). Mục **Các lần nhập** cho xóa một lần nhập nếu nhập nhầm.
+App không đọc thẳng được dashboard (dashboard chỉ mở được khi đăng nhập Claude), nên số được **chép sang Supabase**. App chỉ đọc, không sửa được số; muốn sửa thì sửa ở dashboard rồi chép lại.
 
 **Xem số**
-- Trang Sell-out: bảng số lượng bán theo **SKU × tuần**, kèm tổng số lượng, doanh số, số cửa hàng có bán, tồn cuối tuần. Lọc theo chuỗi, nhãn, số tuần.
-- Trong mỗi **hoạt động** (màn chi tiết): bảng **Sell-out theo tuần quanh đợt CTKM** của đúng kênh và nhãn của hoạt động: 4 tuần trước, các tuần chạy (tô màu; tuần chạy dở ghi số ngày) và 4 tuần sau.
-- Hiện chỉ hiện số đã nhập, **chưa tính** % tăng, ROI (làm sau).
+- Trang **Số bán**: bảng nguồn số liệu (dashboard cập nhật lúc nào, chép sang app lúc nào) và bảng **SKU × kỳ** của từng chuỗi, kèm tổng bán ra, số ngày của kỳ, doanh số, số cửa hàng có bán, tồn cuối kỳ, **sell-in cùng kỳ**.
+- Trong mỗi **hoạt động**: bảng **Số bán quanh đợt CTKM**: các kỳ trong khoảng 5 tuần trước đến 5 tuần sau đợt, đánh dấu Trước / Trong (bao nhiêu ngày của kỳ nằm trong đợt) / Sau, có **bán ra / ngày** để so các kỳ dài ngắn khác nhau, và sell-in cùng kỳ. Chuỗi chưa có số bán ra (Lotte, GO…) thì hiện sell-in theo tuần.
+- Chỉ hiện số, chưa tính % tăng / ROI.
+
+**Cập nhật số mới** (sau khi dashboard có số mới): nhờ Claude “cập nhật số bán từ dashboard”. Claude tải các bộ dữ liệu của dashboard rồi chạy `node cong-cu/chep-so-ban-tu-dashboard.js <thư mục> --gui` (cần mã bí mật trong bảng `cau_hinh_nhac`). Mỗi bộ số được thay toàn bộ, không cộng dồn.
 
 ## Sửa danh mục nhãn hàng / hệ thống
 Supabase → **Table Editor** → bảng `nhan_hang` hoặc `he_thong` → **Insert row**. Muốn ẩn một mục mà không xóa thì đổi `dang_dung` thành `false`.

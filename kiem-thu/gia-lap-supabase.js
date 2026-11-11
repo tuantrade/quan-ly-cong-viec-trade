@@ -13,18 +13,18 @@ hoat_dong:[{id:'h1',ten:'CTKM Tết Co.op',nhan_hang_id:1,he_thong_id:1,ngay_bat
 {id:'b3',hoat_dong_id:'h1',thu_tu:3,ten:'C',nguoi_lam:'Tiên',han:'2026-11-09',trang_thai:'chua_lam',ngay_xong:null},
 {id:'b4',hoat_dong_id:'h1',thu_tu:4,ten:'D',nguoi_lam:'Tiên',han:'2026-11-11',trang_thai:'xong',ngay_xong:'2026-11-12'},
 {id:'b5',hoat_dong_id:'h1',thu_tu:5,ten:'E',nguoi_lam:'',han:'2026-11-20',trang_thai:'chua_lam',ngay_xong:null}],
-lich_post:[], dong_bo_lich:[], lo_nhap_sell_out:[], sell_out_tuan:[]};
+lich_post:[], dong_bo_lich:[], sell_out:[], sell_in:[], dong_bo_so_ban:[]};
 window.__DB=DB;
 const MAC_DINH={buoc_cong_viec:{trang_thai:'chua_lam',ngay_xong:null,ket_qua:'',ghi_chu:'',nguoi_lam:'',vai_tro:'',nguoi_duyet:'',ly_do_tra:'',ngay_nop:null},
-  lo_nhap_sell_out:{nguoi:'a@x.com',luc:new Date().toISOString(),so_dong:0}};
-// Bảng tổng hợp (view) tính từ sell_out_tuan
+};
+// Bảng tổng hợp (view) giống trên Supabase
+function nhom(rows, khoa, cong){ const g=new Map(); rows.forEach(r=>{ const k=khoa.map(c=>r[c]).join('|'); let o=g.get(k); if(!o){ o={}; khoa.forEach(c=>o[c]=r[c]); o._ch=new Set(); o._sku=new Set(); g.set(k,o); } cong(o,r); }); return [...g.values()]; }
 function view(ten){
-  const g=new Map(), theoSku=ten==='sell_out_tuan_sku';
-  DB.sell_out_tuan.forEach(r=>{ const k=[r.chuoi,r.nhan_hang,r.tuan,theoSku?r.khoa_sku:''].join('|');
-    const o=g.get(k)||g.set(k,{chuoi:r.chuoi,nhan_hang:r.nhan_hang,tuan:r.tuan,...(theoSku?{khoa_sku:r.khoa_sku,ma_sku:r.ma_sku,ten_sku:r.ten_sku}:{}),so_luong:0,doanh_so:0,ton:null,_ch:new Set(),_sku:new Set()}).get(k);
-    o.so_luong+=+r.so_luong||0; o.doanh_so+=+r.doanh_so||0; if(r.ton!=null) o.ton=(o.ton||0)+(+r.ton);
-    if(+r.so_luong>0){ o._ch.add(r.cua_hang); o._sku.add(r.khoa_sku); } });
-  return [...g.values()].map(o=>{ const {_ch,_sku,...x}=o; return theoSku?{...x,so_cua_hang_ban:_ch.size}:{...x,so_cua_hang_ban:_ch.size,so_sku_ban:_sku.size}; });
+  const so=(o,r)=>{ o.so_luong=(o.so_luong||0)+(+r.so_luong||0); o.doanh_so=(o.doanh_so||0)+(+r.doanh_so||0); if(r.ton!=null) o.ton=(o.ton||0)+(+r.ton); if(+r.so_luong>0){ o._ch.add(r.ma_cua_hang+'|'+r.cua_hang); o._sku.add(r.ma_sku); } if(r.ten_sku) o.ten_sku=r.ten_sku; };
+  const xong=(arr,sku)=>arr.map(({_ch,_sku,...x})=>({...x, ton:x.ton??null, so_cua_hang_ban:_ch.size, ...(sku?{}:{so_sku_ban:_sku.size})}));
+  if(ten==='sell_out_ky_sku') return xong(nhom(DB.sell_out,['chuoi','nhan_hang','ky','tu_ngay','den_ngay','ma_sku'],so),true);
+  if(ten==='sell_out_ky_nhan') return xong(nhom(DB.sell_out,['chuoi','nhan_hang','ky','tu_ngay','den_ngay'],so),false);
+  if(ten==='sell_in_ngay') return nhom(DB.sell_in,['chuoi','nhan_hang','ngay'],(o,r)=>{ o.so_luong=(o.so_luong||0)+(+r.so_luong||0); o.tra_lai_sl=(o.tra_lai_sl||0)+(+r.tra_lai_sl||0); o.doanh_so=(o.doanh_so||0)+(+r.doanh_so||0); }).map(({_ch,_sku,...x})=>x);
 }
 function qb(table){ let op='select',payload=null,filters=[],single=false,conflict=null,lim=null,ord=null;
  const b={select(){return b},order(k,o){ord=[k,o&&o.ascending===false];return b},range(){return b},limit(n){lim=n;return b},
@@ -32,7 +32,7 @@ function qb(table){ let op='select',payload=null,filters=[],single=false,conflic
  insert(p){op='insert';payload=p;return b},upsert(p,o){op='upsert';payload=p;conflict=(o&&o.onConflict||'').split(',');return b},
  update(p){op='update';payload=p;return b},delete(){op='delete';return b},single(){single=true;return b},
  then(res,rej){ return new Promise((ok,ko)=>{ try{ const match=r=>filters.every(f=>f(r)); let data;
-  const bang=table.startsWith('sell_out_tuan_')?view(table):DB[table];
+  const bang=['sell_out_ky_sku','sell_out_ky_nhan','sell_in_ngay'].includes(table)?view(table):DB[table];
   if(!bang) throw new Error('Không có bảng '+table);
   if(op==='select'){ data=bang.filter(match).map(r=>({...r})); if(ord) data.sort((x,y)=>(x[ord[0]]>y[ord[0]]?1:x[ord[0]]<y[ord[0]]?-1:0)*(ord[1]?-1:1)); if(lim) data=data.slice(0,lim); }
   if(op==='insert'){ data=(Array.isArray(payload)?payload:[payload]).map(p=>({id:'id'+(++seq),...(MAC_DINH[table]||{}),...p})); DB[table].push(...data); }
@@ -41,7 +41,7 @@ function qb(table){ let op='select',payload=null,filters=[],single=false,conflic
   if(op==='delete'){ const gone=DB[table].filter(match); DB[table]=DB[table].filter(r=>!match(r));
     if(table==='hoat_dong') DB.buoc_cong_viec=DB.buoc_cong_viec.filter(s=>!gone.some(g=>g.id===s.hoat_dong_id));
     if(table==='quy_trinh') DB.quy_trinh_buoc=DB.quy_trinh_buoc.filter(s=>!gone.some(g=>g.id===s.quy_trinh_id));
-    if(table==='lo_nhap_sell_out') DB.sell_out_tuan=DB.sell_out_tuan.filter(s=>!gone.some(g=>g.id===s.lo_nhap_id)); data=[]; }
+    data=[]; }
   if(single) data=data[0];
   setTimeout(()=>ok({data,error:null}),5);
  }catch(e){ setTimeout(()=>ok({data:null,error:{message:e.message}}),5); } }).then(res,rej) }}; return b; }

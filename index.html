@@ -183,7 +183,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
       <a href="#hoat-dong" data-v="hoat-dong">Hoạt động</a>
       <a href="#lich-viec" data-v="lich-viec">Lịch việc</a>
       <a href="#lich-post" data-v="lich-post">Lịch post</a>
-      <a href="#sell-out" data-v="sell-out">Sell-out</a>
+      <a href="#sell-out" data-v="sell-out">Số bán</a>
       <a href="#quy-trinh" data-v="quy-trinh">Quy trình mẫu</a>
       <a href="#thanh-vien" data-v="thanh-vien">Thành viên</a>
     </nav>
@@ -207,7 +207,7 @@ const TTHD = {chuabd:['Chưa bắt đầu','neutral'], dangchay:['Đang chạy',
 const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','sell-out','quy-trinh','thanh-vien'];
 
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
-let soLoNhap = [], soLoc = {chuoi:'', nhan:'', soTuan:'12'}, soDuLieu = null, soDangTai = '', nhapTam = null, soHd = {};
+let soNguon = [], soLoc = {chuoi:'', nhan:'', soKy:'12'}, soDuLieu = null, soDangTai = '', soHd = {};
 let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tu:'', soThang:'3'};
 let loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
 let view = 'tong-quan', selectedId = null, pendingRender = false, notice = '';
@@ -231,8 +231,8 @@ const me = () => members.find(m=>m.email===myEmail());
 const isManager = () => me()?.vai_tro==='quan_ly';
 /* Khách: chỉ xem. Cơ sở dữ liệu đã chặn mọi thao tác ghi; phần dưới đây ẩn nút sửa cho gọn */
 const laKhach = () => me()?.vai_tro==='khach';
-const NUT_SUA = '[data-xoa-lo],[data-act="so-nhap"],[data-act="so-huy"],[data-tao-lp],[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
-const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo','soChuoi','soNhan','soTuan'];
+const NUT_SUA = '[data-tao-lp],[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
+const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo','soChuoi','soNhan','soKy'];
 function khoaChiXem(goc){
   goc.querySelectorAll(NUT_SUA).forEach(el=>el.remove());
   goc.querySelectorAll('input,select,textarea').forEach(el=>{ if(!O_LOC.includes(el.id)) el.disabled=true; });
@@ -314,8 +314,9 @@ async function loadAll(){
       buoc:(g[h.id]||[]).sort(byThuTu).map(stepFromDb)}));
     if(notice.startsWith('Không tải')) notice='';
   }catch(e){ console.error(e); notice='Không tải được dữ liệu: '+errText(e); }
-  try{ const r=await sb.from('lo_nhap_sell_out').select('*').order('luc',{ascending:false}).limit(200); if(r.error) throw r.error; soLoNhap=r.data||[]; }
-  catch(e){ console.warn('Chưa đọc được sell-out', e); soLoNhap=[]; }
+  try{ const r=await sb.from('dong_bo_so_ban').select('*'); if(r.error) throw r.error;
+    const moi=JSON.stringify(r.data||[]); if(moi!==JSON.stringify(soNguon)){ soDuLieu=null; soHd={}; } soNguon=r.data||[]; }
+  catch(e){ console.warn('Chưa đọc được số bán', e); soNguon=[]; }
   try{ // lịch post: bảng có thể chưa có nếu chưa chạy SQL mới, khi đó trang Lịch post báo trống
     const [lp, db] = await Promise.all([fetchAll('lich_post','ngay_bat_dau'), sb.from('dong_bo_lich').select('*').then(r=>{ if(r.error) throw r.error; return r.data; })]);
     lichPost = lp.map(x=>({...x, ngay_bat_dau:String(x.ngay_bat_dau).slice(0,10), ngay_ket_thuc:String(x.ngay_ket_thuc).slice(0,10)})); dongBoLich = (db||[])[0]||null;
@@ -589,179 +590,89 @@ function renderLichPost(){
     sapToi.map(x=>{ const hd=hdCuaLp(x); return `<tr><td class="num">${fd(x.ngay_bat_dau)}<div class="sub">đến ${fd(x.ngay_ket_thuc)}</div></td><td>${esc(x.chuoi)}</td><td>${esc(x.nhan_hang||'—')}</td><td>${LOAI_LP[x.loai]}</td><td><button type="button" class="link" data-lp="${x.id}">${esc(dongDau(x.noi_dung))}</button></td><td>${hd.length?hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):`<button class="btn sm" data-tao-lp="${x.id}" type="button">Tạo CTKM</button>`}</td></tr>`; }).join('')
   }</tbody></table></div>`:'<div class="empty">Không có chương trình nào sắp bắt đầu.</div>'}</section>`;
 }
-/* ---------- Sell-out theo tuần ---------- */
-const COT_MAU = ['Chuỗi','Tuần (ngày thứ Hai)','Mã SKU','Tên SKU','Nhãn hàng','Cửa hàng','Số lượng bán','Doanh số bán','Tồn cuối tuần'];
-function taiThuVienXlsx(){
-  if(window.XLSX) return Promise.resolve();
-  return taiThuVienXlsx._p ||= new Promise((ok,ko)=>{ const sc=document.createElement('script');
-    sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    sc.onload=ok; sc.onerror=()=>{ taiThuVienXlsx._p=null; ko(new Error('Không tải được thư viện đọc Excel, kiểm tra mạng.')); }; document.head.appendChild(sc); });
-}
+/* ---------- Số bán (sell-out) và giao vào (sell-in): chép từ dashboard tổng hợp ---------- */
+const CHUOI_NGUON = {coop:'Co.op', emart:'Emart'};      // nguồn bán ra -> hệ thống trong app
+const soVN = n => n==null||n===''||isNaN(n)?'—':Number(n).toLocaleString('vi-VN',{maximumFractionDigits:0});
+const so1 = n => n==null||isNaN(n)?'—':Number(n).toLocaleString('vi-VN',{maximumFractionDigits:1});
+const ngay10 = d => String(d||'').slice(0,10);
 const thuHai = d => { const x=new Date(d+'T00:00:00Z'); return addDays(d, -((x.getUTCDay()+6)%7)); };
-const soVN = n => n==null||n===''?'—':Number(n).toLocaleString('vi-VN',{maximumFractionDigits:0});
-function ngayHopLe(d){ if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false; const x=new Date(d+'T00:00:00Z'); return !isNaN(x) && x.toISOString().slice(0,10)===d; }
-function docNgay(v){
-  if(v==null||v==='') return '';
-  if(typeof v==='number'){ if(v>20000 && v<90000) return new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000).toISOString().slice(0,10); return ''; }
-  const t=String(v).trim(); if(/^\d{5}(\.\d+)?$/.test(t)) return docNgay(Number(t));   // ngày dạng số Excel bị lưu thành chữ
-  let m=t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
-  if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
-  m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
-  return '';
-}
-function docSo(v, rongLa){
-  if(typeof v==='number') return v;
-  let t=String(v??'').trim().replace(/\s/g,''); if(!t || /^-+$/.test(t)) return rongLa;
-  if(/^-?\d{1,3}([.,]\d{3})+$/.test(t)) t=t.replace(/[.,]/g,''); else t=t.replace(',','.');
-  const n=Number(t); return isNaN(n)?NaN:n;
-}
-function phanTichFileMau(rows, tenFile){
-  const hdr=rows.findIndex(r=>r.some(c=>boDau(c)==='chuoi') && r.some(c=>boDau(c).startsWith('soluong')));
-  if(hdr<0) return {loi:[{dong:0, loi:'Không thấy hàng tiêu đề có cột “Chuỗi” và “Số lượng bán”. Hãy dùng đúng file mẫu.'}], dong:[]};
-  const cot={}; rows[hdr].forEach((c,i)=>{ const h=boDau(c);
-    if(h==='chuoi') cot.chuoi=i; else if(h.startsWith('tuan')) cot.tuan=i; else if(h==='masku'||h==='ma') cot.ma=i;
-    else if(h==='tensku'||h.startsWith('tenhang')) cot.ten=i; else if(h.startsWith('nhan')) cot.nhan=i; else if(h.startsWith('cuahang')) cot.ch=i;
-    else if(h.startsWith('soluong')) cot.sl=i; else if(h.startsWith('doanhso')) cot.ds=i; else if(h.startsWith('ton')) cot.ton=i; });
-  const thieu=['chuoi','tuan','sl'].filter(k=>cot[k]==null); if(cot.ma==null && cot.ten==null) thieu.push('ma/ten');
-  if(thieu.length) return {loi:[{dong:hdr+1, loi:'Thiếu cột: '+thieu.join(', ')}], dong:[]};
-  const loi=[], gop=new Map(); let boTrong=0;
-  for(let i=hdr+1;i<rows.length;i++){
-    const r=rows[i], o=k=>cot[k]==null?'':r[cot[k]];
-    if(r.every(c=>String(c??'').trim()==='')){ boTrong++; continue; }
-    const dong=i+1, bao=t=>loi.push({dong, loi:t});
-    const ht=khopKenh(o('chuoi')); if(!ht){ bao(`Chuỗi “${o('chuoi')}” chưa có trong danh mục hệ thống`); continue; }
-    const ngay=docNgay(o('tuan')); if(!ngayHopLe(ngay)){ bao(`Ngày tuần “${o('tuan')}” không đọc được (ghi dạng 03/11/2026)`); continue; }
-    const ma=String(o('ma')??'').trim(), ten=String(o('ten')??'').trim(); if(!ma && !ten){ bao('Thiếu cả mã SKU và tên SKU'); continue; }
-    const sl=docSo(o('sl'),0); if(isNaN(sl)){ bao(`Số lượng “${o('sl')}” không phải số`); continue; }
-    const ds=docSo(o('ds'),0); if(isNaN(ds)){ bao(`Doanh số “${o('ds')}” không phải số`); continue; }
-    const ton=docSo(o('ton'),null); if(ton!==null && isNaN(ton)){ bao(`Tồn “${o('ton')}” không phải số`); continue; }
-    const nh=khopNhan(o('nhan'))||khopNhan(ten);
-    const x={chuoi:ht.ten, tuan:thuHai(ngay), khoa_sku:ma?'ma:'+ma:'ten:'+khoaTen(ten), ma_sku:ma, ten_sku:ten, nhan_hang:nh?nh.ten:String(o('nhan')??'').trim(),
-      cua_hang:String(o('ch')??'').trim(), so_luong:sl, doanh_so:ds, ton};
-    const k=[x.chuoi,x.tuan,x.khoa_sku,x.cua_hang].join('|'); const cu=gop.get(k);
-    if(cu){ cu.so_luong+=sl; cu.doanh_so+=ds; if(ton!==null) cu.ton=ton; } else gop.set(k,x);   // trùng dòng trong file: cộng lại
-  }
-  const dong=[...gop.values()]; const tuans=dong.map(x=>x.tuan).sort();
-  return {tenFile, dong, loi, boTrong, chuoi:[...new Set(dong.map(x=>x.chuoi))], tu:tuans[0]||'', den:tuans[tuans.length-1]||'',
-    tongSL:dong.reduce((m,x)=>m+x.so_luong,0), tongDS:dong.reduce((m,x)=>m+x.doanh_so,0), khongNhan:dong.filter(x=>!x.nhan_hang).length};
-}
-async function docFileSellOut(file){
-  if(!file) return;
-  try{ await taiThuVienXlsx(); toast('Đang đọc file…');
-    const wb=XLSX.read(await file.arrayBuffer(), {type:'array', cellDates:false});
-    const ten=wb.SheetNames.find(n=>/sell/i.test(n)) || wb.SheetNames[0];
-    const rows=XLSX.utils.sheet_to_json(wb.Sheets[ten], {header:1, raw:true, defval:'', blankrows:true});
-    nhapTam=phanTichFileMau(rows, file.name); render();
-  }catch(e){ console.error(e); toast('Không đọc được file: '+(e.message||e)); }
-}
-async function taoFileMau(){
-  try{ await taiThuVienXlsx();
-    const wb=XLSX.utils.book_new();
-    const ws=XLSX.utils.aoa_to_sheet([COT_MAU]); ws['!cols']=[14,20,12,34,12,26,14,16,14].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb, ws, 'Sell-out tuần');
-    const hd=[['HƯỚNG DẪN NHẬP SELL-OUT THEO TUẦN'],[],
-      ['• Mỗi dòng là số bán ra của 1 SKU trong 1 tuần (thứ Hai – Chủ nhật), tại 1 cửa hàng hoặc cả chuỗi.'],
-      ['• Tuần: ghi ngày bất kỳ trong tuần (ví dụ 03/11/2026), app tự đổi về thứ Hai của tuần đó.'],
-      ['• Có Mã SKU thì ghi mã; không có thì ghi Tên SKU (giữ cùng một cách viết qua các tuần).'],
-      ['• Cửa hàng: để trống nếu số là tổng cả chuỗi. Tồn cuối tuần: không bắt buộc.'],
-      ['• Nhập lại cùng chuỗi + tuần + SKU + cửa hàng thì app ghi đè số cũ (dùng khi chuỗi gửi số sửa lại).'],
-      ['• Chỉ dán dữ liệu vào tab “Sell-out tuần”, giữ nguyên hàng tiêu đề.'],[],
-      ['Chuỗi hợp lệ (cột Chuỗi):'], ...HT.map(h=>['   '+h.ten]), [],
-      ['Nhãn hàng hợp lệ (cột Nhãn hàng):'], ...NH.map(n=>['   '+n.ten])];
-    const ws2=XLSX.utils.aoa_to_sheet(hd); ws2['!cols']=[{wch:100}]; XLSX.utils.book_append_sheet(wb, ws2, 'Hướng dẫn');
-    XLSX.writeFile(wb, 'mau-sell-out-theo-tuan.xlsx');
-  }catch(e){ toast(e.message||String(e)); }
-}
-function nhapSellOut(){
-  const t=nhapTam; if(!t||!t.dong.length) return;
-  const rows=t.dong; nhapTam=null; render(); toast(`Đang nhập ${rows.length} dòng…`);
-  run('so-nhap', async()=>{
-    const lo=must(await sb.from('lo_nhap_sell_out').insert({ten_file:t.tenFile, chuoi:t.chuoi.join(', '), tu_tuan:t.tu||null, den_tuan:t.den||null, so_dong:rows.length}).select('id').single());
-    for(let i=0;i<rows.length;i+=500){
-      must(await sb.from('sell_out_tuan').upsert(rows.slice(i,i+500).map(x=>({...x, lo_nhap_id:lo.id})), {onConflict:'chuoi,tuan,khoa_sku,cua_hang'}));
-      if(rows.length>500) toast(`Đã nhập ${Math.min(i+500,rows.length)}/${rows.length} dòng…`);
-    }
-    soDuLieu=null; soHd={}; toast(`Đã nhập ${rows.length} dòng sell-out từ “${t.tenFile}”`);
-  });
-}
 async function layHet(q){ const out=[]; for(let tu=0;;tu+=1000){ const {data,error}=await q().range(tu,tu+999); if(error) throw error; out.push(...data); if(data.length<1000) break; } return out; }
+function tenKy(x){ const tu=ngay10(x.tu_ngay), den=ngay10(x.den_ngay);
+  if(tu.slice(8)==='01' && addDays(den,1).slice(8)==='01' && tu.slice(0,7)===den.slice(0,7)) return 'T'+Number(tu.slice(5,7))+'/'+tu.slice(0,4);
+  return fd(tu).slice(0,5)+'–'+fd(den).slice(0,5); }
+function gomKy(rows){ // gộp các dòng cùng kỳ (khi xem tất cả nhãn)
+  const m=new Map(); rows.forEach(x=>{ const tu=ngay10(x.tu_ngay), den=ngay10(x.den_ngay), k=tu+'|'+den;
+    const o=m.get(k)||m.set(k,{tu,den,so_ngay:diff(tu,den)+1,ky:x.ky,sl:0,ds:0,ton:null,ch:0}).get(k);
+    o.sl+=Number(x.so_luong)||0; o.ds+=Number(x.doanh_so)||0; o.ch+=Number(x.so_cua_hang_ban)||0; if(x.ton!=null) o.ton=(o.ton||0)+Number(x.ton); });
+  return [...m.values()].sort((a,b)=>a.tu.localeCompare(b.tu)); }
+function sellInTrong(si, tu, den){ let sl=0, ds=0, co=false; si.forEach(x=>{ const n=ngay10(x.ngay); if(n>=tu && n<=den){ sl+=Number(x.so_luong)-Number(x.tra_lai_sl||0); ds+=Number(x.doanh_so)||0; co=true; } }); return co?{sl,ds}:null; }
 function taiSoXem(){
-  const L=soLoc, key=[L.chuoi,L.nhan,L.soTuan].join('|'); if(!L.chuoi || soDangTai===key || soDuLieu?.key===key) return;
-  soDangTai=key; const tu=addDays(thuHai(todayStr()), -7*(Number(L.soTuan)-1));
-  const loc=q=>{ q=q.eq('chuoi',L.chuoi).gte('tuan',tu); return L.nhan?q.eq('nhan_hang',L.nhan):q; };
-  Promise.all([layHet(()=>loc(sb.from('sell_out_tuan_sku').select('*'))), layHet(()=>loc(sb.from('sell_out_tuan_nhan').select('*')))])
-    .then(([sku,nhan])=>{ soDuLieu={key, tu, sku, nhan}; }).catch(e=>{ soDuLieu={key, tu, loi:errText(e), sku:[], nhan:[]}; })
+  const L=soLoc, key=[L.chuoi,L.nhan].join('|'); if(!L.chuoi || soDangTai===key || soDuLieu?.key===key) return;
+  soDangTai=key;
+  const loc=(q,c='nhan_hang')=>{ q=q.eq('chuoi',L.chuoi); return L.nhan?q.eq(c,L.nhan):q; };
+  Promise.all([layHet(()=>loc(sb.from('sell_out_ky_sku').select('*'))), layHet(()=>loc(sb.from('sell_out_ky_nhan').select('*'))), layHet(()=>loc(sb.from('sell_in_ngay').select('*')))])
+    .then(([sku,nhan,si])=>{ soDuLieu={key, sku, nhan, si}; }).catch(e=>{ soDuLieu={key, loi:errText(e)}; })
     .finally(()=>{ soDangTai=''; schedule(); });
 }
 function renderSellOut(){
-  const L=soLoc; const dsChuoi=[...new Set(soLoNhap.flatMap(l=>String(l.chuoi||'').split(',').map(x=>x.trim()).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'vi'));
-  if(!L.chuoi && dsChuoi.length) L.chuoi=dsChuoi[0];
-  let h='';
-  if(!laKhach()){
-    const t=nhapTam;
-    h+=`<section class="card"><div class="card-h"><div><h2>Nhập sell-out theo tuần</h2><p>Dán số của các chuỗi vào file mẫu rồi tải lên. Nhập lại cùng chuỗi + tuần + SKU + cửa hàng thì số mới ghi đè số cũ.</p></div></div>
-    <div class="filters" style="align-items:center"><button class="btn" data-act="so-mau" type="button">⬇ Tải file mẫu</button>
-      <label class="btn pri" style="cursor:pointer">⬆ Chọn file để nhập<input id="soFile" type="file" accept=".xlsx,.xls,.csv" hidden></label>
-      <span class="sub">Bước 1: tải file mẫu · Bước 2: dán số vào tab “Sell-out tuần” · Bước 3: chọn file, xem lại, bấm Nhập</span></div>
-    ${t?`<div style="padding:12px 16px;border-top:1px solid var(--line);display:grid;gap:8px">
-      <div><b>${esc(t.tenFile||'')}</b></div>
-      ${t.dong.length?`<div class="chips"><span class="chip">${t.dong.length} dòng hợp lệ</span><span class="chip">Chuỗi: ${esc(t.chuoi.join(', '))}</span><span class="chip num">Tuần ${fd(t.tu)} → ${fd(t.den)}</span><span class="chip num">Tổng SL ${soVN(t.tongSL)}</span><span class="chip num">Tổng DS ${soVN(t.tongDS)}</span>${t.khongNhan?`<span class="chip">${t.khongNhan} dòng chưa rõ nhãn hàng</span>`:''}</div>`:''}
-      ${t.loi.length?`<div><b class="late">${t.loi.length} dòng lỗi (sẽ bỏ qua):</b><ul class="loi-list">${t.loi.slice(0,12).map(x=>`<li>Dòng ${x.dong}: ${esc(x.loi)}</li>`).join('')}${t.loi.length>12?`<li>… và ${t.loi.length-12} dòng khác</li>`:''}</ul></div>`:''}
-      <div style="display:flex;gap:8px">${t.dong.length?`<button class="btn pri" data-act="so-nhap" type="button">Nhập ${t.dong.length} dòng vào app</button>`:''}<button class="btn" data-act="so-huy" type="button">Hủy</button></div></div>`:''}
-    </section>`;
-  }
-  h+=`<section class="card"><div class="card-h"><div><h2>Xem sell-out theo tuần</h2><p>Số lượng bán theo SKU từng tuần (thứ Hai – Chủ nhật). Chỉ hiện số đã nhập, chưa tính toán.</p></div></div>`;
-  if(!dsChuoi.length) h+=`<div class="empty">Chưa có số sell-out nào. ${laKhach()?'':'Tải file mẫu, dán số rồi nhập ở khung trên.'}</div>`;
-  else {
-    h+=`<div class="filters"><select id="soChuoi" aria-label="Chuỗi">${dsChuoi.map(c=>`<option ${c===L.chuoi?'selected':''}>${esc(c)}</option>`).join('')}</select>
-      <select id="soNhan" aria-label="Nhãn hàng"><option value="">Tất cả nhãn</option>${NH.map(n=>`<option ${n.ten===L.nhan?'selected':''}>${esc(n.ten)}</option>`).join('')}</select>
-      <select id="soTuan" aria-label="Số tuần">${[4,8,12,26,52].map(n=>`<option value="${n}" ${String(n)===L.soTuan?'selected':''}>${n} tuần gần nhất</option>`).join('')}</select></div>`;
-    const key=[L.chuoi,L.nhan,L.soTuan].join('|'); const d=soDuLieu;
-    if(!d||d.key!==key){ taiSoXem(); h+='<div class="empty">Đang tải số…</div>'; }
-    else if(d.loi) h+=`<div class="empty">Không tải được: ${esc(d.loi)}</div>`;
-    else if(!d.sku.length) h+='<div class="empty">Chưa có số của chuỗi / nhãn này trong khoảng tuần đã chọn.</div>';
-    else {
-      const tuans=[...new Set(d.nhan.map(x=>String(x.tuan).slice(0,10)))].sort();
-      const skus=new Map(); d.sku.forEach(x=>{ const k=x.khoa_sku; const o=skus.get(k)||skus.set(k,{ten:x.ten_sku||x.ma_sku, ma:x.ma_sku, nhan:x.nhan_hang, w:{}, tong:0}).get(k); const w=String(x.tuan).slice(0,10); o.w[w]=(o.w[w]||0)+Number(x.so_luong); o.tong+=Number(x.so_luong); });
-      const tongTuan=k=>{ const o={}; d.nhan.forEach(x=>{ const w=String(x.tuan).slice(0,10); o[w]=(o[w]||0)+(x[k]==null?0:Number(x[k])); }); return o; };
-      const sl=tongTuan('so_luong'), ds=tongTuan('doanh_so'), ch=tongTuan('so_cua_hang_ban'), ton=tongTuan('ton');
-      h+=`<div class="scroll"><table class="so-pivot"><thead><tr><th>SKU</th>${L.nhan?'':'<th>Nhãn</th>'}${tuans.map(w=>`<th class="n" title="${fd(w)} – ${fd(addDays(w,6))}">${fd(w).slice(0,5)}</th>`).join('')}<th class="n">Tổng</th></tr></thead><tbody>${
-        [...skus.values()].sort((a,b)=>b.tong-a.tong).map(o=>`<tr><td>${esc(o.ten)}${o.ma&&o.ten!==o.ma?` <span class="sub">${esc(o.ma)}</span>`:''}</td>${L.nhan?'':`<td>${esc(o.nhan||'—')}</td>`}${tuans.map(w=>`<td class="n">${o.w[w]==null?'—':soVN(o.w[w])}</td>`).join('')}<td class="n"><b>${soVN(o.tong)}</b></td></tr>`).join('')
-      }<tr class="tong"><td>Tổng số lượng</td>${L.nhan?'':'<td></td>'}${tuans.map(w=>`<td class="n">${soVN(sl[w])}</td>`).join('')}<td class="n">${soVN(Object.values(sl).reduce((a,b)=>a+b,0))}</td></tr>
-      <tr><td>Doanh số</td>${L.nhan?'':'<td></td>'}${tuans.map(w=>`<td class="n">${soVN(ds[w])}</td>`).join('')}<td class="n">${soVN(Object.values(ds).reduce((a,b)=>a+b,0))}</td></tr>
-      <tr><td>Số cửa hàng có bán${L.nhan?'':' (cộng các nhãn)'}</td>${L.nhan?'':'<td></td>'}${tuans.map(w=>`<td class="n">${soVN(ch[w])}</td>`).join('')}<td></td></tr>
-      <tr><td>Tồn cuối tuần</td>${L.nhan?'':'<td></td>'}${tuans.map(w=>`<td class="n">${soVN(ton[w])}</td>`).join('')}<td></td></tr></tbody></table></div>`;
-    }
-  }
-  h+='</section>';
-  h+=`<section class="card"><div class="card-h"><h2>Các lần nhập</h2><p>${soLoNhap.length} lần · xóa một lần nhập sẽ xóa số của lần đó (trừ dòng đã được lần nhập sau ghi đè)</p></div>${soLoNhap.length?`<div class="scroll"><table><thead><tr><th>Lúc</th><th>File</th><th>Chuỗi</th><th>Tuần</th><th class="n">Số dòng</th><th>Người nhập</th><th></th></tr></thead><tbody>${
-    soLoNhap.map(l=>`<tr><td class="num">${new Date(l.luc).toLocaleString('vi-VN')}</td><td>${esc(l.ten_file)}</td><td>${esc(l.chuoi)}</td><td class="num">${fd(l.tu_tuan)} → ${fd(l.den_tuan)}</td><td class="n">${soVN(l.so_dong)}</td><td>${esc((members.find(m=>m.email===l.nguoi)||{}).ho_ten||l.nguoi)}</td><td style="text-align:right">${laKhach()?'':`<button class="btn sm danger" data-xoa-lo="${esc(l.id)}" type="button">Xóa</button>`}</td></tr>`).join('')
-  }</tbody></table></div>`:'<div class="empty">Chưa có lần nhập nào.</div>'}</section>`;
+  const L=soLoc; const dsChuoi=[...new Set(soNguon.map(n=>CHUOI_NGUON[n.nguon]).filter(Boolean))];
+  if(!L.chuoi || !dsChuoi.includes(L.chuoi)) L.chuoi=dsChuoi[0]||'';
+  let h=`<section class="card"><div class="card-h"><div><h2>Nguồn số liệu</h2><p>Số được chép từ dashboard “Data Sell-in/out kênh bán MT”. App chỉ đọc; muốn cập nhật số mới thì nhờ Claude “cập nhật số bán từ dashboard”.</p></div></div>${
+    soNguon.length?`<div class="scroll"><table><thead><tr><th>Bộ số</th><th>Nội dung</th><th class="n">Số dòng</th><th>Dashboard cập nhật</th><th>Chép sang app</th></tr></thead><tbody>${
+      soNguon.slice().sort((a,b)=>a.nguon.localeCompare(b.nguon)).map(n=>`<tr><td><b>${esc(n.ten||n.nguon)}</b></td><td class="sub">${esc(n.mo_ta)}</td><td class="n">${soVN(n.so_dong)}</td><td class="num">${n.nguon_cap_nhat?esc(new Date(n.nguon_cap_nhat).toLocaleString('vi-VN')):'—'}</td><td class="num">${new Date(n.luc).toLocaleString('vi-VN')}</td></tr>`).join('')
+    }</tbody></table></div>`:'<div class="empty">Chưa chép số nào từ dashboard.</div>'}</section>`;
+  h+=`<section class="card"><div class="card-h"><div><h2>Số bán ra theo kỳ</h2><p>Số lượng bán ra theo SKU từng kỳ của chuỗi (Co.op theo tháng, Emart theo tuần trong tháng), kèm giao vào (sell-in) cùng kỳ. Chỉ hiện số, chưa tính toán.</p></div></div>`;
+  if(!dsChuoi.length) return h+'<div class="empty">Chưa có số bán ra.</div></section>';
+  h+=`<div class="filters"><select id="soChuoi" aria-label="Chuỗi">${dsChuoi.map(c=>`<option ${c===L.chuoi?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    <select id="soNhan" aria-label="Nhãn hàng"><option value="">Tất cả nhãn</option>${NH.map(n=>`<option ${n.ten===L.nhan?'selected':''}>${esc(n.ten)}</option>`).join('')}</select>
+    <select id="soKy" aria-label="Số kỳ">${[4,6,12,26,52].map(n=>`<option value="${n}" ${String(n)===L.soKy?'selected':''}>${n} kỳ gần nhất</option>`).join('')}</select></div>`;
+  const d=soDuLieu, key=[L.chuoi,L.nhan].join('|');
+  if(!d||d.key!==key){ taiSoXem(); return h+'<div class="empty">Đang tải số…</div></section>'; }
+  if(d.loi) return h+`<div class="empty">Không tải được: ${esc(d.loi)}</div></section>`;
+  const ky=gomKy(d.nhan).slice(-Number(L.soKy)); if(!ky.length) return h+'<div class="empty">Chưa có số của chuỗi / nhãn này.</div></section>';
+  const kk=new Set(ky.map(k=>k.tu+'|'+k.den));
+  const skus=new Map(); d.sku.forEach(x=>{ const k=ngay10(x.tu_ngay)+'|'+ngay10(x.den_ngay); if(!kk.has(k)) return;
+    const o=skus.get(x.ma_sku)||skus.set(x.ma_sku,{ten:x.ten_sku||x.ma_sku, nhan:x.nhan_hang, w:{}, tong:0}).get(x.ma_sku); o.w[k]=(o.w[k]||0)+Number(x.so_luong); o.tong+=Number(x.so_luong); });
+  const coTon=ky.some(k=>k.ton!=null), dong=(nhan,f)=>`<tr class="${nhan==='Tổng bán ra'?'tong':''}"><td>${nhan}</td>${L.nhan?'':'<td></td>'}${ky.map(f).join('')}<td></td></tr>`;
+  h+=`<div class="scroll"><table class="so-pivot"><thead><tr><th>SKU</th>${L.nhan?'':'<th>Nhãn</th>'}${ky.map(k=>`<th class="n" title="${fd(k.tu)} – ${fd(k.den)} (${k.so_ngay} ngày)">${esc(tenKy(k))}</th>`).join('')}<th class="n">Tổng</th></tr></thead><tbody>${
+    [...skus.values()].sort((a,b)=>b.tong-a.tong).map(o=>`<tr><td>${esc(o.ten)}</td>${L.nhan?'':`<td>${esc(o.nhan||'—')}</td>`}${ky.map(k=>{ const v=o.w[k.tu+'|'+k.den]; return `<td class="n">${v==null?'—':soVN(v)}</td>`; }).join('')}<td class="n"><b>${soVN(o.tong)}</b></td></tr>`).join('')
+  }${dong('Tổng bán ra', k=>`<td class="n">${soVN(k.sl)}</td>`)}
+  ${dong('Số ngày của kỳ', k=>`<td class="n">${k.so_ngay}</td>`)}
+  ${dong('Doanh số bán ra', k=>`<td class="n">${soVN(k.ds)}</td>`)}
+  ${dong('Cửa hàng có bán'+(L.nhan?'':' (cộng các nhãn)'), k=>`<td class="n">${soVN(k.ch)}</td>`)}
+  ${coTon?dong('Tồn cuối kỳ', k=>`<td class="n">${soVN(k.ton)}</td>`):''}
+  ${dong('Sell-in cùng kỳ (SL)', k=>{ const v=sellInTrong(d.si,k.tu,k.den); return `<td class="n">${v?soVN(v.sl):'—'}</td>`; })}</tbody></table></div>
+  <p class="hint" style="padding:8px 16px 12px">Doanh số bán ra: Co.op theo giá vốn Co.op, Emart theo giá bán lẻ sau KM. Sell-in = số lượng giao vào trừ trả lại, cùng khoảng ngày của kỳ.</p></section>`;
   return h;
 }
-/* Bảng sell-out trước – trong – sau trong màn chi tiết hoạt động */
+/* Bảng số bán quanh đợt CTKM trong màn chi tiết hoạt động */
 function renderSoHd(a){
   if(!a.kenh || !a.bd || !a.kt) return '';
-  const key=[a.kenh,a.nhan,a.bd,a.kt].join('|'), c=soHd[a.id];
-  const dau=addDays(thuHai(a.bd),-28), cuoi=addDays(thuHai(a.kt),28);
+  const key=[a.kenh,a.nhan,a.bd,a.kt,soNguon.map(n=>n.luc).join()].join('|'), c=soHd[a.id];
+  const dau=addDays(a.bd,-35), cuoi=addDays(a.kt,35);
   if(!c || c.key!==key){
-    if(!c?.dang){ soHd[a.id]={key, dang:true};
-      layHet(()=>{ let q=sb.from('sell_out_tuan_nhan').select('*').eq('chuoi',a.kenh).gte('tuan',dau).lte('tuan',cuoi); return a.nhan?q.eq('nhan_hang',a.nhan):q; })
-        .then(d=>{ soHd[a.id]={key, d}; }).catch(e=>{ soHd[a.id]={key, loi:errText(e)}; }).finally(()=>schedule()); }
-    return `<section class="card"><div class="card-h"><h2>Sell-out theo tuần quanh đợt CTKM</h2></div><div class="empty">Đang tải số sell-out…</div></section>`;
+    if(!c?.dang || c.key!==key){ soHd[a.id]={key, dang:true};
+      const loc=q=>a.nhan?q.eq('nhan_hang',a.nhan):q;
+      Promise.all([layHet(()=>loc(sb.from('sell_out_ky_nhan').select('*').eq('chuoi',a.kenh).gte('den_ngay',dau).lte('tu_ngay',cuoi))),
+                   layHet(()=>loc(sb.from('sell_in_ngay').select('*').eq('chuoi',a.kenh).gte('ngay',dau).lte('ngay',cuoi)))])
+        .then(([so,si])=>{ soHd[a.id]={key, so, si}; }).catch(e=>{ soHd[a.id]={key, loi:errText(e)}; }).finally(()=>schedule()); }
+    return `<section class="card"><div class="card-h"><h2>Số bán quanh đợt CTKM</h2></div><div class="empty">Đang tải số bán…</div></section>`;
   }
   if(c.dang) return '';
-  const tieuDe=`<div class="card-h"><div><h2>Sell-out theo tuần quanh đợt CTKM</h2><p>${esc(a.kenh)}${a.nhan?' · '+esc(a.nhan):''} · 4 tuần trước, các tuần chạy và 4 tuần sau đợt (${fd(a.bd)} – ${fd(a.kt)}). Chỉ hiện số đã nhập, chưa tính toán.</p></div><button class="btn sm" data-act="so-xem-hd" type="button">Xem theo SKU</button></div>`;
+  const tieuDe=`<div class="card-h"><div><h2>Số bán quanh đợt CTKM</h2><p>${esc(a.kenh)}${a.nhan?' · '+esc(a.nhan):' · tất cả nhãn'} · các kỳ trong khoảng 5 tuần trước đến 5 tuần sau đợt (${fd(a.bd)} – ${fd(a.kt)}). Chỉ hiện số, chưa tính toán.</p></div>${(soNguon.some(n=>CHUOI_NGUON[n.nguon]===a.kenh))?'<button class="btn sm" data-act="so-xem-hd" type="button">Xem theo SKU</button>':''}</div>`;
   if(c.loi) return `<section class="card">${tieuDe}<div class="empty">Không tải được: ${esc(c.loi)}</div></section>`;
-  const theoTuan={}; c.d.forEach(x=>{ const w=String(x.tuan).slice(0,10); const o=theoTuan[w]||(theoTuan[w]={sl:0,ds:0,ch:0,ton:null}); o.sl+=Number(x.so_luong)||0; o.ds+=Number(x.doanh_so)||0; o.ch+=Number(x.so_cua_hang_ban)||0; if(x.ton!=null) o.ton=(o.ton||0)+Number(x.ton); });
-  if(!Object.keys(theoTuan).length) return `<section class="card">${tieuDe}<div class="empty">Chưa có số sell-out của ${esc(a.kenh)}${a.nhan?' – '+esc(a.nhan):''} cho các tuần này. Nhập ở trang <a href="#sell-out">Sell-out</a>.</div></section>`;
-  const rows=[]; for(let w=dau; w<=cuoi; w=addDays(w,7)){
-    const ct=w+'', het=addDays(w,6); const giao=Math.max(0, diff(w>a.bd?w:a.bd, het<a.kt?het:a.kt)+1);
-    const gd = giao>0 ? (giao<7?`Trong CTKM (${giao}/7 ngày)`:'Trong CTKM') : (het<a.bd?'Trước CTKM':'Sau CTKM');
-    const o=theoTuan[ct];
-    rows.push(`<tr class="${giao>0?'trong-ctkm':''}"><td class="num">${fd(w).slice(0,5)} – ${fd(het)}</td><td>${gd}</td><td class="n">${o?soVN(o.sl):'—'}</td><td class="n">${o?soVN(o.ds):'—'}</td><td class="n">${o?soVN(o.ch):'—'}</td><td class="n">${o&&o.ton!=null?soVN(o.ton):'—'}</td></tr>`);
+  const giaiDoan=(tu,den)=>{ const g=Math.max(0, diff(tu>a.bd?tu:a.bd, den<a.kt?den:a.kt)+1), n=diff(tu,den)+1;
+    return g>0 ? (g<n?`Trong CTKM (${g}/${n} ngày)`:'Trong CTKM') : (den<a.bd?'Trước CTKM':'Sau CTKM'); };
+  let ky=gomKy(c.so), coBanRa=ky.length>0;
+  if(!coBanRa){ // chuỗi chưa có số bán ra trong dashboard: hiện sell-in theo tuần
+    ky=[]; for(let w=thuHai(dau); w<=cuoi; w=addDays(w,7)) ky.push({tu:w, den:addDays(w,6), so_ngay:7});
+    if(!c.si.length) return `<section class="card">${tieuDe}<div class="empty">Dashboard chưa có số bán ra hay sell-in của ${esc(a.kenh)}${a.nhan?' – '+esc(a.nhan):''} cho khoảng này.</div></section>`;
   }
-  return `<section class="card">${tieuDe}<div class="scroll"><table class="so-pivot"><thead><tr><th>Tuần</th><th>Giai đoạn</th><th class="n">Số lượng bán</th><th class="n">Doanh số</th><th class="n">Cửa hàng có bán</th><th class="n">Tồn cuối tuần</th></tr></thead><tbody>${rows.join('')}</tbody></table></div><p class="hint" style="padding:8px 16px 12px">“—” = tuần đó chưa có số. Cửa hàng có bán${a.nhan?'':' (cộng các nhãn)'} = số cửa hàng có số lượng bán &gt; 0.</p></section>`;
+  const coTon=ky.some(k=>k.ton!=null);
+  const rows=ky.map(k=>{ const gd=giaiDoan(k.tu,k.den), si=sellInTrong(c.si,k.tu,k.den);
+    return `<tr class="${gd.startsWith('Trong')?'trong-ctkm':''}"><td class="num">${fd(k.tu).slice(0,5)} – ${fd(k.den)}<div class="sub">${k.so_ngay} ngày</div></td><td>${gd}</td>${coBanRa?`<td class="n">${soVN(k.sl)}</td><td class="n">${so1(k.sl/k.so_ngay)}</td><td class="n">${soVN(k.ds)}</td><td class="n">${soVN(k.ch)}</td>${coTon?`<td class="n">${soVN(k.ton)}</td>`:''}`:''}<td class="n">${si?soVN(si.sl):'—'}</td></tr>`; }).join('');
+  return `<section class="card">${tieuDe}${coBanRa?'':`<p class="hint" style="padding:0 16px">Dashboard chưa có số bán ra của ${esc(a.kenh)}, tạm hiện sell-in theo tuần (thứ Hai – Chủ nhật).</p>`}<div class="scroll"><table class="so-pivot"><thead><tr><th>Kỳ</th><th>Giai đoạn</th>${coBanRa?`<th class="n">Bán ra (SL)</th><th class="n">Bán ra / ngày</th><th class="n">Doanh số bán ra</th><th class="n">Cửa hàng có bán</th>${coTon?'<th class="n">Tồn cuối kỳ</th>':''}`:''}<th class="n">Sell-in (SL)</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="hint" style="padding:8px 16px 12px">Bán ra / ngày = số lượng bán ra chia số ngày của kỳ (vì các kỳ dài ngắn khác nhau). Sell-in = giao vào trừ trả lại trong cùng khoảng ngày. “—” = không có số.</p></section>`;
 }
 function moLp(id){ const x=lichPost.find(v=>String(v.id)===String(id)); if(!x) return; modal={type:'lp', d:{id:x.id}}; renderModal(); }
 function taoTuLp(id){
@@ -1080,10 +991,8 @@ function traLai(){
 document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach()) openNew(); });
 main.addEventListener('click', e=>{
   if(!authed) return;
-  const t=e.target.closest('[data-xoa-lo],[data-lp],[data-tao-lp],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
+  const t=e.target.closest('[data-lp],[data-tao-lp],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
   if(laKhach() && t.matches(NUT_SUA)) return toast('Bạn đang xem với quyền khách nên không sửa được.');
-  if(t.dataset.xoaLo){ const id=t.dataset.xoaLo, l=soLoNhap.find(x=>x.id===id);
-    return askConfirm('Xóa lần nhập này?', `Số sell-out của lần nhập “${l?.ten_file||''}” (${soVN(l?.so_dong)} dòng) sẽ bị xóa.`, 'Xóa', ()=>run('so-xoa', async()=>{ must(await sb.from('lo_nhap_sell_out').delete().eq('id',id)); soDuLieu=null; soHd={}; toast('Đã xóa lần nhập.'); })); }
   if(t.dataset.lp!=null) return moLp(t.dataset.lp);
   if(t.dataset.taoLp!=null) return taoTuLp(t.dataset.taoLp);
   if(t.dataset.pnav!=null){ const w=+t.dataset.pnav; period.off = w===0?0:period.off+w; return render(); }
@@ -1098,10 +1007,7 @@ main.addEventListener('click', e=>{
     return askConfirm('Xóa bước này?', `“${s.ten}” sẽ bị xóa khỏi hoạt động.`, 'Xóa', ()=>{ a.buoc.splice(i,1); render(); run('b'+s.id,()=>sb.from('buoc_cong_viec').delete().eq('id',s.id)); }); }
   if(t.dataset.suaQt){ const tp=templates.find(x=>x.id===t.dataset.suaQt); modal={type:'tpl', d:Object.assign({moTa:''},clone(tp))}; return renderModal(); }
   const act=t.dataset.act; const a=acts.find(x=>x.id===selectedId);
-  if(act==='so-mau') return taoFileMau();
-  if(act==='so-nhap') return nhapSellOut();
-  if(act==='so-huy'){ nhapTam=null; return render(); }
-  if(act==='so-xem-hd' && a){ soLoc={chuoi:a.kenh, nhan:a.nhan||'', soTuan:'26'}; soDuLieu=null; selectedId=null; location.hash='sell-out'; return; }
+  if(act==='so-xem-hd' && a){ soLoc={chuoi:a.kenh, nhan:a.nhan||'', soKy:'12'}; soDuLieu=null; selectedId=null; location.hash='sell-out'; return; }
   if(act==='back'){ selectedId=null; if(location.hash!=='#hoat-dong') history.replaceState(null,'','#hoat-dong'); render(); }
   if(act==='them-buoc' && a){ const tt=Math.max(0,...(a.buoc||[]).map(b=>b.thuTu||0))+1; run('hd'+a.id,()=>sb.from('buoc_cong_viec').insert({hoat_dong_id:a.id, thu_tu:tt, ten:'Bước mới', han:a.bd||null})); }
   if(act==='sua-hd' && a){ modal={type:'edit', d:{id:a.id, ten:a.ten, nhan:a.nhanId!=null?String(a.nhanId):'', kenh:a.kenhId!=null?String(a.kenhId):'', bd:a.bd, kt:a.kt, re:false}}; renderModal(); }
@@ -1124,10 +1030,9 @@ main.addEventListener('change', e=>{
   if(el.id==='fkenh'){ filters.kenh=el.value; render(); }
   if(el.id==='ftt'){ filters.tt=el.value; render(); }
   if(el.id==='fnguoi'){ calPerson=el.value; render(); }
-  if(el.id==='soFile'){ const f=el.files[0]; el.value=''; return docFileSellOut(f); }
   if(el.id==='soChuoi'){ soLoc.chuoi=el.value; render(); }
   if(el.id==='soNhan'){ soLoc.nhan=el.value; render(); }
-  if(el.id==='soTuan'){ soLoc.soTuan=el.value; render(); }
+  if(el.id==='soKy'){ soLoc.soKy=el.value; render(); }
   if(el.id==='lpChuoi'){ lichLoc.chuoi=el.value; render(); }
   if(el.id==='lpNhan'){ lichLoc.nhan=el.value; render(); }
   if(el.id==='lpLoai'){ lichLoc.loai=el.value; render(); }
