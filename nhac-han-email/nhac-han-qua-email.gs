@@ -56,13 +56,18 @@ function tatHenGio() {
 
 // ---- Phần bên trong ----
 
+// Thông số: lấy ở Thuộc tính tập lệnh; nếu trống thì lấy ở tệp cấu hình riêng (CAU_HINH_RIENG, không chứa mã bí mật)
+function thongSo_(ten) {
+  var v = PropertiesService.getScriptProperties().getProperty(ten);
+  if (!v && typeof CAU_HINH_RIENG !== 'undefined' && CAU_HINH_RIENG[ten]) v = CAU_HINH_RIENG[ten];
+  return String(v || '').trim();
+}
 function layThongSo_() {
-  var p = PropertiesService.getScriptProperties();
   var g = {
-    url: (p.getProperty('SUPABASE_URL') || '').trim().replace(/\/+$/, ''),
-    khoa: (p.getProperty('SUPABASE_KHOA') || '').trim(),
-    ma: (p.getProperty('MA_BI_MAT') || '').trim(),
-    link: (p.getProperty('LINK_APP') || '').trim()
+    url: thongSo_('SUPABASE_URL').replace(/\/+$/, ''),
+    khoa: thongSo_('SUPABASE_KHOA'),
+    ma: thongSo_('MA_BI_MAT'),
+    link: thongSo_('LINK_APP')
   };
   var thieu = [];
   if (!g.url) thieu.push('SUPABASE_URL');

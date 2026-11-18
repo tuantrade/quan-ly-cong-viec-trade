@@ -61,7 +61,7 @@ function dongBoDuLieu() {
     }
     // Google Sheet Emart và Bảng giá: đọc lại khi có thay đổi
     [['EMART_SHEET_ID', 'emart'], ['GIA_SHEET_ID', 'gia_ban']].forEach(function (x) {
-      var id = p.getProperty(x[0]); if (!id) return;
+      var id = thongSo_(x[0]); if (!id) return;
       var f = DriveApp.getFileById(id), ma = id + '@' + f.getLastUpdated().toISOString();
       if (daDoc[ma]) return;
       try { napSheet_(g, x[1], id, f.getName(), ma, f.getLastUpdated().toISOString()); }
@@ -143,7 +143,7 @@ function napSheet_(g, loai, id, ten, ma, sua) {
 function thuDocNguon() {
   var p = PropertiesService.getScriptProperties();
   [['EMART_SHEET_ID', 'emart'], ['GIA_SHEET_ID', 'gia']].forEach(function (x) {
-    var id = p.getProperty(x[0]); if (!id) return; var tabs = {};
+    var id = thongSo_(x[0]); if (!id) return; var tabs = {};
     SpreadsheetApp.openById(id).getSheets().forEach(function (sh) { tabs[sh.getName()] = sh.getDataRange().getValues(); });
     if (x[1] === 'emart') { var e = docEmartSellOut(tabs), t = {}; e.emart_tuan.forEach(function (r) { var k = r.tuan.slice(0, 7); t[k] = (t[k] || 0) + r.sl; });
       console.log('Emart: ' + e.emart_tuan.length + ' dòng; sản lượng theo tháng ' + JSON.stringify(t)); }

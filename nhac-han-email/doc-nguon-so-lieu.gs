@@ -152,7 +152,7 @@ function docEmartSellOut(tabs) {
   var loi = [], gom = {};
   function them(tuan, tu, den, nguon, v, c) {
     var diem = chu_(v[c.diem]), sp = chu_(v[c.sp]); if (!diem || !sp) return;
-    var k = tuan + '|' + diem + '|' + sp;
+    var k = nguon + '|' + tuan + '|' + diem + '|' + sp;   // tách theo nguồn: tab theo ngày và tab theo kỳ không gộp lẫn nhau
     var o = gom[k] || (gom[k] = { tuan: tuan, tu: tu, den: den, so_ngay: soNgay_(tu, den), nguon: nguon, diem_ban: diem, brand: brandChuan_(v[c.brand]),
       san_pham: sp, sl: 0, doanh_so: 0, ctkm: '' });
     o.sl += so_(v[c.sl]); o.doanh_so += so_(v[c.ds]);
