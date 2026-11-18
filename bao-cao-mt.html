@@ -35,7 +35,6 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .bc-than{max-width:1280px;margin:0 auto;padding:16px}
 .bc-thong-bao{padding:14px 16px;border:1px solid var(--color-border-line);border-radius:10px;background:var(--color-panel);margin:16px}
 .dash-skeleton{color:var(--color-fg-muted)}
-#tab-baseline{display:none}   /* Baseline: chặng 2 mới tự tính */
 </style>
 </head>
 <body>
@@ -58,7 +57,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     emart_tuan:  { bang:'ds_emart_tuan', cot:'*', thu_tu:'tu' },
     gia_ban:     { bang:'gia_ban', cot:'he_thong,brand:nhan_hang,san_pham,ten_bang_gia,gia_mua,giam,trading_term,tvp_nhan,gia_von,ln_tvp,ty_le_ln,gia_le,le_tren_mua,ghi_chu', thu_tu:'id',
                    khach:{ bang:'gia_ban_cong_khai', cot:'he_thong,brand:nhan_hang,san_pham,giam,trading_term,gia_le,ghi_chu' } },
-    kiem_ton_ctv:{ rong:true }, baseline:{ rong:true }, baseline_wil:{ rong:true }   // chặng 2
+    kiem_ton_ctv:{ bo_so:'kiem_ton_ctv' }, baseline:{ bo_so:'baseline' }, baseline_wil:{ bo_so:'baseline_wil' }   // bộ số đã tính sẵn
   };
   var ds = {}, calcs = {}, kq = {}, nghe = [], thamSo = {}, laKhach = false;
   Object.keys(NGUON).forEach(function(id){ ds[id] = { status:'loading', data:[] }; });
@@ -88,6 +87,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
   };
   async function layBang(id){
     var n = NGUON[id]; if (n.rong) { ds[id] = { status:'ok', data:[] }; return; }
+    if (n.bo_so) { var b = await sb.from('bo_so_tinh_san').select('du_lieu').eq('bo_so', n.bo_so).maybeSingle(); if (b.error) throw b.error; ds[id] = { status:'ok', data:(b.data && b.data.du_lieu) || [] }; return; }
     var cfg = (laKhach && n.khach) ? Object.assign({}, n, n.khach) : n;
     var dau = await sb.from(cfg.bang).select('*', { count:'exact', head:true }); if (dau.error) throw dau.error;
     var tong = dau.count || 0, trang = [];

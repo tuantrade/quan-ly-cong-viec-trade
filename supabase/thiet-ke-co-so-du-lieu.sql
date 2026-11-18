@@ -690,6 +690,13 @@ create table if not exists public.danh_muc_san_pham (
   ma_hang_tvp text not null default '', ten_hang_tvp text not null default '',
   primary key (nguon, ten_goc)
 );
+-- Bộ số đã tính sẵn (baseline bán trơn, kiểm tồn CTV…): lưu nguyên dạng như dashboard, mỗi bộ 1 dòng
+create table if not exists public.bo_so_tinh_san (
+  bo_so text primary key,                       -- 'baseline' | 'baseline_wil' | 'kiem_ton_ctv'
+  du_lieu jsonb not null default '[]'::jsonb,   -- mảng các dòng
+  so_dong integer not null default 0, ten text not null default '', mo_ta text not null default '',
+  nguon_cap_nhat text not null default '', luc timestamptz not null default now()
+);
 -- Nhật ký nạp: mỗi file / sheet đã đọc
 create table if not exists public.nhat_ky_nap (
   id bigint generated always as identity primary key,
@@ -705,7 +712,7 @@ create table if not exists public.trang_thai_nguon (
 do $$
 declare bang text;
 begin
-  foreach bang in array array['nguon_sellin','nguon_don_hang','nguon_coop_ban','nguon_coop_ch','nguon_coop_sku','nguon_emart','danh_muc_san_pham','nhat_ky_nap','trang_thai_nguon'] loop
+  foreach bang in array array['nguon_sellin','nguon_don_hang','nguon_coop_ban','nguon_coop_ch','nguon_coop_sku','nguon_emart','danh_muc_san_pham','nhat_ky_nap','trang_thai_nguon','bo_so_tinh_san'] loop
     execute format('alter table public.%I enable row level security', bang);
     execute format('grant select on public.%I to authenticated', bang);
     execute format('drop policy if exists "thanh_vien_xem" on public.%I', bang);
@@ -834,6 +841,7 @@ grant select on public.sell_in, public.sell_out, public.sell_out_ky_sku, public.
 --       'coop_ban' (xóa số cũ cùng kỳ rồi thêm) | 'coop_ch' | 'coop_sku' (thêm hoặc cập nhật)
 --       'emart' | 'gia_ban' (lam_moi = true ở lượt đầu: xóa hết rồi thêm)
 --       'danh_muc' (thêm tên ngắn cho tên gốc chưa có; không ghi đè)
+--       'bo_so' (thay nguyên 1 bộ số đã tính sẵn; thong_tin.bo_so = tên bộ)
 -- thong_tin: {tep, ten_tep, tu, den, ky, lam_moi, ten, mo_ta, nguon_cap_nhat, loi}
 create or replace function public.nap_nguon(ma text, loai text, du_lieu jsonb, thong_tin jsonb default '{}'::jsonb)
 returns integer
@@ -912,10 +920,19 @@ begin
     from jsonb_to_recordset(du_lieu) as x(nguon text, ten_goc text, san_pham text, brand text, ma_hang_tvp text, ten_hang_tvp text)
     where x.nguon is not null and x.ten_goc is not null and x.san_pham is not null
     on conflict (nguon, ten_goc) do nothing;
+  elsif loai = 'bo_so' then
+    if coalesce(thong_tin->>'bo_so', '') !~ '^[a-z_]{2,40}$' then raise exception 'Thiếu tên bộ số'; end if;
+    insert into public.bo_so_tinh_san as b (bo_so, du_lieu, so_dong, ten, mo_ta, nguon_cap_nhat, luc)
+    values (thong_tin->>'bo_so', du_lieu, jsonb_array_length(du_lieu), coalesce(thong_tin->>'ten', ''), coalesce(thong_tin->>'mo_ta', ''),
+            coalesce(thong_tin->>'nguon_cap_nhat', ''), now())
+    on conflict (bo_so) do update set du_lieu = excluded.du_lieu, so_dong = excluded.so_dong,
+      ten = case when excluded.ten <> '' then excluded.ten else b.ten end, mo_ta = case when excluded.mo_ta <> '' then excluded.mo_ta else b.mo_ta end,
+      nguon_cap_nhat = excluded.nguon_cap_nhat, luc = excluded.luc;
   else
     raise exception 'Loại không hợp lệ: %', loai;
   end if;
   get diagnostics so = row_count;
+  if loai = 'bo_so' then so := jsonb_array_length(du_lieu); end if;
 
   -- Trạng thái nguồn (để app hiện): lấy tổng số dòng hiện có
   if loai in ('sellin', 'coop_ban', 'emart', 'gia_ban') then

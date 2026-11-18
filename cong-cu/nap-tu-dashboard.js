@@ -62,5 +62,7 @@ async function napTheoLo(loai, rows, thong_tin, co = 5000) {
   await napTheoLo('gia_ban', gia.map(g => ({ he_thong: g.he_thong, brand: g.brand, ten_bang_gia: g.ten_bang_gia, gia_mua: g.gia_mua, giam: g.giam, trading_term: g.trading_term,
     tvp_nhan: g.tvp_nhan, gia_von: g.gia_von, ln_tvp: g.ln_tvp, ty_le_ln: g.ty_le_ln, gia_le: g.gia_le, le_tren_mua: g.le_tren_mua, ghi_chu: g.ghi_chu })),
     { ten: 'Bảng giá siêu thị', mo_ta: 'Hệ thống × sản phẩm: giá bán cho siêu thị, mức giảm, trading term, TVP thu về, giá vốn, lãi gộp, giá bán lẻ', tep: 'dashboard:gia', ten_tep: 'Nạp lần đầu từ dashboard' });
+  const BO_SO = { baseline: ['Baseline bán trơn theo mã × hệ thống', 'Bản tính ngày 06/11/2026'], baseline_wil: ['Baseline bán trơn trà Wil', 'Hộp/30 ngày, cả hệ thống và từng siêu thị'], kiem_ton_ctv: ['Kiểm tồn của CTV', 'Lotte, GO! / Big C: bán ra = tồn đầu + nhập − tồn cuối'] };
+  for (const [bo, [ten, mo_ta]] of Object.entries(BO_SO)) { const rows = doc(dir, bo); if (!rows) continue; const n = await nap('bo_so', rows, { bo_so: bo, ten, mo_ta, nguon_cap_nhat: process.env['CAP_NHAT_' + bo.toUpperCase()] || '' }); console.log('  bo_so ' + bo + ': ' + n + ' dòng'); }
   console.log('Xong.');
 })().catch(e => { console.error('LỖI:', e.message); process.exit(1); });
