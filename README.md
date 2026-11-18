@@ -199,7 +199,7 @@ Trang **Báo cáo MT** (menu “Báo cáo MT ↗”, file `bao-cao-mt.html`) là
 
 - Khoảng **1 giờ** sau khi thả file / sửa sheet, app có số mới. Mỗi lần đọc được ghi vào **nhật ký nạp** (bảng `nhat_ky_nap`), file lỗi ghi rõ lý do (vd “CHƯA BIẾT HỆ THỐNG: …”, “CHƯA BIẾT BRAND …”).
 - **Tên sản phẩm** ở các nguồn được quy về tên ngắn qua bảng `danh_muc_san_pham` (mã SKU Co.op, tên trên sheet Emart, tên trên bảng giá từng hệ thống). Tên mới chưa có trong danh mục hiện ở view `ten_chua_co_danh_muc`; quản lý thêm 1 dòng vào danh mục là xong.
-- Trang **Số bán**, **Giá** và bảng “Số bán quanh đợt CTKM” trong từng hoạt động cũng đọc cùng nguồn số này.
+- Trang **Giá** và bảng “Số bán quanh đợt CTKM” trong từng hoạt động cũng đọc cùng nguồn số này (số bán đầy đủ xem ở trang **Báo cáo MT**).
 
 **Cài script tự nạp** (làm 1 lần, cùng dự án Apps Script với nhắc hạn email):
 1. Trong dự án Apps Script, thêm 2 tệp `doc-nguon-so-lieu` và `dong-bo-du-lieu` (dán nội dung 2 file `.gs` cùng tên).
