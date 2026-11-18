@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo kênh MT</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="cau-hinh.js"></script>
+<style>
+/* Màu và cỡ chữ thay cho bộ giao diện của dashboard Claude */
+:root{
+  --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-anthropic-serif: Georgia, "Times New Roman", serif;
+  --color-bg:#f6f4ef; --color-panel:#ffffff; --color-fg:#1f2421; --color-fg-muted:#5f665f; --color-border-line:#e2ddd2;
+  --color-ok:#23804f; --color-warn:#a86d00; --color-bad:#b9381f;
+  --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:12px; --cds-gap-lg:20px;
+  --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:12px; --cds-pad-lg:16px;
+  --cds-radius:10px; --cds-border:1px solid var(--color-border-line);
+  --cds-font-size-caption:12px; --cds-font-size-body:14px; --cds-font-size-heading:16px; --cds-font-size-title:22px; --cds-font-weight-medium:600;
+  --cds-surface-popover:#ffffff; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.14); --cds-text-secondary:#5f665f;
+  --cds-chart-grid:#ebe6db; --cds-chart-axis:#8a8f88; --cds-chart-muted:#b7b9b2; --cds-dur-slow:.3s;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --color-bg:#151916; --color-panel:#1d221e; --color-fg:#e8ebe6; --color-fg-muted:#a3aaa2; --color-border-line:#2f3630;
+  --color-ok:#6cc595; --color-warn:#e2b04f; --color-bad:#f08a72;
+  --cds-surface-popover:#252b26; --cds-text-secondary:#a3aaa2; --cds-chart-grid:#2b312c; --cds-chart-axis:#7d857c; --cds-chart-muted:#4b524b; } }
+:root[data-theme="dark"]{
+  --color-bg:#151916; --color-panel:#1d221e; --color-fg:#e8ebe6; --color-fg-muted:#a3aaa2; --color-border-line:#2f3630;
+  --color-ok:#6cc595; --color-warn:#e2b04f; --color-bad:#f08a72;
+  --cds-surface-popover:#252b26; --cds-text-secondary:#a3aaa2; --cds-chart-grid:#2b312c; --cds-chart-axis:#7d857c; --cds-chart-muted:#4b524b; }
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans);font-size:14px}
+.bc-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--color-border-line);background:var(--color-panel)}
+.bc-top a{color:inherit} .bc-top .nho{font-size:12px;color:var(--color-fg-muted)}
+.bc-than{max-width:1280px;margin:0 auto;padding:16px}
+.bc-thong-bao{padding:14px 16px;border:1px solid var(--color-border-line);border-radius:10px;background:var(--color-panel);margin:16px}
+.dash-skeleton{color:var(--color-fg-muted)}
+#tab-baseline{display:none}   /* Baseline: chặng 2 mới tự tính */
+</style>
+</head>
+<body>
+<div class="bc-top">
+  <div><a href="./#tong-quan">← Về app</a> · <b>Báo cáo kênh MT</b> <span class="nho" id="bc-nguon"></span></div>
+  <div class="nho" id="bc-ai"></div>
+</div>
+<div id="bc-loi" class="bc-thong-bao" hidden></div>
+<div class="bc-than">
+<script>
+/* ===== Lớp thay cho bộ máy dashboard: lấy số từ Supabase, chạy các phép tính của trang ===== */
+(function(){
+  var CFG = window.CAU_HINH || {}, sb = window.supabase.createClient(CFG.url, CFG.khoa);
+  var NGUON = {   // bộ số của dashboard -> bảng trong Supabase
+    sellin:      { bang:'nguon_sellin',  cot:'ngay,thang,he_thong,brand,ma_hang,ten_hang,dvt,sl_ban,sl_tra,sl_doi,doanh_so,chiet_khau,tra_lai', thu_tu:'id' },
+    don_hang:    { bang:'nguon_don_hang', cot:'ngay,thang,he_thong,diem_nhan,so_chung_tu', thu_tu:'id' },
+    coop_ban:    { bang:'nguon_coop_ban', cot:'ky,sku,ch,sl_ban,gt_ban,sl_ton,gt_ton', thu_tu:'id' },
+    coop_sku:    { bang:'ds_coop_sku',   cot:'*', thu_tu:'ma_sku_coop' },
+    coop_ch:     { bang:'nguon_coop_ch', cot:'*', thu_tu:'ma_ch' },
+    emart_tuan:  { bang:'ds_emart_tuan', cot:'*', thu_tu:'tu' },
+    gia_ban:     { bang:'gia_ban', cot:'he_thong,brand:nhan_hang,san_pham,ten_bang_gia,gia_mua,giam,trading_term,tvp_nhan,gia_von,ln_tvp,ty_le_ln,gia_le,le_tren_mua,ghi_chu', thu_tu:'id',
+                   khach:{ bang:'gia_ban_cong_khai', cot:'he_thong,brand:nhan_hang,san_pham,giam,trading_term,gia_le,ghi_chu' } },
+    kiem_ton_ctv:{ rong:true }, baseline:{ rong:true }, baseline_wil:{ rong:true }   // chặng 2
+  };
+  var ds = {}, calcs = {}, kq = {}, nghe = [], thamSo = {}, laKhach = false;
+  Object.keys(NGUON).forEach(function(id){ ds[id] = { status:'loading', data:[] }; });
+  function ok(id){ return ds[id] && ds[id].status === 'ok'; }
+  function goiNghe(){ kq = {}; nghe.forEach(function(fn){ try{ fn(); }catch(e){ console.error(e); } }); }
+  function chay(id){
+    if (kq[id]) return kq[id];
+    var c = calcs[id];
+    var vao = c.inputs.map(function(i){ return calcs[i] ? chay(i) : (ds[i] || { status:'missing' }); });
+    var chua = vao.filter(function(x){ return x.status !== 'ok'; })[0];
+    if (chua) return { status: chua.status === 'error' ? 'error' : 'loading', data:[], rows:[], message: chua.message };
+    try { var d = c.fn.apply(null, vao.map(function(x){ return x.data; })); var r = { status:'ok', data:d, rows:Array.isArray(d)?d:[], columns:Array.isArray(d)&&d[0]?Object.keys(d[0]):[], meta:[] }; kq[id] = r; return r; }
+    catch(e){ console.error('Phép tính ' + id + ' lỗi', e); return { status:'error', data:[], rows:[], message:String(e.message||e) }; }
+  }
+  window.dash = {
+    data: function(id){ if (calcs[id]) return chay(id); var d = ds[id]; if (!d) return { status:'missing', data:[], rows:[], columns:[] };
+      return { status:d.status, data:d.data, rows:d.data, columns:d.data[0]?Object.keys(d.data[0]):[], message:d.message, refreshing:false, meta:[] }; },
+    calc: function(id, o){ calcs[id] = { inputs:o.inputs||[], fn:o.fn, title:o.title }; },
+    loader: function(){},
+    onData: function(fn){ nghe.push(fn); try{ fn(); }catch(e){ console.error(e); } },
+    colors: ['#2f7cb8','#e0823d','#3d9a5b','#c9506e','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],
+    refresh: function(){ taiHet(); },
+    params: function(){ return Object.assign({}, thamSo); },
+    setParams: function(o){ Object.assign(thamSo, o); goiNghe(); },
+    resetParams: function(){ thamSo = {}; goiNghe(); },
+    setLink: function(ten){ try{ history.replaceState(null, '', '#' + ten); }catch(e){} }
+  };
+  async function layBang(id){
+    var n = NGUON[id]; if (n.rong) { ds[id] = { status:'ok', data:[] }; return; }
+    var cfg = (laKhach && n.khach) ? Object.assign({}, n, n.khach) : n;
+    var dau = await sb.from(cfg.bang).select('*', { count:'exact', head:true }); if (dau.error) throw dau.error;
+    var tong = dau.count || 0, trang = [];
+    for (var tu = 0; tu < tong; tu += 1000) trang.push(sb.from(cfg.bang).select(cfg.cot).order(cfg.thu_tu || 'id').range(tu, tu + 999));
+    var ra = await Promise.all(trang), rows = [];
+    ra.forEach(function(r){ if (r.error) throw r.error; rows.push.apply(rows, r.data); });
+    ds[id] = { status:'ok', data:rows };
+  }
+  async function taiHet(){
+    await Promise.all(Object.keys(NGUON).map(function(id){
+      return layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(function(){ goiNghe(); });
+    }));
+    var tt = await sb.from('dong_bo_so_ban').select('*');
+    if (!tt.error && tt.data) document.getElementById('bc-nguon').textContent = '· Số cập nhật: ' + tt.data.map(function(x){ return x.ten + ' ' + new Date(x.luc).toLocaleString('vi-VN'); }).join(' · ');
+  }
+  window.addEventListener('resize', function(){ clearTimeout(window.__bcRs); window.__bcRs = setTimeout(goiNghe, 150); });
+  (async function(){
+    var s = (await sb.auth.getSession()).data.session, loi = document.getElementById('bc-loi');
+    if (!s) { loi.hidden = false; loi.innerHTML = 'Bạn chưa đăng nhập. <a href="./">Mở app để đăng nhập</a> rồi quay lại trang này.'; Object.keys(ds).forEach(function(id){ ds[id] = { status:'error', data:[], message:'Chưa đăng nhập' }; }); goiNghe(); return; }
+    var x = await sb.rpc('duoc_xem');
+    if (x.error || !x.data) { loi.hidden = false; loi.textContent = 'Email ' + s.user.email + ' chưa có trong danh sách thành viên của app.'; return; }
+    var tv = await sb.from('thanh_vien').select('ho_ten,vai_tro').eq('email', s.user.email.toLowerCase()).maybeSingle();
+    laKhach = !!(tv.data && tv.data.vai_tro === 'khach');
+    document.getElementById('bc-ai').textContent = ((tv.data && tv.data.ho_ten) || s.user.email) + (laKhach ? ' · Khách (chỉ xem; không có giá vốn, lãi gộp)' : '');
+    await taiHet();
+  })();
+})();
+</script>
+<div id="dash-root">
+<!--TRANG_DASHBOARD-->
+</div>
+</div>
+</body>
+</html>

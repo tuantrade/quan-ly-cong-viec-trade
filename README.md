@@ -13,7 +13,10 @@ App web quản lý các hoạt động trade theo quy trình mẫu: giao việc,
 | `cau-hinh.js` | Điền địa chỉ và khóa Supabase (chỉ sửa file này) |
 | `supabase/thiet-ke-co-so-du-lieu.sql` | Tạo bảng, phân quyền và quy trình mẫu trong Supabase (chạy 1 lần) |
 | `nhac-han-email/nhac-han-qua-email.gs` | Script Google gửi email nhắc hạn mỗi sáng (xem mục “Nhắc hạn qua email”) |
-| `cong-cu/chep-so-ban-tu-dashboard.js` | Chép số bán ra / sell-in từ dashboard tổng hợp sang Supabase (xem mục “Số bán”) |
+| `bao-cao-mt.html` | Trang **Báo cáo MT** (Sell-in, Sell-out, Giá) – mã trang lấy nguyên từ dashboard, số lấy từ Supabase |
+| `nhac-han-email/doc-nguon-so-lieu.gs`, `dong-bo-du-lieu.gs`, `appsscript.json` | Script Google tự nạp số liệu mỗi giờ từ thư mục Drive và Google Sheet (xem mục “Báo cáo MT và tự nạp số”) |
+| `cong-cu/nap-tu-dashboard.js` | Nạp lần đầu / nạp lại toàn bộ số gốc từ dashboard cũ |
+| `cong-cu/tao-bao-cao-mt.js`, `khung-bao-cao-mt.html` | Ghép lại trang Báo cáo MT khi dashboard đổi giao diện |
 | `nhac-han-email/dong-bo-lich-post.gs` | Script Google đồng bộ lịch CTKM / kỳ post từ Google Sheet kế hoạch vào app (xem mục “Lịch post”) |
 
 ---
@@ -182,26 +185,37 @@ Trang **Lịch post** hiện lịch CTKM của từng chuỗi / nhãn hàng dạ
 3. Chọn hàm **`dongBoLichPost`** → **Chạy** (lần đầu cho phép quyền đọc Google Sheet). Mở trang Lịch post, dòng đầu ghi thời điểm đồng bộ lần cuối.
 4. Chọn hàm **`batHenGioLichPost`** → **Chạy** để tự đồng bộ mỗi giờ. Muốn ngừng: chạy `tatHenGioLichPost`.
 
-## Số bán (sell-out và sell-in)
-Trang **Số bán** lấy số từ dashboard tổng hợp **“Data Sell-in/out kênh bán MT”** (trên Claude), gồm:
-- **Co.op bán ra**: theo tháng × cửa hàng × SKU, có tồn cuối kỳ (doanh số theo giá vốn Co.op);
-- **Emart bán ra**: theo tuần trong tháng (ngày 1–7, 8–14, 15–21, 22–28, 29–cuối tháng) × cửa hàng × sản phẩm (doanh số theo giá bán lẻ sau KM);
-- **Sell-in (giao vào)**: sổ chi tiết bán hàng theo ngày × hệ thống × mã hàng.
+## Báo cáo MT và tự nạp số
+Trang **Báo cáo MT** (menu “Báo cáo MT ↗”, file `bao-cao-mt.html`) là bản đưa nguyên dạng dashboard “Data Sell-in/out kênh bán MT” lên app: trang **Sell-in**, **Sell-out**, **Giá** với đủ bảng, biểu đồ và cách tính như dashboard. Dùng chung đăng nhập với app; khách xem được nhưng không có giá vốn, lãi gộp. Trang **Baseline** làm ở chặng sau.
 
-App không đọc thẳng được dashboard (dashboard chỉ mở được khi đăng nhập Claude), nên số được **chép sang Supabase**. App chỉ đọc, không sửa được số; muốn sửa thì sửa ở dashboard rồi chép lại.
+**Số tự nạp mỗi giờ** (script Google, không cần Claude):
+| Nguồn | Cách đưa vào |
+|---|---|
+| Sổ chi tiết bán hàng (sell-in) | Kéo thả **nguyên file Excel** xuất từ phần mềm kế toán vào thư mục Drive **DATA TRADE MT / 1. Sổ chi tiết bán hàng**. Gửi lại file cùng kỳ thì số mới thay số cũ. |
+| Co.op bán ra – tồn | Kéo thả **nguyên file Co.op gửi** (vd `T10-Tri Viet Phat.xlsx`) vào **DATA TRADE MT / 2. Co.op bán ra – tồn**. Mỗi file là 1 kỳ. |
+| Emart bán ra | Google Sheet **“[EMART] SELL OUT THÁNG”** (tab SELL OUT theo ngày; tab T10, T11… theo kỳ). Sửa sheet là tự nạp lại. |
+| Bảng giá | Google Sheet **“Bảng Giá Siêu Thị”** (tab EMART, GO, SG Co.op, LOTTE). Sửa sheet là tự nạp lại. |
+| Kiểm tồn CTV (Lotte, GO) | Thư mục **3. Kiểm tồn CTV** – chặng sau mới đọc. |
 
-**Xem số**
-- Trang **Số bán**: bảng nguồn số liệu (dashboard cập nhật lúc nào, chép sang app lúc nào) và bảng **SKU × kỳ** của từng chuỗi, kèm tổng bán ra, số ngày của kỳ, doanh số, số cửa hàng có bán, tồn cuối kỳ, **sell-in cùng kỳ**.
-- Trong mỗi **hoạt động**: bảng **Số bán quanh đợt CTKM**: các kỳ trong khoảng 5 tuần trước đến 5 tuần sau đợt, đánh dấu Trước / Trong (bao nhiêu ngày của kỳ nằm trong đợt) / Sau, có **bán ra / ngày** để so các kỳ dài ngắn khác nhau, và sell-in cùng kỳ. Chuỗi chưa có số bán ra (Lotte, GO…) thì hiện sell-in theo tuần.
-- Chỉ hiện số, chưa tính % tăng / ROI.
+- Khoảng **1 giờ** sau khi thả file / sửa sheet, app có số mới. Mỗi lần đọc được ghi vào **nhật ký nạp** (bảng `nhat_ky_nap`), file lỗi ghi rõ lý do (vd “CHƯA BIẾT HỆ THỐNG: …”, “CHƯA BIẾT BRAND …”).
+- **Tên sản phẩm** ở các nguồn được quy về tên ngắn qua bảng `danh_muc_san_pham` (mã SKU Co.op, tên trên sheet Emart, tên trên bảng giá từng hệ thống). Tên mới chưa có trong danh mục hiện ở view `ten_chua_co_danh_muc`; quản lý thêm 1 dòng vào danh mục là xong.
+- Trang **Số bán**, **Giá** và bảng “Số bán quanh đợt CTKM” trong từng hoạt động cũng đọc cùng nguồn số này.
+
+**Cài script tự nạp** (làm 1 lần, cùng dự án Apps Script với nhắc hạn email):
+1. Trong dự án Apps Script, thêm 2 tệp `doc-nguon-so-lieu` và `dong-bo-du-lieu` (dán nội dung 2 file `.gs` cùng tên).
+2. **Cài đặt dự án** → tích “Hiển thị tệp kê khai appsscript.json” → mở `appsscript.json`, dán nội dung file `nhac-han-email/appsscript.json` (bật Drive API, múi giờ Việt Nam).
+3. **Thuộc tính tập lệnh**: ngoài SUPABASE_URL, SUPABASE_KHOA, MA_BI_MAT, thêm `EMART_SHEET_ID` và `GIA_SHEET_ID` (mã giữa `/d/` và `/edit` trong link 2 Google Sheet).
+4. Chạy **`taoThuMucDuLieu`** (tạo thư mục DATA TRADE MT trong Drive), rồi **`thuDocNguon`** (thử đọc Emart, bảng giá, không gửi gì), rồi **`dongBoDuLieu`** (nạp lần đầu), cuối cùng **`batHenGioNapSo`** (bật chạy mỗi giờ).
+5. Chia sẻ thư mục DATA TRADE MT cho người trong nhóm (quyền chỉnh sửa) để ai cũng thả file được.
+
+**Nạp lại toàn bộ từ dashboard cũ** (lần đầu đã làm): `node cong-cu/nap-tu-dashboard.js <thư mục các file .json của dashboard> --gui` với biến môi trường MA_BI_MAT.
+**Dashboard đổi giao diện**: tải `files/index.html` của dashboard rồi chạy `node cong-cu/tao-bao-cao-mt.js <file>`.
 
 ## Giá (bảng giá siêu thị)
-Trang **Giá** lấy bảng giá siêu thị trong cùng dashboard (Emart, GO! / Big C, Co.op, Lotte):
+Trang **Giá** trong app (và tab Giá của Báo cáo MT) lấy từ Google Sheet “Bảng Giá Siêu Thị”:
 - **Từng mã tại một hệ thống**: giá TVP bán cho siêu thị (chưa VAT), mức đang giảm, trading term, **TVP thu về**, **giá vốn**, **lãi gộp** (số âm tô đỏ), giá bán lẻ tại quầy, giá bán lẻ ÷ giá siêu thị mua, ghi chú cần kiểm tra.
 - **Giá bán lẻ cùng một mã ở các hệ thống** đặt cạnh nhau.
 - **Khách (chỉ xem)** chỉ thấy mức giảm, trading term, giá bán lẻ và ghi chú kiểu “chưa có giá”. Giá bán cho siêu thị, TVP thu về, giá vốn, lãi gộp và ghi chú nói về lãi/lỗ bị chặn ngay trong cơ sở dữ liệu (bảng `gia_ban` chỉ thành viên đọc được; khách đọc view `gia_ban_cong_khai`).
-
-**Cập nhật số mới** (sau khi dashboard có số mới hoặc đổi bảng giá): nhờ Claude “cập nhật số từ dashboard” (chép cả số bán, sell-in và bảng giá). Claude tải các bộ dữ liệu của dashboard rồi chạy `node cong-cu/chep-so-ban-tu-dashboard.js <thư mục> --gui` (cần mã bí mật trong bảng `cau_hinh_nhac`). Mỗi bộ số được thay toàn bộ, không cộng dồn.
 
 ## Sửa danh mục nhãn hàng / hệ thống
 Supabase → **Table Editor** → bảng `nhan_hang` hoặc `he_thong` → **Insert row**. Muốn ẩn một mục mà không xóa thì đổi `dang_dung` thành `false`.

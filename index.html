@@ -185,6 +185,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
       <a href="#lich-post" data-v="lich-post">Lịch post</a>
       <a href="#sell-out" data-v="sell-out">Số bán</a>
       <a href="#gia" data-v="gia">Giá</a>
+      <a href="bao-cao-mt.html">Báo cáo MT ↗</a>
       <a href="#quy-trinh" data-v="quy-trinh">Quy trình mẫu</a>
       <a href="#thanh-vien" data-v="thanh-vien">Thành viên</a>
     </nav>
@@ -625,7 +626,7 @@ function taiSoXem(){
 function renderSellOut(){
   const L=soLoc; const dsChuoi=[...new Set(soNguon.map(n=>CHUOI_NGUON[n.nguon]).filter(Boolean))];
   if(!L.chuoi || !dsChuoi.includes(L.chuoi)) L.chuoi=dsChuoi[0]||'';
-  let h=`<section class="card"><div class="card-h"><div><h2>Nguồn số liệu</h2><p>Số được chép từ dashboard “Data Sell-in/out kênh bán MT”. App chỉ đọc; muốn cập nhật số mới thì nhờ Claude “cập nhật số từ dashboard”.</p></div></div>${
+  let h=`<section class="card"><div class="card-h"><div><h2>Nguồn số liệu</h2><p>Số tự nạp mỗi giờ từ thư mục Drive “DATA TRADE MT” (sổ chi tiết bán hàng, file Co.op) và Google Sheet Emart, Bảng giá. Thả file mới vào đúng thư mục là khoảng 1 giờ sau app có số. Xem đủ biểu đồ ở trang <a href="bao-cao-mt.html">Báo cáo MT</a>.</p></div></div>${
     soNguon.length?`<div class="scroll"><table><thead><tr><th>Bộ số</th><th>Nội dung</th><th class="n">Số dòng</th><th>Dashboard cập nhật</th><th>Chép sang app</th></tr></thead><tbody>${
       soNguon.slice().sort((a,b)=>a.nguon.localeCompare(b.nguon)).map(n=>`<tr><td><b>${esc(n.ten||n.nguon)}</b></td><td class="sub">${esc(n.mo_ta)}</td><td class="n">${soVN(n.so_dong)}</td><td class="num">${n.nguon_cap_nhat?esc(new Date(n.nguon_cap_nhat).toLocaleString('vi-VN')):'—'}</td><td class="num">${new Date(n.luc).toLocaleString('vi-VN')}</td></tr>`).join('')
     }</tbody></table></div>`:'<div class="empty">Chưa chép số nào từ dashboard.</div>'}</section>`;
@@ -659,7 +660,7 @@ const lanGia = v => v==null||v===''?'—':Number(v).toLocaleString('vi-VN',{maxi
 function renderGia(){
   const coGiaVon = giaBan.some(x=>'gia_von' in x);   // khách không có các cột này
   const nguon = soNguon.find(n=>n.nguon==='gia_ban');
-  let h=`<section class="card"><div class="card-h"><div><h2>${coGiaVon?'Giá bán và phần TVP thu về':'Giá bán tại siêu thị'}</h2><p>Từ bảng giá siêu thị trong dashboard “Data Sell-in/out kênh bán MT”${nguon?` · dashboard cập nhật ${nguon.nguon_cap_nhat?esc(new Date(nguon.nguon_cap_nhat).toLocaleDateString('vi-VN')):'—'}, chép sang app ${new Date(nguon.luc).toLocaleString('vi-VN')}`:''}. Muốn cập nhật thì nhờ Claude “cập nhật số từ dashboard”.${coGiaVon?'':' Bạn đang xem với quyền khách: không hiện giá bán cho siêu thị, giá vốn, lãi gộp.'}</p></div></div>`;
+  let h=`<section class="card"><div class="card-h"><div><h2>${coGiaVon?'Giá bán và phần TVP thu về':'Giá bán tại siêu thị'}</h2><p>Từ Google Sheet “Bảng Giá Siêu Thị”, tự nạp lại mỗi giờ khi sheet có thay đổi${nguon?` · dashboard cập nhật ${nguon.nguon_cap_nhat?esc(new Date(nguon.nguon_cap_nhat).toLocaleDateString('vi-VN')):'—'}, chép sang app ${new Date(nguon.luc).toLocaleString('vi-VN')}`:''}.${coGiaVon?'':' Bạn đang xem với quyền khách: không hiện giá bán cho siêu thị, giá vốn, lãi gộp.'}</p></div></div>`;
   if(!giaBan.length) return h+'<div class="empty">Chưa có bảng giá.</div></section>';
   const dsHt=[...new Set(giaBan.map(x=>x.he_thong))];
   const L=giaLoc; if(!dsHt.includes(L.ht)) L.ht=dsHt[0];

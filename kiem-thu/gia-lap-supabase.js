@@ -27,17 +27,18 @@ function view(ten){
   if(ten==='gia_ban_cong_khai') return DB.gia_ban.map(x=>({id:x.id,he_thong:x.he_thong,chuoi:x.chuoi,nhan_hang:x.nhan_hang,san_pham:x.san_pham,giam:x.giam,trading_term:x.trading_term,gia_le:x.gia_le,ghi_chu:x.ghi_chu_cong_khai}));
   if(ten==='sell_in_ngay') return nhom(DB.sell_in,['chuoi','nhan_hang','ngay'],(o,r)=>{ o.so_luong=(o.so_luong||0)+(+r.so_luong||0); o.tra_lai_sl=(o.tra_lai_sl||0)+(+r.tra_lai_sl||0); o.doanh_so=(o.doanh_so||0)+(+r.doanh_so||0); }).map(({_ch,_sku,...x})=>x);
 }
-function qb(table){ let op='select',payload=null,filters=[],single=false,conflict=null,lim=null,ord=null;
- const b={select(){return b},order(k,o){ord=[k,o&&o.ascending===false];return b},range(){return b},limit(n){lim=n;return b},
+function qb(table){ let op='select',payload=null,filters=[],single=false,conflict=null,lim=null,ord=null,rg=null,cot='*',dem=false,chiDem=false,motDong=false;
+ const b={select(c,o){ if(c) cot=c; if(o&&o.count) dem=true; if(o&&o.head) chiDem=true; return b},maybeSingle(){motDong=true;return b},order(k,o){ord=[k,o&&o.ascending===false];return b},range(a,z){rg=[a,z];return b},limit(n){lim=n;return b},
  eq(k,v){filters.push(r=>r[k]===v);return b}, gte(k,v){filters.push(r=>r[k]>=v);return b}, lte(k,v){filters.push(r=>r[k]<=v);return b}, in(k,v){filters.push(r=>v.includes(r[k]));return b},
  insert(p){op='insert';payload=p;return b},upsert(p,o){op='upsert';payload=p;conflict=(o&&o.onConflict||'').split(',');return b},
  update(p){op='update';payload=p;return b},delete(){op='delete';return b},single(){single=true;return b},
  then(res,rej){ return new Promise((ok,ko)=>{ try{ const match=r=>filters.every(f=>f(r)); let data;
   const laKhach=(DB.thanh_vien.find(m=>m.email===email)||{}).vai_tro==='khach';
   if(table==='gia_ban' && laKhach && op==='select'){ setTimeout(()=>ok({data:[],error:null}),5); return; }   // giống RLS: khách không đọc bảng giá đầy đủ
-  const bang=['sell_out_ky_sku','sell_out_ky_nhan','sell_in_ngay','gia_ban_cong_khai'].includes(table)?view(table):DB[table];
+  const bang=['sell_out_ky_sku','sell_out_ky_nhan','sell_in_ngay','gia_ban_cong_khai'].includes(table)?view(table):(DB[table]||(table.startsWith('nguon_')||table.startsWith('ds_')||table==='dong_bo_so_ban'?[]:undefined));
   if(!bang) throw new Error('Không có bảng '+table);
-  if(op==='select'){ data=bang.filter(match).map(r=>({...r})); if(ord) data.sort((x,y)=>(x[ord[0]]>y[ord[0]]?1:x[ord[0]]<y[ord[0]]?-1:0)*(ord[1]?-1:1)); if(lim) data=data.slice(0,lim); }
+  if(op==='select'){ data=bang.filter(match).map(r=>({...r})); if(ord) data.sort((x,y)=>(x[ord[0]]>y[ord[0]]?1:x[ord[0]]<y[ord[0]]?-1:0)*(ord[1]?-1:1)); if(lim) data=data.slice(0,lim); if(rg) data=data.slice(rg[0],rg[1]+1);
+    if(cot!=='*'){ const ds=cot.split(',').map(x=>x.trim()).filter(Boolean).map(x=>{ const p=x.split(':'); return p.length>1?[p[0],p[1]]:[x,x]; }); data=data.map(r=>{ const o={}; ds.forEach(([a,c])=>o[a]=r[c]); return o; }); } }
   if(op==='insert'){ data=(Array.isArray(payload)?payload:[payload]).map(p=>({id:'id'+(++seq),...(MAC_DINH[table]||{}),...p})); DB[table].push(...data); }
   if(op==='upsert'){ data=[]; (Array.isArray(payload)?payload:[payload]).forEach(p=>{ const cu=DB[table].find(r=>conflict.every(k=>r[k]===p[k])); if(cu) Object.assign(cu,p); else DB[table].push({id:'id'+(++seq),...p}); }); }
   if(op==='update'){ DB[table].filter(match).forEach(r=>Object.assign(r,payload)); data=[]; }
@@ -45,8 +46,9 @@ function qb(table){ let op='select',payload=null,filters=[],single=false,conflic
     if(table==='hoat_dong') DB.buoc_cong_viec=DB.buoc_cong_viec.filter(s=>!gone.some(g=>g.id===s.hoat_dong_id));
     if(table==='quy_trinh') DB.quy_trinh_buoc=DB.quy_trinh_buoc.filter(s=>!gone.some(g=>g.id===s.quy_trinh_id));
     data=[]; }
-  if(single) data=data[0];
-  setTimeout(()=>ok({data,error:null}),5);
+  const soDong=Array.isArray(data)?bang.filter(match).length:null;
+  if(single) data=data[0]; if(motDong) data=data[0]||null; if(chiDem) data=null;
+  setTimeout(()=>ok({data,error:null,count:dem?soDong:null}),5);
  }catch(e){ setTimeout(()=>ok({data:null,error:{message:e.message}}),5); } }).then(res,rej) }}; return b; }
 const email=new URLSearchParams(location.search).get('email')||'a@x.com';
 const client={from:qb,rpc:async()=>({data:true,error:null}),

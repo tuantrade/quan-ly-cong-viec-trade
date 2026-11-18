@@ -13,8 +13,8 @@
 --   hoat_dong -> buoc_cong_viec: hoạt động thật và tiến độ từng bước
 --   nhat_ky_buoc               : lịch sử đổi trạng thái / hạn / người làm (để đo lường)
 --   lich_post                  : lịch CTKM / kỳ post của từng siêu thị, đồng bộ từ Google Sheet
---   sell_out, sell_in          : số bán ra / giao vào, chép từ dashboard "Data Sell-in/out kênh bán MT"
---   gia_ban                    : bảng giá siêu thị (giá vốn, lãi gộp chỉ thành viên xem), chép từ dashboard
+--   nguon_*, gia_ban           : số gốc sell-in, Co.op, Emart, bảng giá (tự nạp mỗi giờ từ thư mục Drive / Google Sheet)
+--   sell_in, sell_out, ...     : bảng tự tính từ số gốc cho app đọc
 -- =====================================================================
 
 create extension if not exists pgcrypto;
@@ -629,97 +629,93 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
--- 13. SỐ BÁN (SELL-OUT) VÀ GIAO VÀO (SELL-IN) – chép từ dashboard tổng hợp
---     Nguồn: dashboard "Data Sell-in/out kênh bán MT" trên Claude. App không đọc thẳng được
---     dashboard, nên mỗi lần dashboard có số mới thì chép sang đây bằng hàm dong_bo_so_ban
---     (cần mã bí mật như lịch post). Mỗi nguồn được thay toàn bộ, không cộng dồn.
---     Sửa số thì sửa ở dashboard, không sửa trong app.
+-- 13. SỐ LIỆU KÊNH MT: SELL-IN, BÁN RA, BẢNG GIÁ – tự nạp từ thư mục Drive và Google Sheet
+--     Script Google (nhac-han-email/dong-bo-du-lieu.gs) đọc mỗi giờ:
+--       - thư mục Drive "DATA TRADE MT": file Sổ chi tiết bán hàng, file Co.op bán ra – tồn
+--       - Google Sheet "[EMART] SELL OUT THÁNG" và "Bảng Giá Siêu Thị"
+--     rồi gọi hàm nap_nguon(ma, ...) (cần mã bí mật như lịch post). App chỉ đọc.
+--     Số gốc nằm ở các bảng nguon_*; app đọc các bảng tự tính (view) bên dưới.
 -- ---------------------------------------------------------------------
--- Bỏ bảng nhập file mẫu của bản trước (không còn dùng, chưa có dữ liệu)
-drop view if exists public.sell_out_tuan_sku;
-drop view if exists public.sell_out_tuan_nhan;
-drop table if exists public.sell_out_tuan;
-drop table if exists public.lo_nhap_sell_out;
+-- Bỏ bảng chép tay của bản trước (số được nạp lại từ nguồn gốc)
+drop function if exists public.dong_bo_so_ban(text, text, text, boolean, jsonb, text, text, text);
+do $$
+begin
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'sell_out') then drop table public.sell_out cascade; end if;
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'sell_in') then drop table public.sell_in cascade; end if;
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'dong_bo_so_ban') then drop table public.dong_bo_so_ban cascade; end if;
+end $$;
 
-create table if not exists public.sell_out (
-  id             bigint generated always as identity primary key,
-  nguon          text not null,                 -- 'coop', 'emart', ...
-  chuoi          text not null,                 -- tên hệ thống trong app (Co.op, Emart…)
-  ky             text not null default '',      -- nhãn kỳ theo nguồn (vd 2026-05-T1)
-  tu_ngay        date not null,
-  den_ngay       date not null,
-  ma_cua_hang    text not null default '',
-  cua_hang       text not null default '',
-  loai_cua_hang  text not null default '',
-  nhan_hang      text not null default '',
-  ma_sku         text not null default '',
-  ten_sku        text not null default '',
-  so_luong       numeric not null default 0,
-  doanh_so       numeric not null default 0,    -- Co.op: theo giá vốn Co.op; Emart: giá bán lẻ sau KM
-  ton            numeric,
-  gia_tri_ton    numeric,
-  constraint sell_out_ky_hop_le check (den_ngay >= tu_ngay)
+-- Sổ chi tiết bán hàng, gộp theo ngày chứng từ × hệ thống × mã hàng (giống dashboard)
+create table if not exists public.nguon_sellin (
+  id bigint generated always as identity primary key,
+  ngay date not null, thang text not null default '', he_thong text not null default '', brand text not null default '',
+  ma_hang text not null default '', ten_hang text not null default '', dvt text not null default '',
+  sl_ban numeric not null default 0, sl_tra numeric not null default 0, sl_doi numeric not null default 0,
+  doanh_so numeric not null default 0, chiet_khau numeric not null default 0, tra_lai numeric not null default 0,
+  tep text not null default ''
 );
-create index if not exists sell_out_loc_idx on public.sell_out (chuoi, nhan_hang, tu_ngay);
-create index if not exists sell_out_nguon_idx on public.sell_out (nguon);
-
-create table if not exists public.sell_in (
-  id          bigint generated always as identity primary key,
-  ngay        date not null,
-  he_thong    text not null default '',         -- tên hệ thống theo sổ bán hàng
-  chuoi       text not null default '',         -- tên hệ thống trong app ('' nếu app chưa có)
-  nhan_hang   text not null default '',
-  ma_hang     text not null default '',
-  ten_hang    text not null default '',
-  so_luong    numeric not null default 0,       -- số lượng bán
-  tra_lai_sl  numeric not null default 0,
-  doanh_so    numeric not null default 0,       -- chưa gồm thuế GTGT
-  chiet_khau  numeric not null default 0,
-  tra_lai     numeric not null default 0
+create index if not exists nguon_sellin_ngay_idx on public.nguon_sellin (ngay);
+-- Mỗi chứng từ bán: để đếm số đơn và số điểm nhận hàng
+create table if not exists public.nguon_don_hang (
+  id bigint generated always as identity primary key,
+  ngay date not null, thang text not null default '', he_thong text not null default '',
+  diem_nhan text not null default '', so_chung_tu text not null default '', tep text not null default ''
 );
-create index if not exists sell_in_loc_idx on public.sell_in (chuoi, nhan_hang, ngay);
-
-create table if not exists public.dong_bo_so_ban (
-  nguon       text primary key,
-  ten         text not null default '',
-  mo_ta       text not null default '',
-  so_dong     integer not null default 0,
-  nguon_cap_nhat text not null default '',      -- thời điểm dashboard cập nhật bộ số này
-  luc         timestamptz not null default now()
+create index if not exists nguon_don_hang_ngay_idx on public.nguon_don_hang (ngay);
+-- Co.op: kỳ × SKU Co.op × mã cửa hàng (bỏ dòng toàn số 0)
+create table if not exists public.nguon_coop_ban (
+  id bigint generated always as identity primary key,
+  ky text not null, tu_ngay date not null, den_ngay date not null, sku text not null, ch text not null,
+  sl_ban numeric not null default 0, gt_ban numeric not null default 0, sl_ton numeric not null default 0, gt_ton numeric not null default 0,
+  tep text not null default ''
+);
+create index if not exists nguon_coop_ban_ky_idx on public.nguon_coop_ban (ky);
+create table if not exists public.nguon_coop_ch (
+  ma_ch text primary key, ten_ch text not null default '', ky_ten text not null default '', loai_ch text not null default '', vung text not null default ''
+);
+create table if not exists public.nguon_coop_sku (
+  ma_sku_coop text primary key, ten_hang_coop text not null default ''
+);
+-- Emart: tuần trong tháng (từ tab SELL OUT theo ngày) hoặc kỳ (tab T10, T11…) × điểm bán × sản phẩm
+create table if not exists public.nguon_emart (
+  id bigint generated always as identity primary key,
+  tuan text not null, tu date not null, den date not null, so_ngay integer not null default 0, nguon text not null default '',
+  diem_ban text not null default '', brand text not null default '', san_pham_goc text not null default '',
+  sl numeric not null default 0, doanh_so numeric not null default 0, ctkm text not null default ''
+);
+-- Danh mục sản phẩm: tên gốc ở từng nguồn -> tên ngắn thống nhất (để so sánh giữa các hệ thống)
+--   nguon = 'coop_sku' (ten_goc = mã SKU Co.op) | 'emart' | 'gia:<hệ thống>'; ten_goc lưu dạng khoa_ten()
+create table if not exists public.danh_muc_san_pham (
+  nguon text not null, ten_goc text not null, san_pham text not null, brand text not null default '',
+  ma_hang_tvp text not null default '', ten_hang_tvp text not null default '',
+  primary key (nguon, ten_goc)
+);
+-- Nhật ký nạp: mỗi file / sheet đã đọc
+create table if not exists public.nhat_ky_nap (
+  id bigint generated always as identity primary key,
+  nguon text not null, tep text not null default '', ten_tep text not null default '', tu date, den date,
+  so_dong integer not null default 0, loi text not null default '', luc timestamptz not null default now()
+);
+-- Trạng thái từng nguồn (app hiện ở trang Số bán)
+create table if not exists public.trang_thai_nguon (
+  nguon text primary key, ten text not null default '', mo_ta text not null default '', so_dong integer not null default 0,
+  nguon_cap_nhat text not null default '', luc timestamptz not null default now()
 );
 
-alter table public.sell_out       enable row level security;
-alter table public.sell_in        enable row level security;
-alter table public.dong_bo_so_ban enable row level security;
-grant select on public.sell_out, public.sell_in, public.dong_bo_so_ban to authenticated;
 do $$
 declare bang text;
 begin
-  foreach bang in array array['sell_out','sell_in','dong_bo_so_ban'] loop
+  foreach bang in array array['nguon_sellin','nguon_don_hang','nguon_coop_ban','nguon_coop_ch','nguon_coop_sku','nguon_emart','danh_muc_san_pham','nhat_ky_nap','trang_thai_nguon'] loop
+    execute format('alter table public.%I enable row level security', bang);
+    execute format('grant select on public.%I to authenticated', bang);
     execute format('drop policy if exists "thanh_vien_xem" on public.%I', bang);
     execute format('create policy "thanh_vien_xem" on public.%I for select to authenticated using (public.duoc_xem())', bang);
   end loop;
+  -- danh mục sản phẩm: quản lý được sửa trực tiếp (thêm tên mới)
+  drop policy if exists "quan_ly_sua" on public.danh_muc_san_pham;
+  create policy "quan_ly_sua" on public.danh_muc_san_pham for all to authenticated using (public.la_quan_ly()) with check (public.la_quan_ly());
+  grant insert, update, delete on public.danh_muc_san_pham to authenticated;
 end $$;
--- Không có quyền ghi trực tiếp: chỉ ghi qua hàm đồng bộ bên dưới
-
--- Tổng hợp để app đọc nhanh (theo phân quyền của bảng gốc)
-create or replace view public.sell_out_ky_sku with (security_invoker = true) as
-select chuoi, nhan_hang, ky, tu_ngay, den_ngay, ma_sku, max(ten_sku) as ten_sku,
-       sum(so_luong) as so_luong, sum(doanh_so) as doanh_so, sum(ton) as ton,
-       count(distinct ma_cua_hang || '|' || cua_hang) filter (where so_luong > 0) as so_cua_hang_ban
-from public.sell_out group by chuoi, nhan_hang, ky, tu_ngay, den_ngay, ma_sku;
-
-create or replace view public.sell_out_ky_nhan with (security_invoker = true) as
-select chuoi, nhan_hang, ky, tu_ngay, den_ngay,
-       sum(so_luong) as so_luong, sum(doanh_so) as doanh_so, sum(ton) as ton,
-       count(distinct ma_cua_hang || '|' || cua_hang) filter (where so_luong > 0) as so_cua_hang_ban,
-       count(distinct ma_sku) filter (where so_luong > 0) as so_sku_ban
-from public.sell_out group by chuoi, nhan_hang, ky, tu_ngay, den_ngay;
-
-create or replace view public.sell_in_ngay with (security_invoker = true) as
-select chuoi, nhan_hang, ngay, sum(so_luong) as so_luong, sum(tra_lai_sl) as tra_lai_sl, sum(doanh_so) as doanh_so
-from public.sell_in group by chuoi, nhan_hang, ngay;
-grant select on public.sell_out_ky_sku, public.sell_out_ky_nhan, public.sell_in_ngay to authenticated;
 
 -- Bảng giá siêu thị. Có giá vốn, lãi gộp: CHỈ thành viên và quản lý xem được bảng này.
 -- Khách xem qua view gia_ban_cong_khai (chỉ giá bán lẻ, mức giảm, trading term, ghi chú không nói về lãi/lỗ).
@@ -755,65 +751,205 @@ where public.duoc_xem();
 revoke all on public.gia_ban_cong_khai from anon;
 grant select on public.gia_ban_cong_khai to authenticated;
 
--- Chép số từ dashboard: bang = 'sell_out' | 'sell_in' | 'gia_ban'; lam_moi = true ở lượt đầu (xóa số cũ của nguồn đó)
-create or replace function public.dong_bo_so_ban(ma text, bang text, nguon text, lam_moi boolean, du_lieu jsonb,
-                                                  ten text default '', mo_ta text default '', nguon_cap_nhat text default '')
+-- Hệ thống theo sổ bán hàng -> hệ thống trong app
+create or replace function public.chuoi_app(he_thong text) returns text language sql immutable as $$
+  select case he_thong
+    when 'Co.opMart' then 'Co.op' when 'Co.op Food' then 'Co.op' when 'Co.op Finelife' then 'Co.op' when 'Co.op Xtra' then 'Co.op' when 'Co.op' then 'Co.op'
+    when 'Emart' then 'Emart' when 'Lotte Mart' then 'Lotte' when 'GO! / Big C' then 'GO/BigC' when 'Bách Hóa Xanh' then 'BHX'
+    when 'WinMart / WinMart+' then 'WinMart/WinMart+' when 'King Food Market' then 'King Food' else '' end;
+$$;
+-- Nhãn kỳ: trọn tháng ghi "T11/2026", kỳ lẻ ghi "01/11–15/11/2026"
+create or replace function public.ten_ky(tu date, den date) returns text language sql immutable as $$
+  select case when extract(day from tu) = 1 and den = (date_trunc('month', tu) + interval '1 month - 1 day')::date
+              then 'T' || extract(month from tu)::int || '/' || extract(year from tu)::int
+              else to_char(tu, 'DD/MM') || '–' || to_char(den, 'DD/MM/YYYY') end;
+$$;
+
+-- ===== Các bảng tự tính app đọc (giữ đúng tên, cột như bản trước) =====
+create or replace view public.sell_in with (security_invoker = true) as
+select id, ngay, he_thong, public.chuoi_app(he_thong) as chuoi,
+       case when brand = 'Không theo brand' then '' else brand end as nhan_hang,
+       ma_hang, ten_hang, sl_ban as so_luong, sl_tra as tra_lai_sl, doanh_so, chiet_khau, tra_lai
+from public.nguon_sellin;
+
+create or replace view public.sell_out with (security_invoker = true) as
+select 'coop'::text as nguon, 'Co.op'::text as chuoi, public.ten_ky(b.tu_ngay, b.den_ngay) as ky, b.tu_ngay, b.den_ngay,
+       b.ch as ma_cua_hang, coalesce(c.ten_ch, b.ch) as cua_hang, coalesce(c.loai_ch, '') as loai_cua_hang,
+       coalesce(d.brand, '') as nhan_hang, b.sku as ma_sku, coalesce(d.san_pham, s.ten_hang_coop, b.sku) as ten_sku,
+       b.sl_ban as so_luong, b.gt_ban as doanh_so, b.sl_ton as ton, b.gt_ton as gia_tri_ton
+from public.nguon_coop_ban b
+left join public.nguon_coop_ch c on c.ma_ch = b.ch
+left join public.nguon_coop_sku s on s.ma_sku_coop = b.sku
+left join public.danh_muc_san_pham d on d.nguon = 'coop_sku' and d.ten_goc = b.sku
+union all
+select 'emart', 'Emart', e.tuan, e.tu, e.den, '', e.diem_ban, '', e.brand,
+       coalesce(d.san_pham, e.san_pham_goc), coalesce(d.san_pham, e.san_pham_goc), e.sl, e.doanh_so, null, null
+from public.nguon_emart e
+left join public.danh_muc_san_pham d on d.nguon = 'emart' and d.ten_goc = public.khoa_ten(e.san_pham_goc);
+
+create or replace view public.sell_out_ky_sku with (security_invoker = true) as
+select chuoi, nhan_hang, ky, tu_ngay, den_ngay, ma_sku, max(ten_sku) as ten_sku,
+       sum(so_luong) as so_luong, sum(doanh_so) as doanh_so, sum(ton) as ton,
+       count(distinct ma_cua_hang || '|' || cua_hang) filter (where so_luong > 0) as so_cua_hang_ban
+from public.sell_out group by chuoi, nhan_hang, ky, tu_ngay, den_ngay, ma_sku;
+
+create or replace view public.sell_out_ky_nhan with (security_invoker = true) as
+select chuoi, nhan_hang, ky, tu_ngay, den_ngay,
+       sum(so_luong) as so_luong, sum(doanh_so) as doanh_so, sum(ton) as ton,
+       count(distinct ma_cua_hang || '|' || cua_hang) filter (where so_luong > 0) as so_cua_hang_ban,
+       count(distinct ma_sku) filter (where so_luong > 0) as so_sku_ban
+from public.sell_out group by chuoi, nhan_hang, ky, tu_ngay, den_ngay;
+
+create or replace view public.sell_in_ngay with (security_invoker = true) as
+select chuoi, nhan_hang, ngay, sum(so_luong) as so_luong, sum(tra_lai_sl) as tra_lai_sl, sum(doanh_so) as doanh_so
+from public.sell_in group by chuoi, nhan_hang, ngay;
+
+create or replace view public.dong_bo_so_ban with (security_invoker = true) as
+select nguon, ten, mo_ta, so_dong, nguon_cap_nhat, luc from public.trang_thai_nguon;
+
+-- Dạng giống các bộ số của dashboard (cho các trang Sell-in / Sell-out / Giá dựng lại trên app)
+create or replace view public.ds_coop_sku with (security_invoker = true) as
+select s.ma_sku_coop, s.ten_hang_coop, coalesce(d.ma_hang_tvp, '') as ma_hang_tvp, coalesce(d.ten_hang_tvp, '') as ten_hang_tvp,
+       coalesce(d.brand, '') as brand, coalesce(d.san_pham, s.ten_hang_coop) as san_pham
+from public.nguon_coop_sku s left join public.danh_muc_san_pham d on d.nguon = 'coop_sku' and d.ten_goc = s.ma_sku_coop;
+create or replace view public.ds_emart_tuan with (security_invoker = true) as
+select e.tuan, e.tu, e.den, e.so_ngay, e.nguon, e.diem_ban, e.brand, coalesce(d.san_pham, e.san_pham_goc) as san_pham, e.sl, e.doanh_so, e.ctkm
+from public.nguon_emart e left join public.danh_muc_san_pham d on d.nguon = 'emart' and d.ten_goc = public.khoa_ten(e.san_pham_goc);
+-- Tên gốc chưa có trong danh mục (app hiện để quản lý bổ sung)
+create or replace view public.ten_chua_co_danh_muc with (security_invoker = true) as
+select 'coop_sku'::text as nguon, s.ma_sku_coop as ten_goc, s.ten_hang_coop as mo_ta from public.nguon_coop_sku s
+  where not exists (select 1 from public.danh_muc_san_pham d where d.nguon = 'coop_sku' and d.ten_goc = s.ma_sku_coop)
+union
+select 'emart', e.san_pham_goc, e.brand from public.nguon_emart e
+  where not exists (select 1 from public.danh_muc_san_pham d where d.nguon = 'emart' and d.ten_goc = public.khoa_ten(e.san_pham_goc))
+union
+select 'gia:' || g.he_thong, g.ten_bang_gia, g.nhan_hang from public.gia_ban g
+  where not exists (select 1 from public.danh_muc_san_pham d where d.nguon = 'gia:' || g.he_thong and d.ten_goc = public.khoa_ten(g.ten_bang_gia));
+grant select on public.sell_in, public.sell_out, public.sell_out_ky_sku, public.sell_out_ky_nhan, public.sell_in_ngay,
+  public.dong_bo_so_ban, public.ds_coop_sku, public.ds_emart_tuan, public.ten_chua_co_danh_muc to authenticated;
+
+
+-- ===== Nạp số từ script Google =====
+-- loai: 'sellin' | 'don_hang' (xóa số cũ trong khoảng tu–den rồi thêm)
+--       'coop_ban' (xóa số cũ cùng kỳ rồi thêm) | 'coop_ch' | 'coop_sku' (thêm hoặc cập nhật)
+--       'emart' | 'gia_ban' (lam_moi = true ở lượt đầu: xóa hết rồi thêm)
+--       'danh_muc' (thêm tên ngắn cho tên gốc chưa có; không ghi đè)
+-- thong_tin: {tep, ten_tep, tu, den, ky, lam_moi, ten, mo_ta, nguon_cap_nhat, loi}
+create or replace function public.nap_nguon(ma text, loai text, du_lieu jsonb, thong_tin jsonb default '{}'::jsonb)
 returns integer
 language plpgsql volatile security definer set search_path = public as $$
 declare
-  so integer;
+  so integer := 0;
+  tu date := nullif(thong_tin->>'tu', '')::date;
+  den date := nullif(thong_tin->>'den', '')::date;
+  lam_moi boolean := coalesce((thong_tin->>'lam_moi')::boolean, false);
+  tep text := coalesce(thong_tin->>'tep', '');
 begin
   if ma is null or not exists (select 1 from public.cau_hinh_nhac where ma_bi_mat = ma) then
     raise exception 'Sai mã bí mật';
   end if;
-  if jsonb_typeof(du_lieu) <> 'array' or jsonb_array_length(du_lieu) > 10000 then
-    raise exception 'Dữ liệu phải là danh sách, tối đa 10000 dòng mỗi lần';
+  if jsonb_typeof(du_lieu) <> 'array' or jsonb_array_length(du_lieu) > 20000 then
+    raise exception 'Dữ liệu phải là danh sách, tối đa 20000 dòng mỗi lần';
   end if;
-  if bang = 'sell_out' then
-    if lam_moi then delete from public.sell_out where sell_out.nguon = dong_bo_so_ban.nguon; end if;
-    insert into public.sell_out (nguon, chuoi, ky, tu_ngay, den_ngay, ma_cua_hang, cua_hang, loai_cua_hang,
-                                 nhan_hang, ma_sku, ten_sku, so_luong, doanh_so, ton, gia_tri_ton)
-    select dong_bo_so_ban.nguon, coalesce(x.chuoi, ''), coalesce(x.ky, ''), x.tu_ngay, x.den_ngay,
-           coalesce(x.ma_cua_hang, ''), coalesce(x.cua_hang, ''), coalesce(x.loai_cua_hang, ''),
-           coalesce(x.nhan_hang, ''), coalesce(x.ma_sku, ''), coalesce(x.ten_sku, ''),
-           coalesce(x.so_luong, 0), coalesce(x.doanh_so, 0), x.ton, x.gia_tri_ton
-    from jsonb_to_recordset(du_lieu) as x(chuoi text, ky text, tu_ngay date, den_ngay date, ma_cua_hang text, cua_hang text,
-         loai_cua_hang text, nhan_hang text, ma_sku text, ten_sku text, so_luong numeric, doanh_so numeric, ton numeric, gia_tri_ton numeric)
-    where x.tu_ngay is not null and x.den_ngay >= x.tu_ngay and coalesce(x.chuoi, '') <> '';
-  elsif bang = 'sell_in' then
-    if lam_moi then delete from public.sell_in where true; end if;
-    insert into public.sell_in (ngay, he_thong, chuoi, nhan_hang, ma_hang, ten_hang, so_luong, tra_lai_sl, doanh_so, chiet_khau, tra_lai)
-    select x.ngay, coalesce(x.he_thong, ''), coalesce(x.chuoi, ''), coalesce(x.nhan_hang, ''), coalesce(x.ma_hang, ''),
-           coalesce(x.ten_hang, ''), coalesce(x.so_luong, 0), coalesce(x.tra_lai_sl, 0), coalesce(x.doanh_so, 0),
-           coalesce(x.chiet_khau, 0), coalesce(x.tra_lai, 0)
-    from jsonb_to_recordset(du_lieu) as x(ngay date, he_thong text, chuoi text, nhan_hang text, ma_hang text, ten_hang text,
-         so_luong numeric, tra_lai_sl numeric, doanh_so numeric, chiet_khau numeric, tra_lai numeric)
+
+  if loai = 'sellin' then
+    if lam_moi then delete from public.nguon_sellin where ngay between tu and den; end if;
+    insert into public.nguon_sellin (ngay, thang, he_thong, brand, ma_hang, ten_hang, dvt, sl_ban, sl_tra, sl_doi, doanh_so, chiet_khau, tra_lai, tep)
+    select x.ngay, coalesce(x.thang, to_char(x.ngay, 'YYYY-MM')), coalesce(x.he_thong, ''), coalesce(x.brand, ''), coalesce(x.ma_hang, ''),
+           coalesce(x.ten_hang, ''), coalesce(x.dvt, ''), coalesce(x.sl_ban, 0), coalesce(x.sl_tra, 0), coalesce(x.sl_doi, 0),
+           coalesce(x.doanh_so, 0), coalesce(x.chiet_khau, 0), coalesce(x.tra_lai, 0), tep
+    from jsonb_to_recordset(du_lieu) as x(ngay date, thang text, he_thong text, brand text, ma_hang text, ten_hang text, dvt text,
+         sl_ban numeric, sl_tra numeric, sl_doi numeric, doanh_so numeric, chiet_khau numeric, tra_lai numeric)
     where x.ngay is not null;
-  elsif bang = 'gia_ban' then
+  elsif loai = 'don_hang' then
+    if lam_moi then delete from public.nguon_don_hang where ngay between tu and den; end if;
+    insert into public.nguon_don_hang (ngay, thang, he_thong, diem_nhan, so_chung_tu, tep)
+    select x.ngay, coalesce(x.thang, to_char(x.ngay, 'YYYY-MM')), coalesce(x.he_thong, ''), coalesce(x.diem_nhan, ''), coalesce(x.so_chung_tu, ''), tep
+    from jsonb_to_recordset(du_lieu) as x(ngay date, thang text, he_thong text, diem_nhan text, so_chung_tu text)
+    where x.ngay is not null;
+  elsif loai = 'coop_ban' then
+    if lam_moi then delete from public.nguon_coop_ban where ky = thong_tin->>'ky'; end if;
+    insert into public.nguon_coop_ban (ky, tu_ngay, den_ngay, sku, ch, sl_ban, gt_ban, sl_ton, gt_ton, tep)
+    select x.ky, split_part(x.ky, '_', 1)::date, split_part(x.ky, '_', 2)::date, x.sku, x.ch,
+           coalesce(x.sl_ban, 0), coalesce(x.gt_ban, 0), coalesce(x.sl_ton, 0), coalesce(x.gt_ton, 0), tep
+    from jsonb_to_recordset(du_lieu) as x(ky text, sku text, ch text, sl_ban numeric, gt_ban numeric, sl_ton numeric, gt_ton numeric)
+    where x.ky like '____-__-__\_____-__-__' and x.sku is not null and x.ch is not null;
+  elsif loai = 'coop_ch' then
+    insert into public.nguon_coop_ch as c (ma_ch, ten_ch, ky_ten, loai_ch, vung)
+    select x.ma_ch, coalesce(x.ten_ch, ''), coalesce(x.ky_ten, ''), coalesce(x.loai_ch, ''), coalesce(x.vung, '')
+    from jsonb_to_recordset(du_lieu) as x(ma_ch text, ten_ch text, ky_ten text, loai_ch text, vung text) where x.ma_ch is not null
+    on conflict (ma_ch) do update set ten_ch = excluded.ten_ch, ky_ten = excluded.ky_ten, loai_ch = excluded.loai_ch, vung = excluded.vung
+      where excluded.ky_ten >= c.ky_ten;                                  -- giữ tên theo file mới nhất
+  elsif loai = 'coop_sku' then
+    insert into public.nguon_coop_sku as s (ma_sku_coop, ten_hang_coop)
+    select x.ma_sku_coop, coalesce(x.ten_hang_coop, '') from jsonb_to_recordset(du_lieu) as x(ma_sku_coop text, ten_hang_coop text) where x.ma_sku_coop is not null
+    on conflict (ma_sku_coop) do update set ten_hang_coop = excluded.ten_hang_coop;
+  elsif loai = 'emart' then
+    if lam_moi then delete from public.nguon_emart where true; end if;
+    insert into public.nguon_emart (tuan, tu, den, so_ngay, nguon, diem_ban, brand, san_pham_goc, sl, doanh_so, ctkm)
+    select x.tuan, x.tu, x.den, coalesce(x.so_ngay, (x.den - x.tu) + 1), coalesce(x.nguon, ''), coalesce(x.diem_ban, ''), coalesce(x.brand, ''),
+           coalesce(x.san_pham, ''), coalesce(x.sl, 0), coalesce(x.doanh_so, 0), coalesce(x.ctkm, '')
+    from jsonb_to_recordset(du_lieu) as x(tuan text, tu date, den date, so_ngay integer, nguon text, diem_ban text, brand text, san_pham text,
+         sl numeric, doanh_so numeric, ctkm text)
+    where x.tuan is not null and x.tu is not null and x.den >= x.tu;
+  elsif loai = 'gia_ban' then
     if lam_moi then delete from public.gia_ban where true; end if;
     insert into public.gia_ban (he_thong, chuoi, nhan_hang, san_pham, ten_bang_gia, gia_mua, giam, trading_term, tvp_nhan,
                                 gia_von, ln_tvp, ty_le_ln, gia_le, le_tren_mua, ghi_chu, ghi_chu_cong_khai)
-    select coalesce(x.he_thong, ''), coalesce(x.chuoi, ''), coalesce(x.nhan_hang, ''), coalesce(x.san_pham, ''), coalesce(x.ten_bang_gia, ''),
+    select coalesce(x.he_thong, ''), public.chuoi_app(x.he_thong), coalesce(x.brand, ''),
+           coalesce(d.san_pham, x.ten_bang_gia, ''), coalesce(x.ten_bang_gia, ''),
            x.gia_mua, x.giam, x.trading_term, x.tvp_nhan, x.gia_von, x.ln_tvp, x.ty_le_ln, x.gia_le, x.le_tren_mua,
-           coalesce(x.ghi_chu, ''), coalesce(x.ghi_chu_cong_khai, '')
-    from jsonb_to_recordset(du_lieu) as x(he_thong text, chuoi text, nhan_hang text, san_pham text, ten_bang_gia text,
-         gia_mua numeric, giam numeric, trading_term numeric, tvp_nhan numeric, gia_von numeric, ln_tvp numeric, ty_le_ln numeric,
-         gia_le numeric, le_tren_mua numeric, ghi_chu text, ghi_chu_cong_khai text);
+           coalesce(x.ghi_chu, ''),
+           array_to_string(array(select p from unnest(string_to_array(coalesce(x.ghi_chu, ''), '; ')) as p
+                                 where p <> '' and p !~* '(lỗ|lãi|vốn|thu về|trading|mua)'), '; ')
+    from jsonb_to_recordset(du_lieu) as x(he_thong text, brand text, ten_bang_gia text, gia_mua numeric, giam numeric, trading_term numeric,
+         tvp_nhan numeric, gia_von numeric, ln_tvp numeric, ty_le_ln numeric, gia_le numeric, le_tren_mua numeric, ghi_chu text)
+    left join public.danh_muc_san_pham d on d.nguon = 'gia:' || x.he_thong and d.ten_goc = public.khoa_ten(x.ten_bang_gia);
+  elsif loai = 'danh_muc' then
+    insert into public.danh_muc_san_pham (nguon, ten_goc, san_pham, brand, ma_hang_tvp, ten_hang_tvp)
+    select x.nguon, case when x.nguon = 'coop_sku' then x.ten_goc else public.khoa_ten(x.ten_goc) end, x.san_pham,
+           coalesce(x.brand, ''), coalesce(x.ma_hang_tvp, ''), coalesce(x.ten_hang_tvp, '')
+    from jsonb_to_recordset(du_lieu) as x(nguon text, ten_goc text, san_pham text, brand text, ma_hang_tvp text, ten_hang_tvp text)
+    where x.nguon is not null and x.ten_goc is not null and x.san_pham is not null
+    on conflict (nguon, ten_goc) do nothing;
   else
-    raise exception 'Bảng không hợp lệ: %', bang;
+    raise exception 'Loại không hợp lệ: %', loai;
   end if;
   get diagnostics so = row_count;
-  insert into public.dong_bo_so_ban as d (nguon, ten, mo_ta, so_dong, nguon_cap_nhat, luc)
-  values (dong_bo_so_ban.nguon, coalesce(ten, ''), coalesce(mo_ta, ''), so, coalesce(nguon_cap_nhat, ''), now())
-  on conflict on constraint dong_bo_so_ban_pkey do update set
-    ten = case when excluded.ten <> '' then excluded.ten else d.ten end,
-    mo_ta = case when excluded.mo_ta <> '' then excluded.mo_ta else d.mo_ta end,
-    so_dong = case when lam_moi then excluded.so_dong else d.so_dong + excluded.so_dong end,
-    nguon_cap_nhat = case when excluded.nguon_cap_nhat <> '' then excluded.nguon_cap_nhat else d.nguon_cap_nhat end,
-    luc = excluded.luc;
+
+  -- Trạng thái nguồn (để app hiện): lấy tổng số dòng hiện có
+  if loai in ('sellin', 'coop_ban', 'emart', 'gia_ban') then
+    insert into public.trang_thai_nguon (nguon, ten, mo_ta, so_dong, nguon_cap_nhat, luc)
+    values (case loai when 'sellin' then 'sellin' when 'coop_ban' then 'coop' else loai end,
+            coalesce(thong_tin->>'ten', ''), coalesce(thong_tin->>'mo_ta', ''),
+            case loai when 'sellin' then (select count(*) from public.nguon_sellin) when 'coop_ban' then (select count(*) from public.nguon_coop_ban)
+                      when 'emart' then (select count(*) from public.nguon_emart) else (select count(*) from public.gia_ban) end,
+            coalesce(thong_tin->>'nguon_cap_nhat', ''), now())
+    on conflict (nguon) do update set
+      ten = case when excluded.ten <> '' then excluded.ten else trang_thai_nguon.ten end,
+      mo_ta = case when excluded.mo_ta <> '' then excluded.mo_ta else trang_thai_nguon.mo_ta end,
+      so_dong = excluded.so_dong,
+      nguon_cap_nhat = case when excluded.nguon_cap_nhat <> '' then excluded.nguon_cap_nhat else trang_thai_nguon.nguon_cap_nhat end,
+      luc = excluded.luc;
+  end if;
+  if tep <> '' or coalesce(thong_tin->>'loi', '') <> '' then
+    insert into public.nhat_ky_nap (nguon, tep, ten_tep, tu, den, so_dong, loi)
+    values (loai, tep, coalesce(thong_tin->>'ten_tep', ''), tu, den, so, coalesce(thong_tin->>'loi', ''));
+  end if;
   return so;
 end $$;
-revoke all on function public.dong_bo_so_ban(text, text, text, boolean, jsonb, text, text, text) from public;
-grant execute on function public.dong_bo_so_ban(text, text, text, boolean, jsonb, text, text, text) to anon, authenticated;
+revoke all on function public.nap_nguon(text, text, jsonb, jsonb) from public;
+grant execute on function public.nap_nguon(text, text, jsonb, jsonb) to anon, authenticated;
+
+-- Script hỏi: file nào đã nạp rồi (để không đọc lại file cũ chưa đổi)
+create or replace function public.tep_da_nap(ma text)
+returns table (tep text, luc timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if ma is null or not exists (select 1 from public.cau_hinh_nhac where ma_bi_mat = ma) then raise exception 'Sai mã bí mật'; end if;
+  return query select n.tep, max(n.luc) from public.nhat_ky_nap n where n.tep <> '' and n.loi = '' group by n.tep;
+end $$;
+revoke all on function public.tep_da_nap(text) from public;
+grant execute on function public.tep_da_nap(text) to anon, authenticated;
 
 -- Xong. Kiểm tra: select ten from public.quy_trinh order by thu_tu;

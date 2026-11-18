@@ -1,0 +1,1373 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo kênh MT</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="cau-hinh.js"></script>
+<style>
+/* Màu và cỡ chữ thay cho bộ giao diện của dashboard Claude */
+:root{
+  --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-anthropic-serif: Georgia, "Times New Roman", serif;
+  --color-bg:#f6f4ef; --color-panel:#ffffff; --color-fg:#1f2421; --color-fg-muted:#5f665f; --color-border-line:#e2ddd2;
+  --color-ok:#23804f; --color-warn:#a86d00; --color-bad:#b9381f;
+  --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:12px; --cds-gap-lg:20px;
+  --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:12px; --cds-pad-lg:16px;
+  --cds-radius:10px; --cds-border:1px solid var(--color-border-line);
+  --cds-font-size-caption:12px; --cds-font-size-body:14px; --cds-font-size-heading:16px; --cds-font-size-title:22px; --cds-font-weight-medium:600;
+  --cds-surface-popover:#ffffff; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.14); --cds-text-secondary:#5f665f;
+  --cds-chart-grid:#ebe6db; --cds-chart-axis:#8a8f88; --cds-chart-muted:#b7b9b2; --cds-dur-slow:.3s;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --color-bg:#151916; --color-panel:#1d221e; --color-fg:#e8ebe6; --color-fg-muted:#a3aaa2; --color-border-line:#2f3630;
+  --color-ok:#6cc595; --color-warn:#e2b04f; --color-bad:#f08a72;
+  --cds-surface-popover:#252b26; --cds-text-secondary:#a3aaa2; --cds-chart-grid:#2b312c; --cds-chart-axis:#7d857c; --cds-chart-muted:#4b524b; } }
+:root[data-theme="dark"]{
+  --color-bg:#151916; --color-panel:#1d221e; --color-fg:#e8ebe6; --color-fg-muted:#a3aaa2; --color-border-line:#2f3630;
+  --color-ok:#6cc595; --color-warn:#e2b04f; --color-bad:#f08a72;
+  --cds-surface-popover:#252b26; --cds-text-secondary:#a3aaa2; --cds-chart-grid:#2b312c; --cds-chart-axis:#7d857c; --cds-chart-muted:#4b524b; }
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans);font-size:14px}
+.bc-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--color-border-line);background:var(--color-panel)}
+.bc-top a{color:inherit} .bc-top .nho{font-size:12px;color:var(--color-fg-muted)}
+.bc-than{max-width:1280px;margin:0 auto;padding:16px}
+.bc-thong-bao{padding:14px 16px;border:1px solid var(--color-border-line);border-radius:10px;background:var(--color-panel);margin:16px}
+.dash-skeleton{color:var(--color-fg-muted)}
+#tab-baseline{display:none}   /* Baseline: chặng 2 mới tự tính */
+</style>
+</head>
+<body>
+<div class="bc-top">
+  <div><a href="./#tong-quan">← Về app</a> · <b>Báo cáo kênh MT</b> <span class="nho" id="bc-nguon"></span></div>
+  <div class="nho" id="bc-ai"></div>
+</div>
+<div id="bc-loi" class="bc-thong-bao" hidden></div>
+<div class="bc-than">
+<script>
+/* ===== Lớp thay cho bộ máy dashboard: lấy số từ Supabase, chạy các phép tính của trang ===== */
+(function(){
+  var CFG = window.CAU_HINH || {}, sb = window.supabase.createClient(CFG.url, CFG.khoa);
+  var NGUON = {   // bộ số của dashboard -> bảng trong Supabase
+    sellin:      { bang:'nguon_sellin',  cot:'ngay,thang,he_thong,brand,ma_hang,ten_hang,dvt,sl_ban,sl_tra,sl_doi,doanh_so,chiet_khau,tra_lai', thu_tu:'id' },
+    don_hang:    { bang:'nguon_don_hang', cot:'ngay,thang,he_thong,diem_nhan,so_chung_tu', thu_tu:'id' },
+    coop_ban:    { bang:'nguon_coop_ban', cot:'ky,sku,ch,sl_ban,gt_ban,sl_ton,gt_ton', thu_tu:'id' },
+    coop_sku:    { bang:'ds_coop_sku',   cot:'*', thu_tu:'ma_sku_coop' },
+    coop_ch:     { bang:'nguon_coop_ch', cot:'*', thu_tu:'ma_ch' },
+    emart_tuan:  { bang:'ds_emart_tuan', cot:'*', thu_tu:'tu' },
+    gia_ban:     { bang:'gia_ban', cot:'he_thong,brand:nhan_hang,san_pham,ten_bang_gia,gia_mua,giam,trading_term,tvp_nhan,gia_von,ln_tvp,ty_le_ln,gia_le,le_tren_mua,ghi_chu', thu_tu:'id',
+                   khach:{ bang:'gia_ban_cong_khai', cot:'he_thong,brand:nhan_hang,san_pham,giam,trading_term,gia_le,ghi_chu' } },
+    kiem_ton_ctv:{ rong:true }, baseline:{ rong:true }, baseline_wil:{ rong:true }   // chặng 2
+  };
+  var ds = {}, calcs = {}, kq = {}, nghe = [], thamSo = {}, laKhach = false;
+  Object.keys(NGUON).forEach(function(id){ ds[id] = { status:'loading', data:[] }; });
+  function ok(id){ return ds[id] && ds[id].status === 'ok'; }
+  function goiNghe(){ kq = {}; nghe.forEach(function(fn){ try{ fn(); }catch(e){ console.error(e); } }); }
+  function chay(id){
+    if (kq[id]) return kq[id];
+    var c = calcs[id];
+    var vao = c.inputs.map(function(i){ return calcs[i] ? chay(i) : (ds[i] || { status:'missing' }); });
+    var chua = vao.filter(function(x){ return x.status !== 'ok'; })[0];
+    if (chua) return { status: chua.status === 'error' ? 'error' : 'loading', data:[], rows:[], message: chua.message };
+    try { var d = c.fn.apply(null, vao.map(function(x){ return x.data; })); var r = { status:'ok', data:d, rows:Array.isArray(d)?d:[], columns:Array.isArray(d)&&d[0]?Object.keys(d[0]):[], meta:[] }; kq[id] = r; return r; }
+    catch(e){ console.error('Phép tính ' + id + ' lỗi', e); return { status:'error', data:[], rows:[], message:String(e.message||e) }; }
+  }
+  window.dash = {
+    data: function(id){ if (calcs[id]) return chay(id); var d = ds[id]; if (!d) return { status:'missing', data:[], rows:[], columns:[] };
+      return { status:d.status, data:d.data, rows:d.data, columns:d.data[0]?Object.keys(d.data[0]):[], message:d.message, refreshing:false, meta:[] }; },
+    calc: function(id, o){ calcs[id] = { inputs:o.inputs||[], fn:o.fn, title:o.title }; },
+    loader: function(){},
+    onData: function(fn){ nghe.push(fn); try{ fn(); }catch(e){ console.error(e); } },
+    colors: ['#2f7cb8','#e0823d','#3d9a5b','#c9506e','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],
+    refresh: function(){ taiHet(); },
+    params: function(){ return Object.assign({}, thamSo); },
+    setParams: function(o){ Object.assign(thamSo, o); goiNghe(); },
+    resetParams: function(){ thamSo = {}; goiNghe(); },
+    setLink: function(ten){ try{ history.replaceState(null, '', '#' + ten); }catch(e){} }
+  };
+  async function layBang(id){
+    var n = NGUON[id]; if (n.rong) { ds[id] = { status:'ok', data:[] }; return; }
+    var cfg = (laKhach && n.khach) ? Object.assign({}, n, n.khach) : n;
+    var dau = await sb.from(cfg.bang).select('*', { count:'exact', head:true }); if (dau.error) throw dau.error;
+    var tong = dau.count || 0, trang = [];
+    for (var tu = 0; tu < tong; tu += 1000) trang.push(sb.from(cfg.bang).select(cfg.cot).order(cfg.thu_tu || 'id').range(tu, tu + 999));
+    var ra = await Promise.all(trang), rows = [];
+    ra.forEach(function(r){ if (r.error) throw r.error; rows.push.apply(rows, r.data); });
+    ds[id] = { status:'ok', data:rows };
+  }
+  async function taiHet(){
+    await Promise.all(Object.keys(NGUON).map(function(id){
+      return layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(function(){ goiNghe(); });
+    }));
+    var tt = await sb.from('dong_bo_so_ban').select('*');
+    if (!tt.error && tt.data) document.getElementById('bc-nguon').textContent = '· Số cập nhật: ' + tt.data.map(function(x){ return x.ten + ' ' + new Date(x.luc).toLocaleString('vi-VN'); }).join(' · ');
+  }
+  window.addEventListener('resize', function(){ clearTimeout(window.__bcRs); window.__bcRs = setTimeout(goiNghe, 150); });
+  (async function(){
+    var s = (await sb.auth.getSession()).data.session, loi = document.getElementById('bc-loi');
+    if (!s) { loi.hidden = false; loi.innerHTML = 'Bạn chưa đăng nhập. <a href="./">Mở app để đăng nhập</a> rồi quay lại trang này.'; Object.keys(ds).forEach(function(id){ ds[id] = { status:'error', data:[], message:'Chưa đăng nhập' }; }); goiNghe(); return; }
+    var x = await sb.rpc('duoc_xem');
+    if (x.error || !x.data) { loi.hidden = false; loi.textContent = 'Email ' + s.user.email + ' chưa có trong danh sách thành viên của app.'; return; }
+    var tv = await sb.from('thanh_vien').select('ho_ten,vai_tro').eq('email', s.user.email.toLowerCase()).maybeSingle();
+    laKhach = !!(tv.data && tv.data.vai_tro === 'khach');
+    document.getElementById('bc-ai').textContent = ((tv.data && tv.data.ho_ten) || s.user.email) + (laKhach ? ' · Khách (chỉ xem; không có giá vốn, lãi gộp)' : '');
+    await taiHet();
+  })();
+})();
+</script>
+<div id="dash-root">
+<style>
+.sv{font-family:var(--font-anthropic-sans);display:flex;flex-direction:column;gap:var(--cds-gap-lg);font-variant-numeric:tabular-nums}
+.sv-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:var(--cds-gap-md)}
+.sv-head>div:first-child{min-width:0;flex:1 1 20rem}
+.sv-title{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0;text-wrap:balance}
+.sv-lede{margin:var(--cds-gap-xs) 0 0;color:var(--color-fg-muted);font-size:var(--cds-font-size-body);max-width:72ch}
+.sv-lede .sv b,.sv-lede b{font-weight:var(--cds-font-weight-medium);color:var(--color-fg)}
+.sv-filter{display:flex;flex-direction:column;gap:var(--cds-gap-xs);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.sv-filters{display:flex;flex-wrap:wrap;gap:var(--cds-gap-sm)}
+.sv-filter select{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);min-width:10rem}
+.sv-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:var(--cds-gap-md)}
+.sv-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0;display:flex;flex-direction:column;gap:var(--cds-gap-sm)}
+.sv-kpi-label{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.sv-kpi-val{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);line-height:1.15}
+.sv-kpi-sub{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.sv-up{color:var(--color-ok)}
+.sv-down{color:var(--color-bad)}
+.sv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr));gap:var(--cds-gap-md)}
+.sv-h{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.sv-note{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:0}
+.sv-chart{position:relative;min-height:12rem}
+.sv-chart svg{display:block}
+.sv-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);white-space:nowrap;z-index:2}
+.sv-tip .t{color:var(--cds-text-secondary)}
+.sv-legend{display:flex;flex-wrap:wrap;gap:var(--cds-gap-md);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.sv-sw{display:inline-block;width:.625rem;height:.625rem;border-radius:2px;margin-right:6px;vertical-align:baseline}
+.sv-fail{display:flex;align-items:center;justify-content:center;gap:var(--cds-gap-xs);min-height:inherit;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption)}
+.sv-fail::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad)}
+.sv-tablewrap{overflow:auto;max-height:30rem}
+.sv-table{border-collapse:collapse;width:100%;font-size:var(--cds-font-size-body)}
+.sv-table th{position:sticky;top:0;background:var(--color-panel);text-align:right;font-weight:var(--cds-font-weight-medium);color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);padding:var(--cds-pad-xs) var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);white-space:nowrap;z-index:1}
+.sv-table th button{all:unset;cursor:pointer}
+.sv-table th button:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.sv-table td{padding:var(--cds-pad-xs) var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);text-align:right;white-space:nowrap}
+.sv-table .l{text-align:left}
+.sv-table td.l{white-space:normal;min-width:12rem}
+.sv-search{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-bg);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);max-width:20rem;width:100%}
+.sv-foot{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);display:flex;flex-direction:column;gap:var(--cds-gap-xs);margin:0;padding-left:1.1rem}
+.sv-tabs{display:flex;flex-wrap:wrap;gap:var(--cds-gap-xs);border-bottom:1px solid var(--color-border-line)}
+.sv-tab{all:unset;cursor:pointer;padding:var(--cds-pad-sm) var(--cds-pad-md);font-family:var(--font-anthropic-sans);font-size:var(--cds-font-size-body);color:var(--color-fg-muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.sv-tab[aria-selected=true]{color:var(--color-fg);border-bottom-color:var(--color-fg);font-weight:var(--cds-font-weight-medium)}
+.sv-tab:focus-visible{outline:2px solid var(--color-fg);outline-offset:-2px}
+.sv-page{display:flex;flex-direction:column;gap:var(--cds-gap-lg)}
+.sv-page[hidden]{display:none}
+[data-dash-source-state=empty]{color:transparent}
+[data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+</style>
+
+<div class="sv">
+  <nav class="sv-tabs" role="tablist" aria-label="Trang">
+    <button type="button" class="sv-tab" role="tab" id="tab-sell-in" data-page="sell-in" aria-selected="true">1. Sell-in (TVP giao vào siêu thị)</button>
+    <button type="button" class="sv-tab" role="tab" id="tab-sell-out" data-page="sell-out" aria-selected="false">2. Sell-out (bán ra tại siêu thị)</button>
+    <button type="button" class="sv-tab" role="tab" id="tab-baseline" data-page="baseline" aria-selected="false">3. Baseline bán trơn (từng mã, từng hệ thống)</button>
+    <button type="button" class="sv-tab" role="tab" id="tab-gia" data-page="gia" aria-selected="false">4. Giá bán và phần TVP thu về</button>
+  </nav>
+  <section class="sv-page" id="sell-in">
+  <header class="sv-head" id="tong-quan">
+    <div>
+      <h1 class="sv-title">Sell-in kênh siêu thị (MT)</h1>
+      <p class="sv-lede" id="sv-lede"><span class="dash-skeleton">—</span></p>
+    </div>
+    <label class="sv-filter" for="sv-thang">Tháng
+      <select id="sv-thang" data-source="tong_quan"></select>
+    </label>
+  </header>
+
+  <section class="sv-kpis" id="chi-so">
+    <div class="sv-card"><span class="sv-kpi-label">Doanh thu thuần</span><span class="sv-kpi-val dash-skeleton" id="k-thuan" data-source="tong_quan" data-field="thuan">—</span><span class="sv-kpi-sub" id="k-thuan-sub">—</span></div>
+    <div class="sv-card"><span class="sv-kpi-label">Doanh số bán (trước chiết khấu, trả lại)</span><span class="sv-kpi-val dash-skeleton" id="k-ds" data-source="tong_quan" data-field="doanh_so">—</span><span class="sv-kpi-sub" id="k-ds-sub">—</span></div>
+    <div class="sv-card"><span class="sv-kpi-label">Hàng trả lại</span><span class="sv-kpi-val dash-skeleton" id="k-tra" data-source="tong_quan" data-field="tra_lai">—</span><span class="sv-kpi-sub" id="k-tra-sub">—</span></div>
+    <div class="sv-card"><span class="sv-kpi-label">Số đơn hàng</span><span class="sv-kpi-val dash-skeleton" id="k-don" data-source="tong_quan" data-field="so_don">—</span><span class="sv-kpi-sub">Chứng từ bán có doanh số</span></div>
+    <div class="sv-card"><span class="sv-kpi-label">Số điểm nhận hàng</span><span class="sv-kpi-val dash-skeleton" id="k-diem" data-source="tong_quan" data-field="so_diem">—</span><span class="sv-kpi-sub">Siêu thị, cửa hàng hoặc kho có đơn</span></div>
+  </section>
+
+  <section class="sv-card" id="theo-thang">
+    <h2 class="sv-h">Doanh thu thuần theo tháng</h2>
+    <p class="sv-note" id="thang-note">Bấm vào cột để xem tháng đó. Cột đậm là tháng đang xem.</p>
+    <div class="sv-chart dash-skeleton" id="c-thang" data-source="tong_quan"></div>
+  </section>
+
+  <section class="sv-grid">
+    <div class="sv-card" id="theo-he-thong">
+      <h2 class="sv-h">Doanh thu thuần theo hệ thống</h2>
+      <p class="sv-note">Chia theo brand. Số cuối thanh là tổng của hệ thống.</p>
+      <div class="sv-legend" id="sv-legend"></div>
+      <div class="sv-chart dash-skeleton" id="c-hethong" data-source="he_thong"></div>
+    </div>
+    <div class="sv-card" id="theo-ngay">
+      <h2 class="sv-h">Doanh thu thuần theo ngày</h2>
+      <p class="sv-note">Theo ngày chứng từ. Ngày trả hàng nhiều có thể làm cột thấp hơn.</p>
+      <div class="sv-chart dash-skeleton" id="c-ngay" data-source="ngay"></div>
+    </div>
+  </section>
+
+  <section class="sv-card" id="bang-he-thong">
+    <h2 class="sv-h">Bảng hệ thống × brand</h2>
+    <p class="sv-note">Doanh thu thuần, đơn vị triệu đồng. "So với cùng kỳ" so với cả tháng trước; riêng tháng mới nhất (chưa hết tháng) so với cùng các ngày của tháng trước.</p>
+    <div class="sv-tablewrap">
+      <table class="sv-table" id="t-hethong" data-source="he_thong" data-row-key="thang,he_thong">
+        <thead><tr>
+          <th class="l" data-field="he_thong">Hệ thống</th>
+          <th data-field="wil">Wil</th><th data-field="gungon">Gungon</th><th data-field="guyumi">Guyumi</th><th data-field="ma_bay">Má Bảy</th><th data-field="khac">Không theo brand</th>
+          <th data-field="thuan">Tổng</th><th data-field="ty_trong">Tỷ trọng</th><th data-field="tang_truong">So với cùng kỳ</th>
+          <th data-field="so_don">Số đơn</th><th data-field="so_diem">Số điểm nhận hàng</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sv-grid">
+    <div class="sv-card" id="bang-brand">
+      <h2 class="sv-h">Theo brand</h2>
+      <p class="sv-note">Doanh thu thuần, triệu đồng.</p>
+      <div class="sv-tablewrap">
+        <table class="sv-table" id="t-brand" data-source="brand" data-row-key="thang,brand">
+          <thead><tr>
+            <th class="l" data-field="brand">Brand</th><th data-field="thuan">Doanh thu thuần</th><th data-field="ty_trong">Tỷ trọng</th>
+            <th data-field="tang_truong">So với cùng kỳ</th><th data-field="so_he_thong">Số hệ thống có bán</th><th data-field="so_sku">Số SKU có bán</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="sv-card" id="bang-sku">
+    <h2 class="sv-h">Theo SKU</h2>
+    <p class="sv-note">Số lượng thuần = bán trừ trả lại, theo đơn vị tính của từng SKU. Bấm tiêu đề cột để sắp xếp.</p>
+    <input class="sv-search" id="sv-q" type="search" placeholder="Tìm SKU hoặc brand" aria-label="Tìm SKU">
+    <div class="sv-tablewrap">
+      <table class="sv-table" id="t-sku" data-source="sku" data-row-key="thang,ma_hang">
+        <thead><tr>
+          <th class="l" data-field="ten_hang"><button type="button" data-k="ten_hang">Tên hàng</button></th>
+          <th class="l" data-field="brand"><button type="button" data-k="brand">Brand</button></th>
+          <th class="l" data-field="dvt">ĐVT</th>
+          <th data-field="sl_thuan"><button type="button" data-k="sl_thuan">SL thuần</button></th>
+          <th data-field="thuan"><button type="button" data-k="thuan">Doanh thu thuần (tr)</button></th>
+          <th data-field="ty_trong"><button type="button" data-k="ty_trong">Tỷ trọng</button></th>
+          <th data-field="so_he_thong"><button type="button" data-k="so_he_thong">Số hệ thống có bán</button></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <ul class="sv-foot" id="cach-tinh">
+    <li>Nguồn: Sổ chi tiết bán hàng (phần mềm kế toán), Phòng bán hàng B2B siêu thị. Tiền tính bằng VNĐ, chưa gồm thuế GTGT.</li>
+    <li>Doanh thu thuần = Doanh số bán − Chiết khấu − Giá trị hàng trả lại. Hàng trả lại tính theo ngày chứng từ trả.</li>
+    <li>Hàng đổi cận date (0đ) không tính vào doanh số và số lượng bán.</li>
+    <li>Hệ thống lấy theo nhóm khách hàng; nhóm "Kênh MT (siêu thị)" tách theo tên công ty: Công ty TNHH Dịch vụ EB là GO! / Big C, Công ty MM Mega Market là MM Mega Market.</li>
+    <li>Số điểm nhận hàng: Bách Hóa Xanh tính theo kho tổng (DC); King Food, MM Mega Market, Homefarm nhận hàng tại một điểm chung.</li>
+  </ul>
+  </section>
+
+  <section class="sv-page" id="sell-out" hidden>
+    <header class="sv-head" id="so-tong-quan">
+      <div>
+        <h1 class="sv-title" id="so-title">Sell-out: bán ra tại siêu thị</h1>
+        <p class="sv-lede" id="so-lede"><span class="dash-skeleton">—</span></p>
+      </div>
+      <div class="sv-filters">
+        <label class="sv-filter" for="so-ht">Hệ thống
+          <select id="so-ht" data-source="so_ky"></select>
+        </label>
+        <label class="sv-filter" for="so-ky">Kỳ
+          <select id="so-ky" data-source="so_ky"></select>
+        </label>
+        <label class="sv-filter" for="so-br">Brand
+          <select id="so-br" data-source="so_ky"></select>
+        </label>
+      </div>
+    </header>
+
+    <section class="sv-kpis" id="so-chi-so">
+      <div class="sv-card"><span class="sv-kpi-label">Sản lượng bán ra</span><span class="sv-kpi-val dash-skeleton" id="so-sl" data-source="so_ky">—</span><span class="sv-kpi-sub" id="so-sl-sub">—</span></div>
+      <div class="sv-card"><span class="sv-kpi-label">Bình quân 1 ngày</span><span class="sv-kpi-val dash-skeleton" id="so-ngay" data-source="so_ky">—</span><span class="sv-kpi-sub" id="so-ngay-sub">—</span></div>
+      <div class="sv-card"><span class="sv-kpi-label">Doanh số tại quầy</span><span class="sv-kpi-val dash-skeleton" id="so-ds" data-source="so_ky">—</span><span class="sv-kpi-sub" id="so-ds-sub">—</span></div>
+      <div class="sv-card"><span class="sv-kpi-label">Hàng vào siêu thị cùng kỳ</span><span class="sv-kpi-val dash-skeleton" id="so-vao" data-source="so_ky">—</span><span class="sv-kpi-sub" id="so-vao-sub">—</span></div>
+      <div class="sv-card"><span class="sv-kpi-label">Tồn cuối kỳ</span><span class="sv-kpi-val dash-skeleton" id="so-ton" data-source="so_ky">—</span><span class="sv-kpi-sub" id="so-ton-sub">—</span></div>
+    </section>
+
+    <section class="sv-card" id="so-theo-ky">
+      <h2 class="sv-h">Bình quân 1 ngày theo kỳ, chia brand</h2>
+      <p class="sv-note">Sản lượng bán ra bình quân 1 ngày, để so được kỳ đủ tháng với kỳ chưa hết tháng. Bấm vào cột để xem kỳ đó. Cột đậm là kỳ đang xem.</p>
+      <div class="sv-legend" id="so-legend"></div>
+      <div class="sv-chart dash-skeleton" id="c-so" data-source="so_ky"></div>
+    </section>
+
+    <section class="sv-card" id="so-bang-ch">
+      <h2 class="sv-h">Theo siêu thị</h2>
+      <p class="sv-note">Sản lượng bán ra trong kỳ theo brand (không theo ô Brand ở trên). Bấm tiêu đề cột để sắp xếp.</p>
+      <input class="sv-search" id="so-ch-q" type="search" placeholder="Tìm siêu thị" aria-label="Tìm siêu thị">
+      <div class="sv-tablewrap" style="max-height:32rem">
+        <table class="sv-table" id="t-so-ch" data-source="so_ch" data-row-key="he_thong,ky,cua_hang">
+          <thead><tr>
+            <th class="l" data-field="cua_hang"><button type="button" data-k="cua_hang">Siêu thị</button></th>
+            <th data-field="wil"><button type="button" data-k="wil">Wil</button></th>
+            <th data-field="gungon"><button type="button" data-k="gungon">Gungon</button></th>
+            <th data-field="guyumi"><button type="button" data-k="guyumi">Guyumi</button></th>
+            <th data-field="ma_bay"><button type="button" data-k="ma_bay">Má Bảy</button></th>
+            <th data-field="sl"><button type="button" data-k="sl">Tổng sản lượng</button></th>
+            <th data-field="sl_ngay"><button type="button" data-k="sl_ngay">BQ 1 ngày</button></th>
+            <th data-field="ds"><button type="button" data-k="ds">Doanh số tại quầy (nghìn đ)</button></th>
+            <th data-field="ton"><button type="button" data-k="ton">Tồn cuối kỳ</button></th>
+            <th data-field="tang"><button type="button" data-k="tang">BQ 1 ngày so với kỳ trước</button></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sv-card" id="so-bang-sp">
+      <h2 class="sv-h">Theo sản phẩm</h2>
+      <p class="sv-note">"Lượt hết hàng" = số siêu thị có bán mã đó trong kỳ nhưng tồn cuối kỳ bằng 0. Bấm tiêu đề cột để sắp xếp.</p>
+      <input class="sv-search" id="so-sp-q" type="search" placeholder="Tìm sản phẩm" aria-label="Tìm sản phẩm">
+      <div class="sv-tablewrap" style="max-height:32rem">
+        <table class="sv-table" id="t-so-sp" data-source="so_sp" data-row-key="he_thong,ky,san_pham">
+          <thead><tr>
+            <th class="l" data-field="brand"><button type="button" data-k="brand">Brand</button></th>
+            <th class="l" data-field="san_pham"><button type="button" data-k="san_pham">Sản phẩm</button></th>
+            <th data-field="sl"><button type="button" data-k="sl">Sản lượng</button></th>
+            <th data-field="sl_ngay"><button type="button" data-k="sl_ngay">BQ 1 ngày</button></th>
+            <th data-field="ds"><button type="button" data-k="ds">Doanh số tại quầy (nghìn đ)</button></th>
+            <th data-field="so_ch"><button type="button" data-k="so_ch">Số siêu thị có bán</button></th>
+            <th data-field="ton"><button type="button" data-k="ton">Tồn cuối kỳ</button></th>
+            <th data-field="ngay_ton"><button type="button" data-k="ngay_ton">Số ngày tồn kho</button></th>
+            <th data-field="het"><button type="button" data-k="het">Lượt hết hàng</button></th>
+            <th data-field="tang"><button type="button" data-k="tang">BQ 1 ngày so với kỳ trước</button></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <ul class="sv-foot" id="so-cach-tinh">
+      <li>Cùng một cách trình bày cho mọi hệ thống. Nguồn số bán ra: Co.op: file bán ra – tồn kho theo cửa hàng Co.op gửi, theo tháng (tháng đang chạy theo kỳ của file). Emart: Google Sheet "[EMART] SELL OUT THÁNG" (sheet SELL OUT, T10, T11), cộng các tuần thành tháng. Lotte và GO! / Big C: file cộng tác viên đếm tồn, bán ra = tồn đầu + hàng nhập − tồn cuối, mỗi siêu thị một kỳ đếm riêng.</li>
+      <li>Bình quân 1 ngày = sản lượng ÷ số ngày của kỳ, tính cho từng siêu thị rồi cộng lại (các siêu thị kiểm tồn có số ngày đếm khác nhau). "So với kỳ trước" so bình quân 1 ngày với kỳ liền trước của cùng hệ thống.</li>
+      <li>Doanh số tại quầy: Emart lấy đúng cột Doanh số trong sheet (giá bán lẻ sau khuyến mãi). Co.op, Lotte, GO! / Big C = sản lượng × giá bán lẻ trong bảng giá siêu thị (tab 4), tức giá niêm yết: ngày siêu thị giảm giá thì doanh số thật thấp hơn. Mã chưa có giá dùng được thì chưa tính và có ghi số dòng thiếu.</li>
+      <li>Hàng vào siêu thị cùng kỳ: Co.op và Emart = số TVP giao vào (sổ bán hàng, bán − trả lại, cùng ngày với kỳ; Co.op gồm Co.opMart, Co.op Food, Co.op Finelife). Lotte, GO! / Big C = hàng nhập trong file kiểm tồn của các siêu thị được đếm. Bán ra ÷ hàng vào dưới 1 nghĩa là hàng vào nhiều hơn hàng bán ra.</li>
+      <li>Tồn cuối kỳ: Co.op theo file Co.op; Lotte, GO! / Big C theo số đếm cuối kỳ; Emart chưa có số tồn. Số ngày tồn kho = tồn cuối ÷ bình quân bán 1 ngày.</li>
+      <li>Tên sản phẩm đã thống nhất theo tên ngắn cho mọi hệ thống. Co.op mã khuyến mãi "Trà sữa matcha 170g" quy về Trà sữa matcha.</li>
+    </ul>
+  </section>
+
+  <section class="sv-page" id="baseline" hidden>
+    <header class="sv-head" id="wil-tong-quan">
+      <div>
+        <h1 class="sv-title">Baseline bán trơn trà Wil</h1>
+        <p class="sv-lede" id="wil-lede"><span class="dash-skeleton">—</span></p>
+      </div>
+    </header>
+
+    <section class="sv-card" id="wil-ma-tran">
+      <h2 class="sv-h">Sức bán khi không chạy CTKM, từng mã tại từng hệ thống</h2>
+      <p class="sv-note">Đơn vị hộp/30 ngày. Co.op, Emart, Bách Hóa Xanh: số bán ra tại quầy. GO! / Big C, Lotte, WinMart: số TVP giao vào. Chữ đậm = độ tin cậy Cao, chữ thường = Trung bình, chữ mờ nghiêng = Thấp. "Chưa đủ" = có bán nhưng chưa đủ ngày không CTKM để tính. "–" = không bán mã này. Dấu * = số suy ra (không đo trực tiếp được), xem cách tính ở cuối bảng chi tiết.</p>
+      <div class="sv-tablewrap">
+        <table class="sv-table" id="t-wil-mt" data-source="wil_ma_tran" data-row-key="san_pham">
+          <thead><tr>
+            <th class="l" data-field="san_pham">Sản phẩm</th>
+            <th data-field="coop">Co.op (bán ra)</th><th data-field="emart">Emart (bán ra)</th>
+            <th data-field="bhx">Bách Hóa Xanh (bán ra)</th><th data-field="go">GO! / Big C (giao vào)</th>
+            <th data-field="lotte">Lotte (giao vào)</th><th data-field="winmart">WinMart (giao vào)</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sv-card" id="wil-chi-tiet">
+      <h2 class="sv-h">Chi tiết baseline Wil: cả hệ thống và từng siêu thị</h2>
+      <div class="sv-filters">
+        <label class="sv-filter" for="wil-cap">Cấp
+          <select id="wil-cap" data-source="wil_bang"><option value="Hệ thống">Cả hệ thống</option><option value="Siêu thị">Từng siêu thị / điểm nhận hàng</option></select>
+        </label>
+        <label class="sv-filter" for="wil-ht">Hệ thống
+          <select id="wil-ht" data-source="wil_bang"><option value="">Tất cả</option></select>
+        </label>
+        <label class="sv-filter" for="wil-sp">Sản phẩm
+          <select id="wil-sp" data-source="wil_bang"><option value="">Tất cả</option></select>
+        </label>
+        <label class="sv-filter" for="wil-tin">Độ tin cậy
+          <select id="wil-tin" data-source="wil_bang"><option value="">Tất cả</option><option value="Cao">Cao</option><option value="Trung bình">Trung bình</option><option value="Thấp">Thấp</option><option value="Chưa đủ dữ liệu">Chưa đủ dữ liệu</option></select>
+        </label>
+        <label class="sv-filter" for="wil-q">Tìm siêu thị
+          <input class="sv-search" id="wil-q" type="search" placeholder="Ví dụ: Cống Quỳnh, Gò Vấp" aria-label="Tìm siêu thị baseline Wil">
+        </label>
+      </div>
+      <p class="sv-note" id="wil-tom-tat" data-source="wil_bang">—</p>
+      <div class="sv-tablewrap" style="max-height:36rem">
+        <table class="sv-table" id="t-wil" data-source="wil_bang" data-row-key="cap,he_thong,diem,san_pham">
+          <thead><tr>
+            <th class="l" data-field="he_thong"><button type="button" data-k="he_thong">Hệ thống</button></th>
+            <th class="l" data-field="diem"><button type="button" data-k="diem">Siêu thị / điểm nhận hàng</button></th>
+            <th class="l" data-field="san_pham"><button type="button" data-k="san_pham">Sản phẩm</button></th>
+            <th class="l" data-field="nguon"><button type="button" data-k="nguon">Loại số</button></th>
+            <th data-field="baseline"><button type="button" data-k="baseline">Baseline (hộp/30 ngày)</button></th>
+            <th data-field="lo"><button type="button" data-k="lo">Khoảng tin cậy 80%</button></th>
+            <th class="l" data-field="do_tin_cay"><button type="button" data-k="do_tin_cay">Độ tin cậy</button></th>
+            <th data-field="bq_ca_ctkm"><button type="button" data-k="bq_ca_ctkm">BQ thực tế gồm cả CTKM</button></th>
+            <th data-field="phan_ctkm"><button type="button" data-k="phan_ctkm">Phần bán nhờ CTKM</button></th>
+            <th data-field="dai_han"><button type="button" data-k="dai_han">Baseline cả kỳ</button></th>
+            <th class="l" data-field="ghi_chu">Số đo dùng để tính</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <ul class="sv-foot" id="wil-cach-tinh">
+        <li>Baseline bán trơn = số hộp bán được trong 30 ngày khi mã đó không có CTKM, không có PG hay dùng thử. Đây là sức mua sẵn có của khách tại hệ thống.</li>
+        <li>Kiểm soát chất lượng số liệu: một ngày, tuần hoặc tháng bị loại nếu có một trong các dấu hiệu sau: Trade Master Plan ghi mã đó có CTKM (trừ kỳ siêu thị không duyệt); cột CTKM trong sheet Emart có ghi; ngày dùng thử và 7 ngày sau đó; ngày hết hàng; sổ bán hàng có đơn giá thấp hơn giá chuẩn từ 3%, mã hàng kèm quà, hoặc hàng tặng 0đ; giá vốn Co.op của mã thấp hơn 10% (hàng nhập giá khuyến mãi).</li>
+        <li>Emart (bán ra): tốc độ bán từng tuần giá thường của 3 cửa hàng, 01/05–15/11/2026; baseline = trung vị 8 tuần giá thường gần nhất × 30 ngày. "Baseline cả kỳ" = trung vị mọi tuần giá thường từ tháng 5.</li>
+        <li>Co.op (bán ra, mọi loại cửa hàng): tháng giá thường trong T5–T10/2026 (mã có CTKM từ 4 ngày trong tháng thì loại tháng đó); baseline = trung vị tối đa 4 tháng giá thường gần nhất, quy ra 30 ngày.</li>
+        <li>Bách Hóa Xanh (bán ra cả chuỗi, theo bảng sản lượng và bảng CTKM Bách Hóa Xanh của Trade): tháng giá thường trong T5–T10, bỏ tháng giá bán lẻ giảm và tháng có quà tặng kèm (ly, bình, mua 1 tặng 1); baseline = bình quân các tháng giá thường quy ra 30 ngày. Số giao vào ghi ở cột "Số đo dùng để tính" để đối chiếu: T5–T9 Bách Hóa Xanh nhập nhiều hơn bán ra 15–45%. Từng kho: baseline bán ra × tỷ trọng giao vào của kho (chưa có số bán ra theo kho).</li>
+        <li>GO! / Big C, Lotte, WinMart (giao vào): số hộp TVP giao giá thường trong các ngày không CTKM ÷ số ngày không CTKM × 30, kỳ 01/05–31/10/2026, đã trừ hàng trả lại. Ngày CTKM tính từ 14 ngày trước khi CTKM bắt đầu (siêu thị đặt hàng trước) đến hết CTKM. Số giao vào là lượng siêu thị nhập, sau CTKM siêu thị còn tồn nên nhập chậm lại; vì vậy độ tin cậy tối đa là Trung bình.</li>
+        <li>Từng siêu thị: baseline hệ thống × tỷ trọng của siêu thị trong các kỳ giá thường. Bách Hóa Xanh nhận hàng theo kho tổng nên dòng chi tiết là kho. Co.op: cửa hàng có PG trong tháng thì bỏ tháng đó.</li>
+        <li>Độ tin cậy theo sai số của baseline: Cao khi sai số ≤10%, Trung bình ≤20%, còn lại Thấp; bán ra có dưới 3 kỳ giá thường xếp Thấp. Phần bán nhờ CTKM = 1 − baseline ÷ bình quân thực tế cả kỳ.</li>
+        <li>King Food ngừng nhập Wil từ tháng 8 nên không tính. GO! / Big C kim quất mật ong (số có dấu *, loại số "Suy ra"): GO gần như luôn nhập kim quất giá CTKM (chỉ 14/184 ngày không CTKM) nên không đo trực tiếp được. Baseline = baseline bí đao hạt chia tại GO × tỷ lệ kim quất ÷ bí đao khi bán trơn, đo ở Co.op (0,44), Emart (0,49), Lotte (0,42), bình quân 0,45. Sai số gộp sai số baseline bí đao GO và độ lệch giữa 3 tỷ lệ. Từng siêu thị chia theo tỷ trọng giao vào cả kỳ. Thay bằng số đo khi có file bán ra của GO. Lotte Matcha latte: chưa tính được vì từ khi tung hàng (07/2026) ngày nào cũng có CTKM, và tỷ lệ Matcha latte so với các mã khác chênh quá xa giữa các hệ thống (ví dụ so với trà đào: Co.op 0,95, Bách Hóa Xanh 1,67) nên không suy ra được.</li>
+      </ul>
+    </section>
+
+    <header class="sv-head" id="bl-tong-quan">
+      <div>
+        <h1 class="sv-title">Baseline các brand (bản tính ngày 06/11)</h1>
+        <p class="sv-note">Dùng cho Gungon, Guyumi, Má Bảy. Với trà Wil, dùng bảng "Baseline bán trơn trà Wil" ở đầu trang: bản mới đã loại thêm ngày CTKM theo Trade Master Plan và có số đến 15/11.</p>
+        <p class="sv-lede" id="bl-lede"><span class="dash-skeleton">—</span></p>
+      </div>
+      <div class="sv-filters">
+        <label class="sv-filter" for="bl-loai">Loại số liệu
+          <select id="bl-loai" data-source="bl_bang"><option value="Bán ra">Bán ra tại siêu thị (sell-out)</option><option value="Giao vào">TVP giao vào (sell-in)</option><option value="Tối ưu">Số tối ưu Emart, Co.op (gộp bán ra + giao vào)</option></select>
+        </label>
+        <label class="sv-filter" for="bl-ht">Hệ thống
+          <select id="bl-ht" data-source="bl_bang"><option value="">Tất cả</option></select>
+        </label>
+        <label class="sv-filter" for="bl-brand">Brand
+          <select id="bl-brand" data-source="bl_bang"><option value="">Tất cả</option></select>
+        </label>
+        <label class="sv-filter" for="bl-tin">Độ tin cậy
+          <select id="bl-tin" data-source="bl_bang"><option value="">Tất cả</option><option value="Cao">Cao</option><option value="Trung bình">Trung bình</option><option value="Thấp">Thấp</option></select>
+        </label>
+      </div>
+    </header>
+
+    <section class="sv-kpis" id="bl-chi-so">
+      <div class="sv-card"><span class="sv-kpi-label">Số mã × hệ thống đang xem</span><span class="sv-kpi-val dash-skeleton" id="bl-n" data-source="bl_bang">—</span><span class="sv-kpi-sub" id="bl-n-sub">—</span></div>
+      <div class="sv-card"><span class="sv-kpi-label">T10 dưới baseline</span><span class="sv-kpi-val dash-skeleton sv-down" id="bl-giam" data-source="bl_bang">—</span><span class="sv-kpi-sub">Thấp hơn baseline quá ngưỡng ngang</span></div>
+      <div class="sv-card"><span class="sv-kpi-label">T10 ngang baseline</span><span class="sv-kpi-val dash-skeleton" id="bl-ngang" data-source="bl_bang">—</span><span class="sv-kpi-sub">Trong ngưỡng ngang (tối thiểu ±10%)</span></div>
+      <div class="sv-card"><span class="sv-kpi-label">T10 trên baseline</span><span class="sv-kpi-val dash-skeleton sv-up" id="bl-tang" data-source="bl_bang">—</span><span class="sv-kpi-sub">Cao hơn baseline quá ngưỡng ngang</span></div>
+    </section>
+
+    <section class="sv-card" id="bl-bang">
+      <h2 class="sv-h">Baseline từng mã, từng hệ thống</h2>
+      <p class="sv-note" id="bl-note">Baseline = sản lượng một tháng khi bán giá thường. Bấm tiêu đề cột để sắp xếp.</p>
+      <input class="sv-search" id="bl-q" type="search" placeholder="Tìm sản phẩm, mã hoặc brand" aria-label="Tìm sản phẩm baseline">
+      <div class="sv-tablewrap" style="max-height:36rem">
+        <table class="sv-table" id="t-bl" data-source="bl_bang" data-row-key="loai,he_thong,san_pham">
+          <thead><tr>
+            <th class="l" data-field="he_thong"><button type="button" data-k="he_thong">Hệ thống</button></th>
+            <th class="l" data-field="brand"><button type="button" data-k="brand">Brand</button></th>
+            <th class="l" data-field="san_pham"><button type="button" data-k="san_pham">Sản phẩm</button></th>
+            <th data-field="baseline"><button type="button" data-k="baseline">Baseline (SL/tháng)</button></th>
+            <th data-field="t10"><button type="button" data-k="t10">T10 (SL)</button></th>
+            <th data-field="so_voi"><button type="button" data-k="so_voi">T10 so với baseline</button></th>
+            <th class="l" data-field="danh_gia"><button type="button" data-k="danh_gia">Kết quả</button></th>
+            <th class="l" data-field="do_tin_cay"><button type="button" data-k="do_tin_cay">Độ tin cậy</button></th>
+            <th class="l" data-field="ctkm_t10"><button type="button" data-k="ctkm_t10">Có CTKM T10</button></th>
+            <th class="c-so" data-field="bl_si"><button type="button" data-k="bl_si">Baseline giao vào (SL/tháng)</button></th>
+            <th class="c-so" data-field="t10_si"><button type="button" data-k="t10_si">T10 giao vào (SL)</button></th>
+            <th class="c-so" data-field="si_so_voi"><button type="button" data-k="si_so_voi">Giao vào T10 so với baseline</button></th>
+            <th class="c-so" data-field="ban_giao_bl"><button type="button" data-k="ban_giao_bl">Bán ra ÷ giao vào (baseline)</button></th>
+            <th class="c-so" data-field="ban_giao_t10"><button type="button" data-k="ban_giao_t10">Bán ra ÷ giao vào (T10)</button></th>
+            <th class="l c-so" data-field="si_tin_cay"><button type="button" data-k="si_tin_cay">Độ tin cậy giao vào</button></th>
+            <th class="c-si" data-field="bl_tr"><button type="button" data-k="bl_tr">Baseline DT thuần (tr/tháng)</button></th>
+            <th class="l" data-field="ghi_chu">Ghi chú</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sv-card" id="bl-opt-sec" style="display:none">
+      <h2 class="sv-h">Số tối ưu: gộp baseline bán ra và giao vào</h2>
+      <p class="sv-note" id="bl-opt-note">Bấm tiêu đề cột để sắp xếp.</p>
+      <div class="sv-tablewrap" style="max-height:36rem">
+        <table class="sv-table" id="t-bl-opt" data-source="bl_bang" data-row-key="loai,he_thong,san_pham">
+          <thead><tr>
+            <th class="l" data-field="he_thong"><button type="button" data-k="he_thong">Hệ thống</button></th>
+            <th class="l" data-field="brand"><button type="button" data-k="brand">Brand</button></th>
+            <th class="l" data-field="san_pham"><button type="button" data-k="san_pham">Sản phẩm</button></th>
+            <th data-field="bl_ban"><button type="button" data-k="bl_ban">Baseline bán ra (± sai số)</button></th>
+            <th data-field="bl_giao"><button type="button" data-k="bl_giao">Baseline giao vào (± sai số)</button></th>
+            <th class="l" data-field="khop"><button type="button" data-k="khop">Chênh lệch hai nguồn</button></th>
+            <th data-field="ty_trong_ban"><button type="button" data-k="ty_trong_ban">Tỷ trọng bán ra</button></th>
+            <th data-field="baseline"><button type="button" data-k="baseline">Baseline tối ưu (SL/tháng)</button></th>
+            <th data-field="lo"><button type="button" data-k="lo">Khoảng tin cậy 80%</button></th>
+            <th class="l" data-field="do_tin_cay"><button type="button" data-k="do_tin_cay">Độ tin cậy</button></th>
+            <th data-field="t10"><button type="button" data-k="t10">T10 bán ra</button></th>
+            <th data-field="so_voi"><button type="button" data-k="so_voi">Bán ra T10 so với tối ưu</button></th>
+            <th class="l" data-field="danh_gia"><button type="button" data-k="danh_gia">Kết quả</button></th>
+            <th data-field="t10_si"><button type="button" data-k="t10_si">T10 giao vào</button></th>
+            <th data-field="si_so_voi"><button type="button" data-k="si_so_voi">Giao vào T10 so với tối ưu</button></th>
+            <th data-field="giao_du"><button type="button" data-k="giao_du">Giao vào baseline − tối ưu (SL/tháng)</button></th>
+            <th class="l" data-field="cach">Cách chọn</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <ul class="sv-foot" id="bl-cach-tinh">
+      <li>Số tối ưu (Emart, Co.op): sai số của mỗi baseline tính từ độ dao động giữa các tháng (sai số của trung vị; Co.op dùng khoảng tin cậy bootstrap). Nếu chênh lệch giữa bán ra và giao vào nhỏ hơn 2 lần sai số gộp, hai nguồn được gộp theo nghịch đảo bình phương sai số (nguồn chính xác hơn có tỷ trọng lớn hơn). Nếu chênh lệch vượt sai số hoặc thiếu dữ liệu, dùng baseline bán ra vì đó là sức mua thật tại quầy. Khoảng tin cậy 80% = tối ưu ± 1,28 × sai số. Độ tin cậy: Cao khi sai số ≤10% số tối ưu, Trung bình ≤20%, còn lại Thấp. "Giao vào baseline − tối ưu" dương: lúc bán giá thường, TVP giao vào nhiều hơn mức tối ưu mỗi tháng.</li>
+      <li>Baseline bán trơn = trung vị sản lượng một tháng trong các tháng bán giá thường, từng mã, từng hệ thống. Không so với tháng có activation hay CTKM.</li>
+      <li>Bán ra Co.opMart + Co.op Xtra: từ file Co.op theo cửa hàng, tháng T4–T9, đã quy đổi theo số cửa hàng có bán và số ngày; quy ra 31 ngày. Emart: tốc độ bán từng tuần T5–T9 chỉ tính ngày bán giá thường (bỏ ngày có CTKM, ngày dùng thử, 7 ngày sau sự kiện, ngày hết hàng), tuần phải đủ 3 cửa hàng, mỗi cửa hàng ít nhất 3 ngày; baseline = trung vị các tuần × 31 ngày. Dùng tuần thay tháng để có nhiều lần đo hơn (8–19 tuần mỗi mã) nên sai số nhỏ hơn. Mã có dưới 4 tuần giá thường giữ cách tính theo tháng. Bách Hóa Xanh: trung vị các tháng giá thường T4–T9 theo bảng giá và sản lượng của Trade (Matcha Latte dùng T8–T9).</li>
+      <li>Giao vào (sell-in): từ Sổ chi tiết bán hàng, SL bán trừ trả lại, cộng dồn các tháng T4–T9 rồi chia cho số tháng (mã mới tính từ tháng có hàng đầu tiên). Với Wil, bỏ các tháng mã đó có CTKM từ 10 ngày trở lên tại hệ thống đó theo lịch Trade Master Plan. Mã xuất kèm quà hoặc mã khuyến mãi quy về mã chính. Cộng dồn nhiều tháng thì việc đơn giao rơi vào tháng này hay tháng sau chỉ ảnh hưởng ở đầu và cuối kỳ, nên sai số = đơn giao trung vị × √(số đoạn tháng liền nhau) ÷ số tháng. Độ tin cậy này là độ chính xác của lượng hàng đã giao, không phải sức bán: giao vào cao hơn bán ra kéo dài nghĩa là hàng đang dồn.</li>
+      <li>Đối chiếu bán ra với giao vào (ở chế độ Bán ra): ghép cùng mã hàng TVP, cùng hệ thống. Emart, Bách Hóa Xanh so với sell-in cùng hệ thống; Co.opMart + Co.op Xtra so với sell-in nhóm Co.opMart (không gồm Co.op Food). Bán ra ÷ giao vào = baseline bán ra ÷ baseline giao vào; dưới 1 nghĩa là lượng TVP giao vào lúc bán giá thường lớn hơn lượng siêu thị bán ra (hàng dồn ở kho hoặc quầy, hoặc có phần xuất kèm quà tính vào mã chính); tô đỏ khi dưới 0,8.</li>
+      <li>Kết quả: Giảm hoặc Tăng khi T10 lệch baseline quá ngưỡng ngang; ngưỡng ngang tối thiểu ±10%, rộng hơn khi số liệu các tháng dao động nhiều (ghi ở cột Ghi chú với bán ra). "Có CTKM T10" = mã có chạy CTKM trong tháng 10, khi đó T10 ngang hoặc cao hơn baseline chưa phải sức bán thật.</li>
+      <li>Độ tin cậy (áp dụng chung cho bán ra, giao vào, số tối ưu) theo sai số của chính số baseline: Cao khi sai số ≤10% baseline, Trung bình ≤20%, còn lại Thấp. Sai số Emart tính bằng lấy mẫu lại các tuần (bootstrap); Co.op từ khoảng tin cậy bootstrap của mô hình theo tháng; Bách Hóa Xanh: Cao khi có từ 3 tháng giá thường. Mã còn mức Thấp là mã có ít tuần bán giá thường hoặc sức bán từng tuần dao động mạnh; sẽ tăng khi có thêm tuần giá thường từ T10–T11. Lotte, WinMart chưa đủ tháng bán ra để có baseline bán ra.</li>
+    </ul>
+  </section>
+
+  <section class="sv-page" id="gia" hidden>
+    <header class="sv-head" id="gia-tong-quan">
+      <div>
+        <h1 class="sv-title">Giá bán và phần TVP thu về</h1>
+        <p class="sv-lede" id="gia-lede"><span class="dash-skeleton">—</span></p>
+      </div>
+      <div class="sv-filters">
+        <label class="sv-filter" for="gia-ht">Hệ thống
+          <select id="gia-ht" data-source="gia_ban"></select>
+        </label>
+        <label class="sv-filter" for="gia-br">Brand
+          <select id="gia-br" data-source="gia_ban"><option value="">Tất cả</option></select>
+        </label>
+      </div>
+    </header>
+
+    <section class="sv-card" id="gia-bang">
+      <h2 class="sv-h">Từng mã tại hệ thống đang xem</h2>
+      <p class="sv-note">Đơn vị đồng trên một đơn vị bán lẻ (hộp, chai, gói). "TVP thu về" = giá TVP bán cho siêu thị × (1 − mức đang giảm cho siêu thị) × (1 − trading term). "Lãi gộp" = TVP thu về − giá vốn. Giá bán lẻ là giá thực bán tới tay khách (đã gồm VAT).</p>
+      <div class="sv-tablewrap">
+        <table class="sv-table" id="t-gia" data-source="gia_ban" data-row-key="he_thong,san_pham">
+          <thead><tr>
+            <th class="l" data-field="brand">Brand</th><th class="l" data-field="san_pham">Sản phẩm</th>
+            <th data-field="gia_mua">Giá TVP bán cho siêu thị (chưa VAT)</th><th data-field="giam">Đang giảm cho siêu thị</th><th data-field="trading_term">Trading term</th>
+            <th data-field="tvp_nhan">TVP thu về</th><th data-field="gia_von">Giá vốn</th><th data-field="ln_tvp">Lãi gộp TVP</th><th data-field="ty_le_ln">Lãi gộp ÷ thu về</th>
+            <th data-field="gia_le">Giá bán lẻ tại quầy</th><th data-field="le_tren_mua">Giá bán lẻ ÷ giá siêu thị mua</th><th class="l" data-field="ghi_chu">Ghi chú</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sv-card" id="gia-so-sanh">
+      <h2 class="sv-h">Giá bán lẻ cùng một mã ở các hệ thống</h2>
+      <p class="sv-note">Đồng/đơn vị, giá thực bán tới tay khách. "–" = hệ thống không có mã này trong bảng giá hoặc chưa có giá bán lẻ. Ô tô đỏ là giá cần kiểm tra lại (xem ghi chú ở bảng trên).</p>
+      <div class="sv-tablewrap">
+        <table class="sv-table" id="t-gia-ss" data-source="gia_so_sanh" data-row-key="brand,san_pham">
+          <thead><tr>
+            <th class="l" data-field="brand">Brand</th><th class="l" data-field="san_pham">Sản phẩm</th>
+            <th data-field="coop">Co.op</th><th data-field="emart">Emart</th><th data-field="go">GO! / Big C</th><th data-field="lotte">Lotte</th>
+            <th data-field="chenh">Chênh giữa nơi cao nhất và thấp nhất</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <ul class="sv-foot" id="gia-cach-tinh">
+      <li>Nguồn: Google Sheet "Bảng Giá Siêu Thị" của Trade Marketing, 4 sheet EMART, GO, SG Co.op, LOTTE, đọc ngày 17/11/2026. Cột ngoài cùng là giá thực bán tới tay khách hàng.</li>
+      <li>Giá vốn lấy theo cột Cost của bảng giá. Mức đang giảm cho siêu thị lấy theo cột "% giảm" (Emart: Dâu berry, Mãng cầu, Cam ổi, Thơm dừa đang giảm 20%; GO!: Bí đao, Kim quất đang giảm 12%).</li>
+      <li>Hai giá bán lẻ cần kiểm tra lại ở GO! / Big C: Trà gừng 34.500đ (thấp hơn giá GO! mua vào 43.287đ) và Trà bí đao 57.000đ (gấp 2,1 lần giá mua, các hệ thống khác 32.900–33.800đ). Hai giá này vẫn hiển thị như trong bảng giá nhưng không nên dùng để tính.</li>
+      <li>Tên quy cách trong bảng giá chưa thống nhất: tôm kho tàu, cá kho Emart ghi 100g, các hệ thống khác 80g; cơm gà và cá chưng ở GO! và Co.op ghi ngược gram (cơm gà 101g, cá chưng 90g) so với Emart, Lotte. Dashboard ghép theo tên sản phẩm, không theo gram.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const BRANDS = ['Wil', 'Gungon', 'Guyumi', 'Má Bảy'];
+
+dash.calc('tong_quan', {
+  inputs: ['sellin', 'don_hang'],
+  title: 'Tổng quan theo tháng',
+  description: 'Cộng doanh số, chiết khấu, trả lại theo tháng; doanh thu thuần = doanh số − chiết khấu − trả lại; cùng kỳ = cả tháng trước (tháng mới nhất: cùng các ngày 1 đến ngày có dữ liệu cuối của tháng trước).',
+  fn: (sellin, don_hang) => {
+    const n = (x) => Number(x) || 0;
+    const sum = (rs, f) => rs.reduce((a, r) => a + f(r), 0);
+    const thuan = (r) => n(r.doanh_so) - n(r.chiet_khau) - n(r.tra_lai);
+    const prevOf = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 2, 1)).toISOString().slice(0, 7); };
+    const months = [...new Set(sellin.map((r) => r.thang))].sort();
+    return months.map((m) => {
+      const rs = sellin.filter((r) => r.thang === m);
+      const days = rs.map((r) => r.ngay).sort();
+      const ngay_dau = days[0], ngay_cuoi = days[days.length - 1];
+      const full = m !== months[months.length - 1];
+      const prev = sellin.filter((r) => r.thang === prevOf(m) && (full || r.ngay.slice(8) <= ngay_cuoi.slice(8)));
+      const don = don_hang.filter((r) => r.thang === m);
+      const t = sum(rs, thuan), ds = sum(rs, (r) => n(r.doanh_so)), tl = sum(rs, (r) => n(r.tra_lai));
+      const ck = prev.length ? sum(prev, thuan) : null;
+      return {
+        thang: m, ngay_dau, ngay_cuoi, doanh_so: ds, chiet_khau: sum(rs, (r) => n(r.chiet_khau)), tra_lai: tl, thuan: t,
+        ty_le_tra: ds ? tl / ds : null, thuan_cung_ky: ck, tang_truong: ck ? t / ck - 1 : null, so_sanh_ca_thang: full,
+        so_don: new Set(don.map((d) => d.so_chung_tu)).size,
+        so_diem: new Set(don.map((d) => d.he_thong + '|' + d.diem_nhan)).size,
+      };
+    });
+  },
+});
+
+dash.calc('he_thong', {
+  inputs: ['sellin', 'don_hang'],
+  title: 'Theo hệ thống',
+  description: 'Doanh thu thuần theo tháng × hệ thống, chia theo brand; tỷ trọng trên tổng tháng; so với tháng trước (tháng mới nhất: cùng các ngày); số đơn và số điểm nhận hàng đếm không trùng.',
+  fn: (sellin, don_hang) => {
+    const n = (x) => Number(x) || 0;
+    const thuan = (r) => n(r.doanh_so) - n(r.chiet_khau) - n(r.tra_lai);
+    const prevOf = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 2, 1)).toISOString().slice(0, 7); };
+    const key = { 'Wil': 'wil', 'Gungon': 'gungon', 'Guyumi': 'guyumi', 'Má Bảy': 'ma_bay', 'Không theo brand': 'khac' };
+    const out = [], months = [...new Set(sellin.map((r) => r.thang))].sort();
+    for (const m of months) {
+      const rs = sellin.filter((r) => r.thang === m);
+      const last = rs.map((r) => r.ngay).sort().pop().slice(8), full = m !== months[months.length - 1];
+      const total = rs.reduce((a, r) => a + thuan(r), 0);
+      const prevRows = sellin.filter((r) => r.thang === prevOf(m) && (full || r.ngay.slice(8) <= last));
+      for (const h of [...new Set(rs.map((r) => r.he_thong))]) {
+        const row = { thang: m, he_thong: h, wil: 0, gungon: 0, guyumi: 0, ma_bay: 0, khac: 0, thuan: 0 };
+        for (const r of rs.filter((r) => r.he_thong === h)) { row[key[r.brand]] += thuan(r); row.thuan += thuan(r); }
+        const p = prevRows.filter((r) => r.he_thong === h);
+        const ck = p.length ? p.reduce((a, r) => a + thuan(r), 0) : null;
+        const don = don_hang.filter((d) => d.thang === m && d.he_thong === h);
+        out.push({ ...row, ty_trong: total ? row.thuan / total : null, thuan_cung_ky: ck, tang_truong: ck ? row.thuan / ck - 1 : null,
+          so_don: new Set(don.map((d) => d.so_chung_tu)).size, so_diem: new Set(don.map((d) => d.diem_nhan)).size });
+      }
+    }
+    return out.sort((a, b) => a.thang.localeCompare(b.thang) || b.thuan - a.thuan);
+  },
+});
+
+dash.calc('brand', {
+  inputs: ['sellin'],
+  title: 'Theo brand',
+  description: 'Doanh thu thuần theo tháng × brand, tỷ trọng, so với tháng trước (tháng mới nhất: cùng các ngày), số hệ thống và số SKU có doanh số bán.',
+  fn: (sellin) => {
+    const n = (x) => Number(x) || 0;
+    const thuan = (r) => n(r.doanh_so) - n(r.chiet_khau) - n(r.tra_lai);
+    const prevOf = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 2, 1)).toISOString().slice(0, 7); };
+    const out = [], months = [...new Set(sellin.map((r) => r.thang))].sort();
+    for (const m of months) {
+      const rs = sellin.filter((r) => r.thang === m);
+      const last = rs.map((r) => r.ngay).sort().pop().slice(8), full = m !== months[months.length - 1];
+      const total = rs.reduce((a, r) => a + thuan(r), 0);
+      for (const b of ['Wil', 'Gungon', 'Guyumi', 'Má Bảy', 'Không theo brand']) {
+        const br = rs.filter((r) => r.brand === b);
+        if (b === 'Không theo brand' && !br.length) continue;
+        const t = br.reduce((a, r) => a + thuan(r), 0);
+        const p = sellin.filter((r) => r.thang === prevOf(m) && r.brand === b && (full || r.ngay.slice(8) <= last));
+        const ck = p.length ? p.reduce((a, r) => a + thuan(r), 0) : null;
+        const sold = br.filter((r) => n(r.doanh_so) > 0);
+        out.push({ thang: m, brand: b, thuan: t, ty_trong: total ? t / total : null, thuan_cung_ky: ck, tang_truong: ck ? t / ck - 1 : null,
+          so_he_thong: new Set(sold.map((r) => r.he_thong)).size, so_sku: new Set(sold.map((r) => r.ma_hang)).size });
+      }
+    }
+    return out;
+  },
+});
+
+dash.calc('ngay', {
+  inputs: ['sellin'],
+  title: 'Theo ngày',
+  description: 'Doanh thu thuần cộng theo ngày chứng từ.',
+  fn: (sellin) => {
+    const n = (x) => Number(x) || 0;
+    const m = new Map();
+    for (const r of sellin) m.set(r.ngay, (m.get(r.ngay) || 0) + n(r.doanh_so) - n(r.chiet_khau) - n(r.tra_lai));
+    return [...m].sort((a, b) => a[0].localeCompare(b[0])).map(([ngay, thuan]) => ({ ngay, thang: ngay.slice(0, 7), thuan }));
+  },
+});
+
+dash.calc('sku', {
+  inputs: ['sellin'],
+  title: 'Theo SKU',
+  description: 'Theo tháng × SKU: số lượng thuần (bán − trả lại, không gồm hàng đổi 0đ), doanh thu thuần, tỷ trọng trên tổng tháng, số hệ thống có doanh số bán.',
+  fn: (sellin) => {
+    const n = (x) => Number(x) || 0;
+    const thuan = (r) => n(r.doanh_so) - n(r.chiet_khau) - n(r.tra_lai);
+    const tot = new Map(), g = new Map();
+    for (const r of sellin) {
+      tot.set(r.thang, (tot.get(r.thang) || 0) + thuan(r));
+      const k = r.thang + '|' + r.ma_hang;
+      if (!g.has(k)) g.set(k, { thang: r.thang, ma_hang: r.ma_hang, ten_hang: r.ten_hang, brand: r.brand, dvt: r.dvt, sl_thuan: 0, thuan: 0, hs: new Set() });
+      const x = g.get(k); x.sl_thuan += n(r.sl_ban) - n(r.sl_tra); x.thuan += thuan(r); if (n(r.doanh_so) > 0) x.hs.add(r.he_thong);
+    }
+    return [...g.values()].map(({ hs, ...x }) => ({ ...x, ty_trong: tot.get(x.thang) ? x.thuan / tot.get(x.thang) : null, so_he_thong: hs.size }));
+  },
+});
+
+// ---------- helpers
+const vi = (v, d = 0) => Number(v).toLocaleString('vi-VN', { maximumFractionDigits: d, minimumFractionDigits: d });
+const ty = (v) => (Math.abs(v) >= 1e9 ? vi(v / 1e9, 2) + ' tỷ' : Math.abs(v) >= 1e6 ? vi(v / 1e6, 1) + ' tr' : vi(v));
+const tr = (v) => vi(v / 1e6, 1);
+const pct = (v) => (v == null ? '—' : vi(v * 100, 1) + '%');
+const sgn = (v) => (v == null ? '' : (v > 0 ? '+' : '') + vi(v * 100, 1) + '%');
+const dmy = (s) => s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4);
+const enc = (s) => encodeURIComponent(s);
+const thangLabel = (m) => 'Tháng ' + Number(m.slice(5)) + '/' + m.slice(0, 4);
+const prevOf = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 2, 1)).toISOString().slice(0, 7); };
+const mark = (el, src, field, where) => { el.dataset.source = src; el.dataset.field = field; el.dataset.where = where; };
+const setText = (id, t) => { const el = document.getElementById(id); el.textContent = t; el.classList.remove('dash-skeleton'); return el; };
+const failBox = (el) => { el.replaceChildren(); const d = document.createElement('div'); d.className = 'sv-fail'; d.textContent = 'Failed to load'; el.append(d); el.classList.remove('dash-skeleton'); };
+const tipShow = (box, tip, ev, html) => {
+  tip.replaceChildren(...html); tip.hidden = false;
+  const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = ev.clientX - b.left + 12, y = ev.clientY - b.top - h - 8;
+  if (x + w > b.width) x = ev.clientX - b.left - w - 12;
+  if (x < 0) x = 0; if (y < 0) y = ev.clientY - b.top + 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+};
+const line = (txt, cls, color) => { const d = document.createElement('div'); if (cls) d.className = cls; if (color) { const s = document.createElement('span'); s.className = 'sv-sw'; s.style.background = color; d.append(s); } d.append(txt); return d; };
+const measure = (svg, texts) => { const t = svg.append('text').attr('font-size', 'var(--cds-font-size-caption)'); let w = 0; for (const s of texts) { t.text(s); w = Math.max(w, t.node().getComputedTextLength()); } t.remove(); return w; };
+
+// ---------- month filter
+const sel = document.getElementById('sv-thang');
+sel.addEventListener('change', () => dash.setParams({ thang: sel.value }));
+
+// ---------- SKU table sort/search
+let skuSort = { k: 'thuan', dir: -1 };
+document.querySelectorAll('#t-sku th button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k; skuSort = { k, dir: skuSort.k === k ? -skuSort.dir : (['ten_hang', 'brand'].includes(k) ? 1 : -1) }; drawSku();
+}));
+document.getElementById('sv-q').addEventListener('input', () => drawSku());
+let skuRows = [];
+function drawSku() {
+  const q = document.getElementById('sv-q').value.trim().toLowerCase();
+  const rows = skuRows.filter((r) => !q || (r.ten_hang + ' ' + r.brand + ' ' + r.ma_hang).toLowerCase().includes(q))
+    .sort((a, b) => { const x = a[skuSort.k], y = b[skuSort.k]; return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * skuSort.dir; });
+  document.querySelectorAll('#t-sku th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === skuSort.k) th.setAttribute('aria-sort', skuSort.dir > 0 ? 'ascending' : 'descending'); });
+  const tb = document.querySelector('#t-sku tbody');
+  tb.replaceChildren(...rows.map((r) => {
+    const t = document.createElement('tr'); t.dataset.key = enc(r.thang) + ',' + enc(r.ma_hang);
+    for (const [v, c] of [[r.ten_hang, 'l'], [r.brand, 'l'], [r.dvt, 'l'], [vi(r.sl_thuan)], [tr(r.thuan)], [pct(r.ty_trong)], [vi(r.so_he_thong)]]) { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; t.append(td); }
+    return t;
+  }));
+}
+
+// ---------- charts
+function drawSystems(el, rows, lab = 'he_thong', tot = 'thuan', unit = 'hệ thống') {
+  el.replaceChildren(); el.classList.remove('dash-skeleton');
+  const W = Math.max(el.clientWidth, 280), bh = 22, gap = 10, top = 4, bottom = 24;
+  const H = top + rows.length * (bh + gap) + bottom;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const left = measure(svg, rows.map((r) => r[lab])) + 10;
+  const right = measure(svg, rows.map((r) => ty(r[tot]))) + 10;
+  const x = d3.scaleLinear([0, d3.max(rows, (r) => r[tot]) || 1], [left, W - right]).nice();
+  const y = d3.scaleBand(rows.map((r) => r[lab]), [top, H - bottom]).paddingInner(gap / (bh + gap));
+  const keys = ['wil', 'gungon', 'guyumi', 'ma_bay'];
+  svg.append('g').selectAll('line').data(x.ticks(4)).join('line').attr('x1', (d) => x(d)).attr('x2', (d) => x(d)).attr('y1', top).attr('y2', H - bottom).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(x.ticks(4)).join('text').attr('x', (d) => x(d)).attr('y', H - 6).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text((d) => (d === 0 ? '0' : ty(d)));
+  const tip = document.createElement('div'); tip.className = 'sv-tip'; tip.hidden = true; el.append(tip);
+  for (const r of rows) {
+    let x0 = 0;
+    keys.forEach((k, i) => {
+      const v = Math.max(r[k], 0); if (!v) return;
+      svg.append('rect').attr('x', x(x0)).attr('y', y(r[lab])).attr('width', Math.max(x(x0 + v) - x(x0), 0.5)).attr('height', y.bandwidth()).attr('fill', dash.colors[i])
+        .on('mousemove', (ev) => tipShow(el, tip, ev, [line(r[lab], 't'), line(`${BRANDS[i]}: ${ty(r[k])} (${pct(r[tot] ? r[k] / r[tot] : null)} của ${unit})`, null, dash.colors[i])]))
+        .on('mouseleave', () => { tip.hidden = true; });
+      x0 += v;
+    });
+    svg.append('text').attr('x', left - 8).attr('y', y(r[lab]) + y.bandwidth() / 2).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').text(r[lab]);
+    svg.append('text').attr('x', x(Math.max(x0, 0)) + 6).attr('y', y(r[lab]) + y.bandwidth() / 2).attr('dy', '0.35em').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text(ty(r[tot]));
+  }
+}
+
+function drawMonths(el, rows, sel) {
+  el.replaceChildren(); el.classList.remove('dash-skeleton');
+  const have = new Map(rows.map((r) => [r.thang, r]));
+  const months = []; let [y, m] = rows[0].thang.split('-').map(Number); const last = rows[rows.length - 1].thang;
+  for (;;) { const k = `${y}-${String(m).padStart(2, '0')}`; months.push(k); if (k === last || months.length > 60) break; m++; if (m > 12) { m = 1; y++; } }
+  const W = Math.max(el.clientWidth, 280), H = 230, top = 22, bottom = 40;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const hi = d3.max(rows, (r) => r.thuan) || 1;
+  const yS = d3.scaleLinear([0, hi], [H - bottom, top]).nice();
+  const ticks = yS.ticks(4);
+  const left = measure(svg, ticks.map((d) => (d === 0 ? '0' : ty(d)))) + 10;
+  const x = d3.scaleBand(months, [left, W - 4]).padding(0.28);
+  svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', left).attr('x2', W - 4).attr('y1', (d) => yS(d)).attr('y2', (d) => yS(d)).attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+  svg.append('g').selectAll('text').data(ticks).join('text').attr('x', left - 6).attr('y', (d) => yS(d)).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text((d) => (d === 0 ? '0' : ty(d)));
+  const tip = document.createElement('div'); tip.className = 'sv-tip'; tip.hidden = true; el.append(tip);
+  const showVal = x.bandwidth() >= measure(svg, ['9,99 tỷ']) - 4;
+  for (const k of months) {
+    const r = have.get(k), cx = x(k) + x.bandwidth() / 2;
+    svg.append('text').attr('x', cx).attr('y', H - bottom + 16).attr('text-anchor', 'middle').attr('fill', k === sel ? 'var(--color-fg)' : 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('T' + Number(k.slice(5)));
+    if (!r) {
+      svg.append('text').attr('x', cx).attr('y', H - bottom - 6).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('Chưa có');
+      continue;
+    }
+    const partial = r.ngay_cuoi.slice(8) !== String(new Date(Date.UTC(+k.slice(0, 4), +k.slice(5), 0)).getUTCDate()).padStart(2, '0');
+    if (partial) svg.append('text').attr('x', cx).attr('y', H - bottom + 30).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('đến ' + Number(r.ngay_cuoi.slice(8)) + '/' + Number(k.slice(5)));
+    svg.append('rect').attr('x', x(k)).attr('width', x.bandwidth()).attr('y', yS(Math.max(r.thuan, 0))).attr('height', Math.max(yS(0) - yS(Math.max(r.thuan, 0)), 0.5)).attr('rx', 4)
+      .attr('fill', k === sel ? dash.colors[0] : 'var(--cds-chart-muted)').style('cursor', 'pointer')
+      .on('click', () => dash.setParams({ thang: k }))
+      .on('mousemove', (ev) => tipShow(el, tip, ev, [line(thangLabel(k) + (partial ? ` (đến ngày ${Number(r.ngay_cuoi.slice(8))})` : ''), 't'), line('Doanh thu thuần: ' + ty(r.thuan)), line('Doanh số bán: ' + ty(r.doanh_so))]))
+      .on('mouseleave', () => { tip.hidden = true; });
+    if (showVal) svg.append('text').attr('x', cx).attr('y', yS(Math.max(r.thuan, 0)) - 6).attr('text-anchor', 'middle').attr('fill', k === sel ? 'var(--color-fg)' : 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text(ty(r.thuan));
+  }
+}
+
+function drawDays(el, rows) {
+  el.replaceChildren(); el.classList.remove('dash-skeleton');
+  const W = Math.max(el.clientWidth, 280), H = 240, top = 10, bottom = 24;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const lo = Math.min(0, d3.min(rows, (r) => r.thuan) || 0), hi = d3.max(rows, (r) => r.thuan) || 1;
+  const yS = d3.scaleLinear([lo, hi], [H - bottom, top]).nice();
+  const ticks = yS.ticks(4);
+  const left = measure(svg, ticks.map((d) => (d === 0 ? '0' : ty(d)))) + 10;
+  const x = d3.scaleBand(rows.map((r) => r.ngay), [left, W - 4]).padding(0.25);
+  svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', left).attr('x2', W - 4).attr('y1', (d) => yS(d)).attr('y2', (d) => yS(d)).attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+  svg.append('g').selectAll('text').data(ticks).join('text').attr('x', left - 6).attr('y', (d) => yS(d)).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text((d) => (d === 0 ? '0' : ty(d)));
+  const lw = measure(svg, ['30']) + 6, every = Math.max(1, Math.ceil(lw / x.step()));
+  svg.append('g').selectAll('text').data(rows.filter((_, i) => i % every === 0)).join('text').attr('x', (r) => x(r.ngay) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text((r) => String(Number(r.ngay.slice(8))));
+  const tip = document.createElement('div'); tip.className = 'sv-tip'; tip.hidden = true; el.append(tip);
+  svg.append('g').selectAll('rect').data(rows).join('rect')
+    .attr('x', (r) => x(r.ngay)).attr('width', x.bandwidth()).attr('y', (r) => yS(Math.max(r.thuan, 0))).attr('height', (r) => Math.max(Math.abs(yS(r.thuan) - yS(0)), 0.5))
+    .attr('rx', 3).attr('fill', dash.colors[0])
+    .on('mousemove', (ev, r) => tipShow(el, tip, ev, [line(dmy(r.ngay), 't'), line('Doanh thu thuần: ' + ty(r.thuan))]))
+    .on('mouseleave', () => { tip.hidden = true; });
+}
+
+// ---------- legend
+document.getElementById('sv-legend').replaceChildren(...BRANDS.map((b, i) => line(b, null, dash.colors[i])));
+
+// ---------- main draw
+function drawSellIn() {
+  const tq = dash.data('tong_quan'), hs = dash.data('he_thong'), br = dash.data('brand'), ng = dash.data('ngay'), sk = dash.data('sku');
+  const kpiIds = ['k-thuan', 'k-ds', 'k-tra', 'k-don', 'k-diem'];
+  if (tq.status !== 'ok') {
+    if (tq.status === 'error' || tq.status === 'missing') { kpiIds.forEach((id) => setText(id, '—')); document.getElementById('sv-lede').textContent = 'Chưa tải được dữ liệu.'; }
+    return drawRest();
+  }
+  const months = tq.data.map((r) => r.thang);
+  let m = dash.params().thang;
+  if (!months.includes(m)) m = months[months.length - 1];
+  sel.replaceChildren(...months.slice().reverse().map((x) => new Option(thangLabel(x), x)));
+  sel.value = m;
+  const r = tq.data.find((x) => x.thang === m);
+  const w = 'thang=' + enc(m);
+  drawMonths(document.getElementById('c-thang'), tq.data, m);
+  mark(setText('k-thuan', ty(r.thuan)), 'tong_quan', 'thuan', w);
+  mark(setText('k-ds', ty(r.doanh_so)), 'tong_quan', 'doanh_so', w);
+  mark(setText('k-tra', ty(r.tra_lai)), 'tong_quan', 'tra_lai', w);
+  mark(setText('k-don', vi(r.so_don)), 'tong_quan', 'so_don', w);
+  mark(setText('k-diem', vi(r.so_diem)), 'tong_quan', 'so_diem', w);
+  const ky = `${Number(r.ngay_dau.slice(8))}–${Number(r.ngay_cuoi.slice(8))}/${Number(m.slice(5))}`;
+  const kyTruoc = `${Number(r.ngay_dau.slice(8))}–${Number(r.ngay_cuoi.slice(8))}/${Number(prevOf(m).slice(5))}`;
+  const sub = document.getElementById('k-thuan-sub'); sub.replaceChildren();
+  if (r.tang_truong == null) sub.textContent = `Ngày ${ky}. Chưa có dữ liệu tháng trước để so sánh`;
+  else { const s = document.createElement('span'); s.className = r.tang_truong >= 0 ? 'sv-up' : 'sv-down'; s.textContent = sgn(r.tang_truong); mark(s, 'tong_quan', 'tang_truong', w); sub.append(s, r.so_sanh_ca_thang ? ` so với ${thangLabel(prevOf(m)).toLowerCase()}` : ` so với ngày ${kyTruoc}`); }
+  document.getElementById('k-ds-sub').textContent = 'Chiết khấu: ' + ty(r.chiet_khau);
+  const ts = document.getElementById('k-tra-sub'); ts.replaceChildren(); const tsp = document.createElement('span'); tsp.textContent = pct(r.ty_le_tra); mark(tsp, 'tong_quan', 'ty_le_tra', w); ts.append(tsp, ' so với doanh số bán');
+
+  // lede
+  const lede = document.getElementById('sv-lede'); lede.replaceChildren();
+  const b1 = document.createElement('b'); b1.textContent = ty(r.thuan) + ' đồng'; mark(b1, 'tong_quan', 'thuan', w);
+  lede.append(`Từ ${dmy(r.ngay_dau)} đến ${dmy(r.ngay_cuoi)}, doanh thu thuần sell-in đạt `, b1);
+  if (hs.status === 'ok') {
+    const top = hs.data.filter((x) => x.thang === m)[0];
+    if (top) {
+      const wt = w + '&he_thong=' + enc(top.he_thong);
+      const b2 = document.createElement('b'); b2.textContent = top.he_thong; mark(b2, 'he_thong', 'he_thong', wt);
+      const b3 = document.createElement('b'); b3.textContent = pct(top.ty_trong); mark(b3, 'he_thong', 'ty_trong', wt);
+      lede.append('; ', b2, ' chiếm ', b3, '.');
+    }
+  } else lede.append('.');
+  drawRest(m);
+
+  function drawRest(mm) {
+    const elH = document.getElementById('c-hethong'), elN = document.getElementById('c-ngay');
+    const tbH = document.querySelector('#t-hethong tbody'), tbB = document.querySelector('#t-brand tbody');
+    if (hs.status === 'ok' && mm) {
+      const rows = hs.data.filter((x) => x.thang === mm);
+      drawSystems(elH, rows);
+      tbH.replaceChildren(...rows.map((x) => {
+        const t = document.createElement('tr'); t.dataset.key = enc(x.thang) + ',' + enc(x.he_thong);
+        const cells = [[x.he_thong, 'l'], [tr(x.wil)], [tr(x.gungon)], [tr(x.guyumi)], [tr(x.ma_bay)], [x.khac ? tr(x.khac) : '–'], [tr(x.thuan)], [pct(x.ty_trong)], [x.tang_truong == null ? 'Chưa có dữ liệu' : sgn(x.tang_truong), x.tang_truong == null ? '' : (x.tang_truong >= 0 ? 'sv-up' : 'sv-down')], [vi(x.so_don)], [vi(x.so_diem)]];
+        for (const [v, c] of cells) { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; t.append(td); }
+        return t;
+      }));
+    } else if (hs.status === 'error') { failBox(elH); tbH.replaceChildren(); }
+    if (ng.status === 'ok' && mm) drawDays(elN, ng.data.filter((x) => x.thang === mm));
+    else if (ng.status === 'error') failBox(elN);
+    if (br.status === 'ok' && mm) {
+      tbB.replaceChildren(...br.data.filter((x) => x.thang === mm).map((x, i) => {
+        const t = document.createElement('tr'); t.dataset.key = enc(x.thang) + ',' + enc(x.brand);
+        const cells = [[x.brand, 'l'], [tr(x.thuan)], [pct(x.ty_trong)], [x.tang_truong == null ? 'Chưa có dữ liệu' : sgn(x.tang_truong), x.tang_truong == null ? '' : (x.tang_truong >= 0 ? 'sv-up' : 'sv-down')], [vi(x.so_he_thong)], [vi(x.so_sku)]];
+        cells.forEach(([v, c], j) => { const td = document.createElement('td'); if (c) td.className = c; if (j === 0) { const s = document.createElement('span'); s.className = 'sv-sw'; s.style.background = dash.colors[i]; td.append(s); } td.append(v); t.append(td); });
+        return t;
+      }));
+    }
+    if (sk.status === 'ok' && mm) { skuRows = sk.data.filter((x) => x.thang === mm); drawSku(); }
+  }
+}
+
+function fillTable(sel, rows, keyFn, cellsFn) {
+  document.querySelector(sel + ' tbody').replaceChildren(...rows.map((x) => {
+    const t = document.createElement('tr'); t.dataset.key = keyFn(x);
+    for (const [v, c] of cellsFn(x)) { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; t.append(td); }
+    return t;
+  }));
+}
+
+// ================= SELL-OUT (chung cho mọi hệ thống) =================
+dash.calc('so_rows', {
+  inputs: ['coop_ban', 'coop_sku', 'coop_ch', 'emart_tuan', 'kiem_ton_ctv', 'gia_ban'],
+  title: 'Sell-out: dòng chung mọi hệ thống',
+  description: 'Đưa số bán ra của Co.op (theo kỳ file), Emart (cộng tuần thành tháng) và kiểm tồn Lotte, GO! / Big C về một dạng: hệ thống, kỳ, siêu thị, brand, sản phẩm, sản lượng, doanh số tại quầy (Emart: cột doanh số; nơi khác: sản lượng × giá bán lẻ bảng giá), tồn cuối, hàng nhập.',
+  fn: (coop_ban, coop_sku, coop_ch, emart_tuan, kiem_ton_ctv, gia_ban) => {
+    const gia = new Map(gia_ban.filter((p) => p.gia_le && !/kiểm tra/.test(p.ghi_chu || '')).map((p) => [p.he_thong + '|' + p.san_pham, p.gia_le]));
+    const sku = new Map(coop_sku.map((s) => [s.ma_sku_coop, s])), ch = new Map(coop_ch.map((c) => [c.ma_ch, c]));
+    const ngay = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5) + 1;
+    const out = [];
+    for (const r of coop_ban) {
+      const s = sku.get(r.sku) || {}, [tu, den] = r.ky.split('_'), sp = s.san_pham || r.sku, p = gia.get('Co.op|' + sp);
+      out.push({ he_thong: 'Co.op', ky: r.ky, tu, den, so_ngay: ngay(tu, den), cua_hang: ((ch.get(r.ch) || {}).ten_ch || r.ch).replace(/\s-\s(BD|BN|LMX|MT|VT)$/, ''),
+        brand: s.brand || 'Không rõ', san_pham: sp, sl: Number(r.sl_ban) || 0, ds: p ? (Number(r.sl_ban) || 0) * p : null, ton: Number(r.sl_ton) || 0, nhap: null });
+    }
+    const wk = new Map();
+    for (const r of emart_tuan) { const m = r.tuan.slice(0, 7); if (!wk.has(m)) wk.set(m, new Map()); wk.get(m).set(r.tuan, Number(r.so_ngay) || 0); }
+    const em = new Map();
+    for (const r of emart_tuan) {
+      const m = r.tuan.slice(0, 7), k = m + '|' + r.diem_ban + '|' + r.san_pham;
+      if (!em.has(k)) em.set(k, { he_thong: 'Emart', ky: m, tu: r.tu, den: r.den, so_ngay: [...wk.get(m).values()].reduce((a, b) => a + b, 0), cua_hang: r.diem_ban, brand: r.brand, san_pham: r.san_pham, sl: 0, ds: 0, ton: null, nhap: null });
+      const x = em.get(k); x.sl += Number(r.sl) || 0; x.ds += Number(r.doanh_so) || 0; if (r.tu < x.tu) x.tu = r.tu; if (r.den > x.den) x.den = r.den;
+    }
+    const emTu = new Map(), emDen = new Map();
+    for (const x of em.values()) { emTu.set(x.ky, emTu.has(x.ky) && emTu.get(x.ky) < x.tu ? emTu.get(x.ky) : x.tu); emDen.set(x.ky, emDen.has(x.ky) && emDen.get(x.ky) > x.den ? emDen.get(x.ky) : x.den); }
+    for (const x of em.values()) out.push({ ...x, tu: emTu.get(x.ky), den: emDen.get(x.ky) });
+    for (const r of kiem_ton_ctv) {
+      if (r.ban == null || !r.so_ngay) continue;
+      const p = gia.get(r.he_thong + '|' + r.san_pham);
+      out.push({ he_thong: r.he_thong, ky: 'kiem-ton', tu: r.ngay_dau, den: r.ngay_cuoi, so_ngay: r.so_ngay, cua_hang: r.cua_hang, brand: r.brand, san_pham: r.san_pham,
+        sl: r.ban, ds: p ? r.ban * p : null, ton: r.ton_cuoi, nhap: r.nhap });
+    }
+    return out;
+  },
+});
+const SO_HT = ['Co.op', 'Emart', 'GO! / Big C', 'Lotte Mart'];
+const SO_COOP = new Set(['Co.opMart', 'Co.op Food', 'Co.op Finelife']);
+dash.calc('so_ky', {
+  inputs: ['so_rows', 'sellin'],
+  title: 'Sell-out: tổng theo hệ thống × kỳ × brand',
+  description: 'Mỗi hệ thống × kỳ × brand (brand rỗng = tất cả): sản lượng, bình quân 1 ngày (cộng sản lượng ÷ số ngày từng siêu thị), doanh số tại quầy, số dòng chưa có giá, tồn cuối, số siêu thị có bán, hàng vào cùng kỳ (Co.op, Emart: sổ bán hàng TVP; kiểm tồn: hàng nhập), so với kỳ trước.',
+  fn: (so_rows, sellin) => {
+    const g = new Map();
+    for (const r of so_rows) for (const b of ['', r.brand]) {
+      const k = r.he_thong + '|' + r.ky + '|' + b;
+      if (!g.has(k)) g.set(k, { he_thong: r.he_thong, ky: r.ky, brand: b, tu: r.tu, den: r.den, so_ngay: 0, sl: 0, sl_ngay: 0, ds: 0, thieu_gia: 0, ton: null, nhap: null, ch: new Set() });
+      const x = g.get(k); if (r.tu < x.tu) x.tu = r.tu; if (r.den > x.den) x.den = r.den; x.so_ngay = Math.max(x.so_ngay, r.so_ngay);
+      x.sl += r.sl; x.sl_ngay += r.so_ngay ? r.sl / r.so_ngay : 0;
+      if (r.ds != null) x.ds += r.ds; else if (r.sl > 0) x.thieu_gia += 1;
+      if (r.ton != null) x.ton = (x.ton || 0) + r.ton; if (r.nhap != null) x.nhap = (x.nhap || 0) + r.nhap; if (r.sl > 0) x.ch.add(r.cua_hang);
+    }
+    const rows = [...g.values()].map(({ ch, ...x }) => {
+      let vao = x.nhap, vao_nguon = 'hàng nhập (kiểm tồn)';
+      if (x.he_thong === 'Co.op' || x.he_thong === 'Emart') {
+        vao_nguon = 'TVP giao vào'; vao = 0;
+        for (const s of sellin) if ((x.he_thong === 'Co.op' ? SO_COOP.has(s.he_thong) : s.he_thong === 'Emart') && s.ngay >= x.tu && s.ngay <= x.den && (!x.brand ? s.brand !== 'Không theo brand' : s.brand === x.brand)) vao += (Number(s.sl_ban) || 0) - (Number(s.sl_tra) || 0);
+      }
+      return { ...x, so_ch: ch.size, vao, vao_nguon, ban_vao: vao ? x.sl / vao : null, ngay_ton: x.ton != null && x.sl_ngay ? x.ton / x.sl_ngay : null };
+    });
+    const by = new Map();
+    for (const x of rows) { const k = x.he_thong + '|' + x.brand; if (!by.has(k)) by.set(k, []); by.get(k).push(x); }
+    for (const l of by.values()) { l.sort((a, b) => a.tu.localeCompare(b.tu)); l.forEach((x, i) => { const p = i ? l[i - 1] : null; x.ky_truoc = p ? p.ky : null; x.tang = p && p.sl_ngay ? x.sl_ngay / p.sl_ngay - 1 : null; }); }
+    return rows;
+  },
+});
+const soGroup = (rows, keyOf, init) => {
+  const g = new Map();
+  for (const r of rows) { const k = keyOf(r); if (!g.has(k)) g.set(k, init(r)); const x = g.get(k); x.sl += r.sl; x.sl_ngay += r.so_ngay ? r.sl / r.so_ngay : 0; if (r.ds != null) x.ds += r.ds; if (r.ton != null) x.ton = (x.ton || 0) + r.ton; x._r.push(r); }
+  return [...g.values()];
+};
+const soPrev = (rows, keyNoKy) => {
+  const kyTu = new Map(); for (const x of rows) kyTu.set(x.he_thong + '|' + x.ky, x.tu);
+  const order = new Map(); for (const [k, tu] of kyTu) { const h = k.split('|')[0]; if (!order.has(h)) order.set(h, []); order.get(h).push([k.split('|').slice(1).join('|'), tu]); }
+  for (const l of order.values()) l.sort((a, b) => a[1].localeCompare(b[1]));
+  const idx = new Map(rows.map((x) => [x.he_thong + '|' + x.ky + '|' + keyNoKy(x), x]));
+  for (const x of rows) {
+    const l = order.get(x.he_thong), i = l.findIndex((e) => e[0] === x.ky), p = i > 0 ? idx.get(x.he_thong + '|' + l[i - 1][0] + '|' + keyNoKy(x)) : null;
+    x.tang = p && p.sl_ngay ? x.sl_ngay / p.sl_ngay - 1 : null;
+  }
+  return rows;
+};
+dash.calc('so_ch', {
+  inputs: ['so_rows'],
+  title: 'Sell-out: theo siêu thị',
+  description: 'Mỗi hệ thống × kỳ × siêu thị: sản lượng theo brand, tổng, bình quân 1 ngày, doanh số tại quầy, tồn cuối, bình quân 1 ngày so với kỳ trước của cùng siêu thị.',
+  fn: (so_rows) => {
+    const key = { 'Wil': 'wil', 'Gungon': 'gungon', 'Guyumi': 'guyumi', 'Má Bảy': 'ma_bay' };
+    const rows = soGroup(so_rows, (r) => r.he_thong + '|' + r.ky + '|' + r.cua_hang, (r) => ({ he_thong: r.he_thong, ky: r.ky, tu: r.tu, cua_hang: r.cua_hang, wil: 0, gungon: 0, guyumi: 0, ma_bay: 0, sl: 0, sl_ngay: 0, ds: 0, ton: null, _r: [] }))
+      .map(({ _r, ...x }) => { for (const r of _r) if (key[r.brand]) x[key[r.brand]] += r.sl; return x; });
+    return soPrev(rows, (x) => x.cua_hang);
+  },
+});
+dash.calc('so_sp', {
+  inputs: ['so_rows'],
+  title: 'Sell-out: theo sản phẩm',
+  description: 'Mỗi hệ thống × kỳ × sản phẩm: sản lượng, bình quân 1 ngày, doanh số tại quầy, số siêu thị có bán, tồn cuối, số ngày tồn kho, số siêu thị có bán nhưng tồn cuối bằng 0, bình quân 1 ngày so với kỳ trước.',
+  fn: (so_rows) => {
+    const rows = soGroup(so_rows, (r) => r.he_thong + '|' + r.ky + '|' + r.san_pham, (r) => ({ he_thong: r.he_thong, ky: r.ky, tu: r.tu, brand: r.brand, san_pham: r.san_pham, sl: 0, sl_ngay: 0, ds: 0, ton: null, _r: [] }))
+      .map(({ _r, ...x }) => ({ ...x, so_ch: new Set(_r.filter((r) => r.sl > 0).map((r) => r.cua_hang)).size, het: x.ton == null ? null : _r.filter((r) => r.sl > 0 && r.ton === 0).length,
+        ngay_ton: x.ton != null && x.sl_ngay ? x.ton / x.sl_ngay : null }));
+    return soPrev(rows, (x) => x.san_pham);
+  },
+});
+
+const soNghin = (v) => (v == null ? '–' : vi(v / 1000));
+const soNum = (v, d = 0) => (v == null ? '–' : vi(v, d));
+const soKyLabel = (x) => {
+  if (x.ky === 'kiem-ton') return `Kỳ kiểm tồn ${dmy(x.tu)} – ${dmy(x.den)}`;
+  const endM = new Date(Date.UTC(+x.den.slice(0, 4), +x.den.slice(5, 7), 0)).getUTCDate();
+  const du = x.tu.slice(8) === '01' && Number(x.den.slice(8)) === endM;
+  return `Tháng ${Number(x.tu.slice(5, 7))}/${x.tu.slice(0, 4)}` + (du ? '' : ` (${Number(x.tu.slice(8))}–${Number(x.den.slice(8))})`);
+};
+const soShort = (x) => (x.ky === 'kiem-ton' ? 'Kiểm tồn' : 'T' + Number(x.tu.slice(5, 7)) + (x.tu.slice(8) === '01' && Number(x.den.slice(8)) === new Date(Date.UTC(+x.den.slice(0, 4), +x.den.slice(5, 7), 0)).getUTCDate() ? '' : '*'));
+const soEls = { ht: document.getElementById('so-ht'), ky: document.getElementById('so-ky'), br: document.getElementById('so-br') };
+let soKyChon = null;
+soEls.ht.addEventListener('change', () => { soKyChon = null; drawSO(); });
+soEls.ky.addEventListener('change', () => { soKyChon = soEls.ky.value; drawSO(); });
+soEls.br.addEventListener('change', () => drawSO());
+document.getElementById('so-legend').replaceChildren(...BRANDS.map((b, i) => line(b, null, dash.colors[i])));
+const soSort = { ch: { k: 'sl', dir: -1 }, sp: { k: 'sl', dir: -1 } };
+const soSortBind = (tid, key, txt) => document.querySelectorAll(`#${tid} th button`).forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k, s = soSort[key]; soSort[key] = { k, dir: s.k === k ? -s.dir : (txt.includes(k) ? 1 : -1) }; drawSO();
+}));
+soSortBind('t-so-ch', 'ch', ['cua_hang']); soSortBind('t-so-sp', 'sp', ['brand', 'san_pham']);
+['so-ch-q', 'so-sp-q'].forEach((id) => document.getElementById(id).addEventListener('input', () => drawSO()));
+const soSorted = (rows, s, tid) => {
+  const val = (r) => (r[s.k] == null ? (s.dir > 0 ? Infinity : -Infinity) : r[s.k]);
+  document.querySelectorAll(`#${tid} th`).forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === s.k) th.setAttribute('aria-sort', s.dir > 0 ? 'ascending' : 'descending'); });
+  return rows.slice().sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * s.dir; });
+};
+const soTang = (v) => [v == null ? '–' : sgn(v), v == null ? '' : (v >= 0 ? 'sv-up' : 'sv-down')];
+
+function drawSOChart(el, list, ht, br, kySel) {
+  el.replaceChildren(); el.classList.remove('dash-skeleton');
+  const W = Math.max(el.clientWidth, 280), H = 240, top = 18, bottom = 34;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const yS = d3.scaleLinear([0, d3.max(list, (x) => x.all.sl_ngay) || 1], [H - bottom, top]).nice();
+  const ticks = yS.ticks(4), left = measure(svg, ticks.map((d) => vi(d))) + 10;
+  const x = d3.scaleBand(list.map((k) => k.all.ky), [left, W - 4]).padding(0.28);
+  svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', left).attr('x2', W - 4).attr('y1', (d) => yS(d)).attr('y2', (d) => yS(d)).attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+  svg.append('g').selectAll('text').data(ticks).join('text').attr('x', left - 6).attr('y', (d) => yS(d)).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text((d) => vi(d));
+  const tip = document.createElement('div'); tip.className = 'sv-tip'; tip.hidden = true; el.append(tip);
+  for (const k of list) {
+    const dim = k.all.ky !== kySel; let y0 = 0;
+    BRANDS.forEach((b, i) => {
+      if (br && b !== br) return;
+      const r = k.brands[b]; const v = r ? r.sl_ngay : 0; if (!v) return;
+      svg.append('rect').attr('x', x(k.all.ky)).attr('width', x.bandwidth()).attr('y', yS(y0 + v)).attr('height', Math.max(yS(y0) - yS(y0 + v), 0.5)).attr('fill', dash.colors[i]).attr('opacity', dim ? 0.45 : 1)
+        .style('cursor', 'pointer').on('click', () => { soKyChon = k.all.ky; drawSO(); })
+        .on('mousemove', (ev) => tipShow(el, tip, ev, [line(soKyLabel(k.all), 't'), ...BRANDS.filter((bb) => !br || bb === br).map((bb) => line(`${bb}: ${soNum(k.brands[bb] ? k.brands[bb].sl_ngay : 0, 1)}/ngày`, null, dash.colors[BRANDS.indexOf(bb)]))]))
+        .on('mouseleave', () => { tip.hidden = true; });
+      y0 += v;
+    });
+    const tot = br ? (k.brands[br] ? k.brands[br].sl_ngay : 0) : k.all.sl_ngay;
+    svg.append('text').attr('x', x(k.all.ky) + x.bandwidth() / 2).attr('y', yS(tot) - 5).attr('text-anchor', 'middle').attr('fill', dim ? 'var(--color-fg-muted)' : 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').text(soNum(tot, tot < 20 ? 1 : 0));
+    svg.append('text').attr('x', x(k.all.ky) + x.bandwidth() / 2).attr('y', H - bottom + 16).attr('text-anchor', 'middle').attr('fill', dim ? 'var(--color-fg-muted)' : 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').text(soShort(k.all));
+  }
+  svg.append('text').attr('x', left).attr('y', H - 4).attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('* = kỳ chưa đủ tháng');
+}
+
+function drawSO() {
+  if (document.getElementById('sell-out').hidden) return;
+  const d = dash.data('so_ky'), dc = dash.data('so_ch'), dp = dash.data('so_sp');
+  if (d.status !== 'ok') {
+    if (['error', 'missing'].includes(d.status)) { ['so-sl', 'so-ngay', 'so-ds', 'so-vao', 'so-ton'].forEach((id) => setText(id, '—')); document.getElementById('so-lede').textContent = 'Chưa tải được dữ liệu bán ra.'; }
+    return;
+  }
+  const hts = SO_HT.filter((h) => d.data.some((x) => x.he_thong === h));
+  const htCu = soEls.ht.value || dash.params().so_ht;
+  soEls.ht.replaceChildren(...hts.map((h) => new Option(h === 'Lotte Mart' ? 'Lotte' : h, h))); soEls.ht.value = hts.includes(htCu) ? htCu : hts[0];
+  const ht = soEls.ht.value;
+  const all = d.data.filter((x) => x.he_thong === ht && x.brand === '').sort((a, b) => a.tu.localeCompare(b.tu));
+  const kys = all.map((x) => x.ky); const ky = kys.includes(soKyChon) ? soKyChon : kys[kys.length - 1];
+  soEls.ky.replaceChildren(...all.slice().reverse().map((x) => new Option(soKyLabel(x), x.ky))); soEls.ky.value = ky; soEls.ky.disabled = kys.length < 2;
+  const brs = BRANDS.filter((b) => d.data.some((x) => x.he_thong === ht && x.brand === b)), brCu = soEls.br.value;
+  soEls.br.replaceChildren(new Option('Tất cả', ''), ...brs.map((b) => new Option(b, b))); soEls.br.value = brs.includes(brCu) ? brCu : '';
+  const br = soEls.br.value;
+  const r = d.data.find((x) => x.he_thong === ht && x.ky === ky && x.brand === br) || { sl: 0, sl_ngay: 0, ds: 0, thieu_gia: 0, so_ch: 0, so_ngay: 0, tu: all[0].tu, den: all[0].den, ky };
+  const nm = ht === 'Lotte Mart' ? 'Lotte' : ht;
+  document.getElementById('so-title').textContent = `Sell-out ${nm}: bán ra tại siêu thị`;
+  setText('so-sl', vi(r.sl));
+  document.getElementById('so-sl-sub').textContent = `${soKyLabel(r)} · ${vi(r.so_ch)} siêu thị có bán`;
+  setText('so-ngay', vi(r.sl_ngay, r.sl_ngay < 20 ? 1 : 0));
+  document.getElementById('so-ngay-sub').replaceChildren(...(r.tang == null ? [ky === 'kiem-ton' ? 'Mới có một kỳ đếm, chưa có kỳ trước' : 'Chưa có kỳ trước để so sánh'] : (() => { const s = document.createElement('span'); s.className = r.tang >= 0 ? 'sv-up' : 'sv-down'; s.textContent = sgn(r.tang); return [s, ' so với kỳ trước']; })()));
+  setText('so-ds', ty(r.ds));
+  document.getElementById('so-ds-sub').textContent = (ht === 'Emart' ? 'Theo cột doanh số trong sheet Emart (giá sau khuyến mãi)' : 'Sản lượng × giá bán lẻ bảng giá') + (r.thieu_gia ? `; ${vi(r.thieu_gia)} dòng chưa có giá nên chưa tính` : '');
+  setText('so-vao', r.vao == null ? 'Chưa có dữ liệu' : vi(r.vao));
+  document.getElementById('so-vao-sub').textContent = r.vao == null ? '' : `${r.vao_nguon === 'TVP giao vào' ? 'TVP giao vào (sổ bán hàng)' : 'Hàng nhập tại các siêu thị được đếm'} · bán ra ÷ hàng vào: ${r.ban_vao == null ? '–' : vi(r.ban_vao, 2)}`;
+  setText('so-ton', r.ton == null ? 'Chưa có dữ liệu' : vi(r.ton));
+  document.getElementById('so-ton-sub').textContent = r.ton == null ? 'Hệ thống này chưa có số tồn' : `Bằng ${r.ngay_ton == null ? '–' : vi(r.ngay_ton, 1)} ngày bán (theo bình quân kỳ này)`;
+  const lede = document.getElementById('so-lede'); lede.replaceChildren();
+  const b1 = document.createElement('b'); b1.textContent = vi(r.sl) + ' sản phẩm'; b1.dataset.source = 'so_ky';
+  lede.append(`${soKyLabel(r)}, ${nm} bán ra `, b1, `${br ? ' ' + br : ''} tại ${vi(r.so_ch)} siêu thị, bình quân ${vi(r.sl_ngay, r.sl_ngay < 20 ? 1 : 0)} sản phẩm/ngày${r.tang == null ? '.' : ` (${sgn(r.tang)} so với kỳ trước).`}`);
+  const list = all.map((a) => ({ all: a, brands: Object.fromEntries(BRANDS.map((b) => [b, d.data.find((x) => x.he_thong === ht && x.ky === a.ky && x.brand === b)])) }));
+  drawSOChart(document.getElementById('c-so'), list, ht, br, ky);
+  if (dc.status === 'ok') {
+    const q = document.getElementById('so-ch-q').value.trim().toLowerCase();
+    const rows = dc.data.filter((x) => x.he_thong === ht && x.ky === ky && (!q || x.cua_hang.toLowerCase().includes(q)));
+    fillTable('#t-so-ch', soSorted(rows, soSort.ch, 't-so-ch'), (x) => [x.he_thong, x.ky, x.cua_hang].map(enc).join(','),
+      (x) => [[x.cua_hang, 'l'], [vi(x.wil)], [vi(x.gungon)], [vi(x.guyumi)], [vi(x.ma_bay)], [vi(x.sl)], [soNum(x.sl_ngay, 1)], [soNghin(x.ds)], [x.ton == null ? 'Chưa có dữ liệu' : vi(x.ton)], soTang(x.tang)]);
+  } else if (dc.status === 'error') document.querySelector('#t-so-ch tbody').replaceChildren();
+  if (dp.status === 'ok') {
+    const q = document.getElementById('so-sp-q').value.trim().toLowerCase();
+    const rows = dp.data.filter((x) => x.he_thong === ht && x.ky === ky && (!br || x.brand === br) && (!q || (x.san_pham + ' ' + x.brand).toLowerCase().includes(q)));
+    fillTable('#t-so-sp', soSorted(rows, soSort.sp, 't-so-sp'), (x) => [x.he_thong, x.ky, x.san_pham].map(enc).join(','),
+      (x) => [[x.brand, 'l'], [x.san_pham, 'l'], [vi(x.sl)], [soNum(x.sl_ngay, 1)], [soNghin(x.ds)], [vi(x.so_ch)], [x.ton == null ? 'Chưa có dữ liệu' : vi(x.ton)],
+        [x.ngay_ton == null ? '–' : vi(x.ngay_ton, 1)], [x.het == null ? '–' : vi(x.het), x.het ? 'sv-down' : ''], soTang(x.tang)]);
+  } else if (dp.status === 'error') document.querySelector('#t-so-sp tbody').replaceChildren();
+}
+
+// ================= BASELINE =================
+dash.calc('bl_bang', {
+  inputs: ['baseline'],
+  title: 'Baseline bán trơn theo mã × hệ thống',
+  description: 'Mỗi dòng: loại số liệu (bán ra hoặc giao vào), hệ thống, sản phẩm, baseline (SL/tháng), SL T10, T10 so với baseline, kết quả theo ngưỡng ngang, độ tin cậy. Lấy nguyên từ dữ liệu baseline đã tính.',
+  fn: (baseline) => baseline.map((r) => ({ ...r })),
+});
+const blEls = ['bl-loai', 'bl-ht', 'bl-brand', 'bl-tin'].map((id) => document.getElementById(id));
+blEls.forEach((el) => el.addEventListener('change', () => drawBaseline()));
+document.getElementById('bl-q').addEventListener('input', () => drawBaseline());
+let blSort = { k: 'so_voi', dir: 1 };
+document.querySelectorAll('#t-bl th button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k; blSort = { k, dir: blSort.k === k ? -blSort.dir : (['he_thong', 'brand', 'san_pham', 'thang', 'danh_gia', 'do_tin_cay', 'ctkm_t10'].includes(k) ? 1 : -1) }; drawBaseline();
+}));
+function drawBaseline() {
+  if (document.getElementById('baseline').hidden) return;
+  const d = dash.data('bl_bang');
+  if (d.status !== 'ok') { if (d.status === 'error' || d.status === 'missing') { ['bl-n', 'bl-giam', 'bl-ngang', 'bl-tang'].forEach((id) => setText(id, '—')); document.getElementById('bl-lede').textContent = 'Chưa tải được dữ liệu baseline.'; } return; }
+  const [eLoai, eHt, eBr, eTin] = blEls, loai = eLoai.value;
+  const base = d.data.filter((r) => r.loai === loai);
+  const fill = (el, vals) => { const cur = el.value; el.replaceChildren(new Option('Tất cả', ''), ...vals.map((v) => new Option(v, v))); el.value = vals.includes(cur) ? cur : ''; };
+  fill(eHt, [...new Set(base.map((r) => r.he_thong))].sort((a, b) => a.localeCompare(b, 'vi')));
+  fill(eBr, BRANDS.filter((b) => base.some((r) => r.brand === b)));
+  const q = document.getElementById('bl-q').value.trim().toLowerCase();
+  const rs = base.filter((r) => (!eHt.value || r.he_thong === eHt.value) && (!eBr.value || r.brand === eBr.value) && (!eTin.value || r.do_tin_cay === eTin.value));
+  const w = 'loai=' + enc(loai);
+  const cnt = (v) => rs.filter((r) => r.danh_gia === v).length;
+  mark(setText('bl-n', vi(rs.length)), 'bl_bang', 'san_pham', w);
+  document.getElementById('bl-n-sub').textContent = `${vi(new Set(rs.map((r) => r.he_thong)).size)} hệ thống · ${vi(rs.filter((r) => r.do_tin_cay === 'Cao').length)} dòng độ tin cậy Cao`;
+  mark(setText('bl-giam', vi(cnt('Giảm'))), 'bl_bang', 'danh_gia', w + '&danh_gia=Gi%E1%BA%A3m');
+  mark(setText('bl-ngang', vi(cnt('Ngang'))), 'bl_bang', 'danh_gia', w + '&danh_gia=Ngang');
+  mark(setText('bl-tang', vi(cnt('Tăng'))), 'bl_bang', 'danh_gia', w + '&danh_gia=T%C4%83ng');
+  const lede = document.getElementById('bl-lede'); lede.replaceChildren();
+  const co = rs.filter((r) => r.so_voi != null), b1 = document.createElement('b'); b1.textContent = `${vi(cnt('Giảm'))}/${vi(co.length)}`; mark(b1, 'bl_bang', 'danh_gia', w);
+  lede.append(loai === 'Bán ra' ? 'Bán ra tại siêu thị tháng 10 so với baseline bán trơn: ' : 'TVP giao vào tháng 10 so với baseline sell-in: ', b1, ' dòng mã × hệ thống thấp hơn baseline.');
+  document.getElementById('bl-note').textContent = loai === 'Bán ra'
+    ? 'Baseline = sản lượng bán ra một tháng (31 ngày) khi bán giá thường. Bấm tiêu đề cột để sắp xếp.'
+    : 'Baseline = SL TVP giao vào một tháng (trung vị T4–T9), theo đơn vị tính của mã. Đây là mốc nhập hàng, không phải sức bán. Bấm tiêu đề cột để sắp xếp.';
+  const isOpt = loai === 'Tối ưu';
+  document.getElementById('bl-bang').style.display = isOpt ? 'none' : '';
+  document.getElementById('bl-opt-sec').style.display = isOpt ? '' : 'none';
+  if (isOpt) { drawOpt(rs, q, lede, b1); return; }
+  const val = (r, k) => (r[k] == null ? (blSort.dir > 0 ? Infinity : -Infinity) : r[k]);
+  const rows = rs.filter((r) => !q || (r.san_pham + ' ' + r.ma + ' ' + r.brand).toLowerCase().includes(q))
+    .sort((a, b) => { const x = val(a, blSort.k), y = val(b, blSort.k); return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * blSort.dir; });
+  document.querySelectorAll('#t-bl th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === blSort.k) th.setAttribute('aria-sort', blSort.dir > 0 ? 'ascending' : 'descending'); });
+  const cls = { 'Giảm': 'sv-down', 'Tăng': 'sv-up' };
+  fillTable('#t-bl', rows, (r) => enc(r.loai) + ',' + enc(r.he_thong) + ',' + enc(r.san_pham),
+    (r) => [[r.he_thong, 'l'], [r.brand, 'l'], [r.san_pham, 'l'], [r.baseline == null ? 'Chưa có dữ liệu' : vi(r.baseline)], [vi(r.t10)],
+      [r.so_voi == null ? '–' : sgn(r.so_voi), cls[r.danh_gia] || ''], [r.danh_gia, 'l ' + (cls[r.danh_gia] || '')], [r.do_tin_cay, 'l'], [r.ctkm_t10 || '–', 'l'],
+      [r.bl_si == null ? 'Chưa có dữ liệu' : vi(r.bl_si), 'c-so'], [r.t10_si == null ? '–' : vi(r.t10_si), 'c-so'], [r.si_so_voi == null ? '–' : sgn(r.si_so_voi), 'c-so'],
+      [r.ban_giao_bl == null ? '–' : vi(r.ban_giao_bl, 2), 'c-so' + (r.ban_giao_bl != null && r.ban_giao_bl < 0.8 ? ' sv-down' : '')], [r.ban_giao_t10 == null ? (r.t10_si === 0 ? 'Không giao' : '–') : vi(r.ban_giao_t10, 2), 'c-so'],
+      [r.si_tin_cay || '–', 'l c-so'], [r.bl_tr == null ? '–' : vi(r.bl_tr, 1), 'c-si'], [r.ghi_chu || '', 'l']]);
+  const so = loai === 'Bán ra';
+  document.querySelectorAll('#t-bl .c-so').forEach((c) => { c.style.display = so ? '' : 'none'; });
+  document.querySelectorAll('#t-bl .c-si').forEach((c) => { c.style.display = so ? 'none' : ''; });
+  if (so) {
+    const p = rs.filter((r) => r.ban_giao_bl != null), lt = p.filter((r) => r.ban_giao_bl < 0.8).length, gt = p.filter((r) => r.ban_giao_bl > 1.2).length;
+    document.getElementById('bl-note').textContent = `Baseline = sản lượng bán ra một tháng (31 ngày) khi bán giá thường; cột giao vào là baseline sell-in cùng mã, cùng hệ thống (T4–T9). Bán ra ÷ giao vào dưới 1: TVP giao vào nhiều hơn siêu thị bán ra; trên 1: siêu thị bán nhiều hơn lượng nhận. Trong phạm vi đang xem: ${vi(lt)}/${vi(p.length)} dòng dưới 0,8; ${vi(gt)} dòng trên 1,2. Bấm tiêu đề cột để sắp xếp.`;
+  }
+}
+
+document.querySelectorAll('#t-bl-opt th button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k; blSort = { k, dir: blSort.k === k ? -blSort.dir : (['he_thong', 'brand', 'san_pham', 'khop', 'do_tin_cay', 'danh_gia'].includes(k) ? 1 : -1) }; drawBaseline();
+}));
+function drawOpt(rs, q, lede, b1) {
+  lede.replaceChildren('Bán ra tháng 10 so với baseline tối ưu (gộp bán ra và giao vào): ', b1, ' dòng thấp hơn baseline.');
+  const vuot = rs.filter((r) => r.khop === 'Vượt sai số').length, du = rs.filter((r) => r.giao_du != null && r.giao_du > 0.2 * r.baseline);
+  document.getElementById('bl-opt-note').textContent = `Baseline tối ưu là số dùng để đặt chỉ tiêu và so sánh sức bán. ${vi(rs.length - vuot - rs.filter((r) => r.khop === 'Chưa đủ dữ liệu').length)} dòng gộp được hai nguồn; ${vi(vuot)} dòng chênh vượt sai số nên dùng bán ra. ${vi(du.length)} dòng có baseline giao vào cao hơn tối ưu trên 20%. Bấm tiêu đề cột để sắp xếp.`;
+  const val = (r, k) => (r[k] == null ? (blSort.dir > 0 ? Infinity : -Infinity) : r[k]);
+  const rows = rs.filter((r) => !q || (r.san_pham + ' ' + r.ma + ' ' + r.brand).toLowerCase().includes(q))
+    .sort((a, b) => { const x = val(a, blSort.k), y = val(b, blSort.k); return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * blSort.dir; });
+  document.querySelectorAll('#t-bl-opt th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === blSort.k) th.setAttribute('aria-sort', blSort.dir > 0 ? 'ascending' : 'descending'); });
+  const cls = { 'Giảm': 'sv-down', 'Tăng': 'sv-up' };
+  const pm = (v, s) => (v == null ? 'Chưa có dữ liệu' : vi(v) + (s == null ? '' : ' ± ' + vi(s)));
+  fillTable('#t-bl-opt', rows, (r) => enc(r.loai) + ',' + enc(r.he_thong) + ',' + enc(r.san_pham),
+    (r) => [[r.he_thong, 'l'], [r.brand, 'l'], [r.san_pham, 'l'], [pm(r.bl_ban, r.se_ban)], [pm(r.bl_giao, r.se_giao)], [r.khop, 'l' + (r.khop === 'Vượt sai số' ? ' sv-down' : '')],
+      [pct(r.ty_trong_ban)], [vi(r.baseline)], [r.lo == null ? '–' : vi(Math.max(r.lo, 0)) + '–' + vi(r.hi)], [r.do_tin_cay, 'l'], [vi(r.t10)],
+      [r.so_voi == null ? '–' : sgn(r.so_voi), cls[r.danh_gia] || ''], [r.danh_gia, 'l ' + (cls[r.danh_gia] || '')], [r.t10_si == null ? '–' : vi(r.t10_si)],
+      [r.si_so_voi == null ? '–' : sgn(r.si_so_voi)], [r.giao_du == null ? '–' : (r.giao_du > 0 ? '+' : '') + vi(r.giao_du), r.giao_du != null && r.giao_du > 0.2 * r.baseline ? 'sv-down' : ''], [r.cach, 'l']]);
+  document.querySelectorAll('#t-bl-opt tbody tr').forEach((tr) => { const td = tr.children[7]; if (td) td.style.fontWeight = '600'; });
+}
+
+// ================= BASELINE WIL =================
+dash.calc('wil_bang', {
+  inputs: ['baseline_wil'],
+  title: 'Baseline bán trơn trà Wil',
+  description: 'Mỗi dòng: cấp (hệ thống hoặc siêu thị), hệ thống, điểm, sản phẩm, baseline hộp/30 ngày, khoảng tin cậy 80%, độ tin cậy, bình quân thực tế gồm cả CTKM. Lấy nguyên từ dữ liệu baseline Wil đã tính.',
+  fn: (baseline_wil) => baseline_wil.map((r) => ({ ...r })),
+});
+dash.calc('wil_ma_tran', {
+  inputs: ['baseline_wil'],
+  title: 'Baseline Wil: mã × hệ thống',
+  description: 'Xoay các dòng cấp hệ thống thành bảng sản phẩm × hệ thống (baseline hộp/30 ngày) và thêm dòng tổng từng hệ thống.',
+  fn: (baseline_wil) => {
+    const col = { 'Co.op': 'coop', 'Emart': 'emart', 'Bách Hóa Xanh': 'bhx', 'GO! / Big C': 'go', 'Lotte Mart': 'lotte', 'WinMart / WinMart+': 'winmart' };
+    const g = new Map(), tong = { san_pham: 'Tổng các mã tính được' };
+    for (const r of baseline_wil) {
+      if (r.cap !== 'Hệ thống' || !col[r.he_thong]) continue;
+      if (!g.has(r.san_pham)) g.set(r.san_pham, { san_pham: r.san_pham });
+      const x = g.get(r.san_pham), k = col[r.he_thong];
+      x[k] = r.baseline; x[k + '_tc'] = r.do_tin_cay; x[k + '_sr'] = r.nguon === 'Suy ra';
+      if (r.baseline != null) tong[k] = (tong[k] || 0) + r.baseline;
+    }
+    return [...g.values(), tong];
+  },
+});
+const WIL_ORDER = ['Trà bí đao hạt chia', 'Trà kim quất mật ong', 'Trà gừng', 'Trà đào', 'Trà ổi hồng', 'Trà mãng cầu', 'Trà dâu berry', 'Trà cam ổi ruby', 'Trà thơm dừa', 'Trà sữa truyền thống', 'Trà sữa matcha', 'Matcha latte'];
+const wilNum = (v) => (v == null ? '–' : vi(v, Math.abs(v) < 20 ? 1 : 0));
+const wilEls = ['wil-cap', 'wil-ht', 'wil-sp', 'wil-tin'].map((id) => document.getElementById(id));
+wilEls.forEach((el) => el.addEventListener('change', () => drawWil()));
+document.getElementById('wil-q').addEventListener('input', () => drawWil());
+let wilSort = { k: 'baseline', dir: -1 };
+document.querySelectorAll('#t-wil th button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k; wilSort = { k, dir: wilSort.k === k ? -wilSort.dir : (['he_thong', 'diem', 'san_pham', 'nguon', 'do_tin_cay'].includes(k) ? 1 : -1) }; drawWil();
+}));
+function drawWil() {
+  if (document.getElementById('baseline').hidden) return;
+  const d = dash.data('wil_bang'), mt = dash.data('wil_ma_tran');
+  if (d.status !== 'ok') { if (d.status === 'error' || d.status === 'missing') document.getElementById('wil-lede').textContent = 'Chưa tải được dữ liệu baseline Wil.'; return; }
+  const ht = d.data.filter((r) => r.cap === 'Hệ thống');
+  const co = ht.filter((r) => r.baseline != null), tot = co.reduce((a, r) => a + r.baseline, 0);
+  const lede = document.getElementById('wil-lede'); lede.replaceChildren();
+  const b1 = document.createElement('b'); b1.textContent = vi(co.length) + '/' + vi(ht.length); b1.dataset.source = 'wil_bang';
+  lede.append('Sức bán sẵn có của từng mã trà Wil khi không chạy CTKM, tính lại ngày 16/11/2026. Tính được ', b1, ` dòng mã × hệ thống; ${vi(co.filter((r) => r.do_tin_cay !== 'Thấp').length)} dòng có độ tin cậy Cao hoặc Trung bình.`);
+  if (mt.status === 'ok') {
+    const keys = ['coop', 'emart', 'bhx', 'go', 'lotte', 'winmart'];
+    const rows = mt.data.slice().sort((a, b) => { const i = WIL_ORDER.indexOf(a.san_pham), j = WIL_ORDER.indexOf(b.san_pham); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j); });
+    document.querySelector('#t-wil-mt tbody').replaceChildren(...rows.map((r) => {
+      const t = document.createElement('tr'); t.dataset.key = enc(r.san_pham);
+      const tong = r.san_pham.startsWith('Tổng');
+      const td0 = document.createElement('td'); td0.className = 'l'; td0.textContent = r.san_pham; if (tong) td0.style.fontWeight = '600'; t.append(td0);
+      for (const k of keys) {
+        const td = document.createElement('td'), tc = r[k + '_tc'];
+        td.textContent = r[k] != null ? wilNum(r[k]) + (r[k + '_sr'] ? ' *' : '') : (tc === 'Chưa đủ dữ liệu' ? 'Chưa đủ' : '–');
+        if (tong || tc === 'Cao') td.style.fontWeight = '600';
+        if (tc === 'Thấp') { td.style.fontStyle = 'italic'; td.style.color = 'var(--color-fg-muted)'; }
+        if (tong) td.style.borderTop = '2px solid var(--color-border-line)';
+        t.append(td);
+      }
+      if (tong) td0.style.borderTop = '2px solid var(--color-border-line)';
+      return t;
+    }));
+  }
+  const [eCap, eHt, eSp, eTin] = wilEls, cap = eCap.value;
+  const base = d.data.filter((r) => r.cap === cap);
+  const fill = (el, vals) => { const cur = el.value; el.replaceChildren(new Option('Tất cả', ''), ...vals.map((v) => new Option(v, v))); el.value = vals.includes(cur) ? cur : ''; };
+  fill(eHt, [...new Set(base.map((r) => r.he_thong))].sort((a, b) => a.localeCompare(b, 'vi')));
+  fill(eSp, WIL_ORDER.filter((s) => base.some((r) => r.san_pham === s)));
+  const q = document.getElementById('wil-q').value.trim().toLowerCase();
+  const rs = base.filter((r) => (!eHt.value || r.he_thong === eHt.value) && (!eSp.value || r.san_pham === eSp.value) && (!eTin.value || r.do_tin_cay === eTin.value) && (!q || (r.diem + ' ' + r.he_thong).toLowerCase().includes(q)));
+  const sum = rs.reduce((a, r) => a + (r.baseline || 0), 0), n = (v) => rs.filter((r) => r.do_tin_cay === v).length;
+  document.getElementById('wil-tom-tat').textContent = `Đang xem ${vi(rs.length)} dòng, tổng baseline ${vi(sum)} hộp/30 ngày. Độ tin cậy: Cao ${vi(n('Cao'))}, Trung bình ${vi(n('Trung bình'))}, Thấp ${vi(n('Thấp'))}, chưa đủ dữ liệu ${vi(n('Chưa đủ dữ liệu'))}. Bấm tiêu đề cột để sắp xếp.`;
+  const val = (r, k) => (r[k] == null ? (wilSort.dir > 0 ? Infinity : -Infinity) : r[k]);
+  const rows = rs.slice().sort((a, b) => { const x = val(a, wilSort.k), y = val(b, wilSort.k); return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * wilSort.dir; });
+  document.querySelectorAll('#t-wil th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === wilSort.k) th.setAttribute('aria-sort', wilSort.dir > 0 ? 'ascending' : 'descending'); });
+  const cls = { 'Cao': 'sv-up', 'Thấp': 'sv-down' };
+  fillTable('#t-wil', rows, (r) => [r.cap, r.he_thong, r.diem, r.san_pham].map(enc).join(','),
+    (r) => [[r.he_thong, 'l'], [r.diem ? r.diem + (r.loai_diem && !r.diem.includes(r.loai_diem) ? '' : '') : 'Cả hệ thống', 'l'], [r.san_pham, 'l'], [r.nguon, 'l'],
+      [r.baseline == null ? 'Chưa đủ dữ liệu' : wilNum(r.baseline)], [r.lo == null ? '–' : wilNum(r.lo) + '–' + wilNum(r.hi)], [r.do_tin_cay, 'l ' + (cls[r.do_tin_cay] || '')],
+      [r.bq_ca_ctkm == null ? '–' : wilNum(r.bq_ca_ctkm)], [r.phan_ctkm == null ? '–' : pct(r.phan_ctkm)], [r.dai_han == null ? '–' : wilNum(r.dai_han)], [r.ghi_chu || '', 'l']]);
+  document.querySelectorAll('#t-wil tbody tr').forEach((tr) => { if (tr.children[4]) tr.children[4].style.fontWeight = '600'; });
+}
+
+// ================= GIÁ BÁN =================
+dash.calc('gia_so_sanh', {
+  inputs: ['gia_ban'],
+  title: 'Giá bán lẻ theo hệ thống',
+  description: 'Xoay bảng giá thành sản phẩm × hệ thống (giá bán lẻ tại quầy); chênh = (cao nhất − thấp nhất) ÷ thấp nhất, chỉ tính giá không bị ghi cần kiểm tra lại.',
+  fn: (gia_ban) => {
+    const col = { 'Co.op': 'coop', 'Emart': 'emart', 'GO! / Big C': 'go', 'Lotte Mart': 'lotte' };
+    const g = new Map();
+    for (const p of gia_ban) {
+      const k = p.brand + '|' + p.san_pham;
+      if (!g.has(k)) g.set(k, { brand: p.brand, san_pham: p.san_pham, ok: [] });
+      const x = g.get(k); x[col[p.he_thong]] = p.gia_le; x[col[p.he_thong] + '_kt'] = /kiểm tra/.test(p.ghi_chu || '');
+      if (p.gia_le && !/kiểm tra/.test(p.ghi_chu || '')) x.ok.push(p.gia_le);
+    }
+    return [...g.values()].map(({ ok, ...x }) => ({ ...x, chenh: ok.length > 1 ? (Math.max(...ok) - Math.min(...ok)) / Math.min(...ok) : null }));
+  },
+});
+const giaHt = document.getElementById('gia-ht'), giaBr = document.getElementById('gia-br');
+[giaHt, giaBr].forEach((el) => el.addEventListener('change', () => drawGia()));
+const dg = (v) => (v == null ? 'Chưa có dữ liệu' : vi(Math.round(v)));
+function drawGia() {
+  if (document.getElementById('gia').hidden) return;
+  const d = dash.data('gia_ban'), ss = dash.data('gia_so_sanh');
+  if (d.status !== 'ok') { if (['error', 'missing'].includes(d.status)) document.getElementById('gia-lede').textContent = 'Chưa tải được bảng giá.'; return; }
+  const hts = ['Co.op', 'Emart', 'GO! / Big C', 'Lotte Mart'].filter((h) => d.data.some((p) => p.he_thong === h));
+  const cu = giaHt.value; giaHt.replaceChildren(...hts.map((h) => new Option(h, h))); giaHt.value = hts.includes(cu) ? cu : hts[0];
+  const brs = BRANDS.filter((b) => d.data.some((p) => p.brand === b)), cb = giaBr.value;
+  giaBr.replaceChildren(new Option('Tất cả', ''), ...brs.map((b) => new Option(b, b))); giaBr.value = brs.includes(cb) ? cb : '';
+  const ht = giaHt.value, rows = d.data.filter((p) => p.he_thong === ht && (!giaBr.value || p.brand === giaBr.value));
+  const lo = rows.filter((p) => p.ln_tvp != null && p.ln_tvp < 0);
+  const lede = document.getElementById('gia-lede'); lede.replaceChildren();
+  const b1 = document.createElement('b'); b1.textContent = vi(lo.length); b1.dataset.source = 'gia_ban';
+  lede.append(`${ht}: ${vi(rows.length)} mã trong bảng giá, trading term ${pct(rows[0] ? rows[0].trading_term : null)}. Có `, b1, ` mã TVP thu về thấp hơn giá vốn${lo.length ? ': ' + lo.map((p) => p.san_pham).join(', ') : ''}.`);
+  fillTable('#t-gia', rows, (p) => enc(p.he_thong) + ',' + enc(p.san_pham), (p) => [[p.brand, 'l'], [p.san_pham, 'l'], [dg(p.gia_mua)], [p.giam ? pct(p.giam) : 'Không'], [pct(p.trading_term)],
+    [dg(p.tvp_nhan)], [dg(p.gia_von)], [p.ln_tvp == null ? '–' : vi(p.ln_tvp), p.ln_tvp != null && p.ln_tvp < 0 ? 'sv-down' : ''], [pct(p.ty_le_ln)], [dg(p.gia_le), /kiểm tra/.test(p.ghi_chu || '') ? 'sv-down' : ''],
+    [p.le_tren_mua == null ? '–' : vi(p.le_tren_mua, 2)], [p.ghi_chu || '', 'l']]);
+  if (ss.status === 'ok') {
+    const r2 = ss.data.filter((x) => !giaBr.value || x.brand === giaBr.value).sort((a, b) => BRANDS.indexOf(a.brand) - BRANDS.indexOf(b.brand) || a.san_pham.localeCompare(b.san_pham, 'vi'));
+    document.querySelector('#t-gia-ss tbody').replaceChildren(...r2.map((x) => {
+      const tr = document.createElement('tr'); tr.dataset.key = enc(x.brand) + ',' + enc(x.san_pham);
+      const cells = [[x.brand, 'l'], [x.san_pham, 'l'], ...['coop', 'emart', 'go', 'lotte'].map((k) => [x[k] ? vi(x[k]) : '–', x[k + '_kt'] ? 'sv-down' : '']), [x.chenh == null ? '–' : pct(x.chenh)]];
+      for (const [v, c] of cells) { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; tr.append(td); }
+      return tr;
+    }));
+  }
+}
+
+// ---------- tabs
+function showPage(id) {
+  document.querySelectorAll('.sv-page').forEach((p) => { p.hidden = p.id !== id; });
+  document.querySelectorAll('.sv-tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.page === id)));
+  dash.setLink(id);
+  if (id === 'sell-in') drawSellIn(); else if (id === 'sell-out') drawSO(); else if (id === 'baseline') { drawWil(); drawBaseline(); } else if (id === 'gia') drawGia();
+}
+document.querySelectorAll('.sv-tab').forEach((t) => t.addEventListener('click', () => showPage(t.dataset.page)));
+
+dash.onData(() => {
+  if (!document.getElementById('sell-in').hidden) drawSellIn();
+  drawSO();
+  drawWil();
+  drawBaseline();
+  drawGia();
+});
+{
+  const h = location.hash.slice(1), map = { emart: 'sell-out', lotte: 'sell-out' };
+  if (['sell-out', 'baseline', 'gia', 'emart', 'lotte'].includes(h)) showPage(map[h] || h);
+}
+</script>
+
+</div>
+</div>
+</body>
+</html>
