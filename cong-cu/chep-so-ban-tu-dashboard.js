@@ -17,7 +17,7 @@ const KHOA = 'sb_publishable_GEVruYpDArUAKPn77762dA_PH-dwL2J';
 
 // Tên hệ thống trong sổ bán hàng / dashboard -> tên hệ thống trong app ('' = app chưa có)
 const HE_THONG = {
-  'Co.opMart': 'Co.op', 'Co.op Food': 'Co.op', 'Co.op Finelife': 'Co.op', 'Co.op Xtra': 'Co.op',
+  'Co.op': 'Co.op', 'Co.opMart': 'Co.op', 'Co.op Food': 'Co.op', 'Co.op Finelife': 'Co.op', 'Co.op Xtra': 'Co.op',
   'Emart': 'Emart', 'Lotte Mart': 'Lotte', 'GO! / Big C': 'GO/BigC', 'Bách Hóa Xanh': 'BHX',
   'WinMart / WinMart+': 'WinMart/WinMart+', 'King Food Market': 'King Food'
 };
@@ -26,6 +26,15 @@ const boDau = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').repl
 const nhan = s => NHAN[boDau(s)] || '';
 const tenGon = s => String(s || '').replace(/\s*\(.*$/, '').replace(/\s+/g, ' ').trim();   // bỏ phần quy cách trong ngoặc
 const so = v => (v === '' || v == null || isNaN(Number(v))) ? 0 : Number(v);
+const soHoacTrong = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v);
+// Kỳ trọn tháng ghi "T11/2026"; kỳ lẻ (vd 01–15/11) ghi "01/11–15/11/2026"
+function tenKy(tu, den) {
+  const cuoiThang = new Date(Date.UTC(+tu.slice(0, 4), +tu.slice(5, 7), 0)).toISOString().slice(0, 10);
+  if (tu.slice(8) === '01' && den === cuoiThang) return 'T' + Number(tu.slice(5, 7)) + '/' + tu.slice(0, 4);
+  return tu.slice(8, 10) + '/' + tu.slice(5, 7) + '–' + den.slice(8, 10) + '/' + den.slice(5, 7) + '/' + den.slice(0, 4);
+}
+// Ghi chú bảng giá: khách chỉ được xem phần không nói về lãi / lỗ / giá vốn
+const ghiChuCongKhai = t => String(t || '').split(/\s*;\s*/).filter(x => x && !/lỗ|lãi|vốn|thu về|trading|mua/i.test(x)).join('; ');
 
 function doc(dir, ten) {
   const f = path.join(dir, ten + '.json');
@@ -43,7 +52,7 @@ function chuyen(dir) {
     const ch = new Map((doc(dir, 'coop_ch') || []).map(x => [String(x.ma_ch), x]));
     out.sell_out.coop = coop.map(r => {
       const [tu, den] = String(r.ky).split('_'); const s = sku.get(String(r.sku)) || {}; const c = ch.get(String(r.ch)) || {};
-      return { chuoi: 'Co.op', ky: 'T' + Number(tu.slice(5, 7)) + '/' + tu.slice(0, 4), tu_ngay: tu, den_ngay: den,
+      return { chuoi: 'Co.op', ky: tenKy(tu, den), tu_ngay: tu, den_ngay: den,
         ma_cua_hang: String(r.ch), cua_hang: c.ten_ch || String(r.ch), loai_cua_hang: c.loai_ch || '',
         nhan_hang: nhan(s.brand), ma_sku: String(r.sku), ten_sku: tenGon(s.ten_hang_tvp) || s.ten_hang_coop || String(r.sku),
         so_luong: so(r.sl_ban), doanh_so: so(r.gt_ban), ton: r.sl_ton == null ? null : so(r.sl_ton), gia_tri_ton: r.gt_ton == null ? null : so(r.gt_ton) };
@@ -59,12 +68,20 @@ function chuyen(dir) {
   if (si) out.sell_in = si.map(r => ({ ngay: r.ngay, he_thong: r.he_thong || '', chuoi: HE_THONG[r.he_thong] || '', nhan_hang: nhan(r.brand),
     ma_hang: r.ma_hang || '', ten_hang: tenGon(r.ten_hang), so_luong: so(r.sl_ban), tra_lai_sl: so(r.sl_tra),
     doanh_so: so(r.doanh_so), chiet_khau: so(r.chiet_khau), tra_lai: so(r.tra_lai) }));
+  // Bảng giá siêu thị: hệ thống × sản phẩm
+  const gia = doc(dir, 'gia_ban');
+  if (gia) out.gia_ban = gia.map(r => ({ he_thong: r.he_thong || '', chuoi: HE_THONG[r.he_thong] || '', nhan_hang: nhan(r.brand),
+    san_pham: r.san_pham || '', ten_bang_gia: r.ten_bang_gia || '', gia_mua: soHoacTrong(r.gia_mua), giam: soHoacTrong(r.giam),
+    trading_term: soHoacTrong(r.trading_term), tvp_nhan: soHoacTrong(r.tvp_nhan), gia_von: soHoacTrong(r.gia_von), ln_tvp: soHoacTrong(r.ln_tvp),
+    ty_le_ln: soHoacTrong(r.ty_le_ln), gia_le: soHoacTrong(r.gia_le), le_tren_mua: soHoacTrong(r.le_tren_mua),
+    ghi_chu: r.ghi_chu || '', ghi_chu_cong_khai: ghiChuCongKhai(r.ghi_chu) }));
   return out;
 }
 
 const TEN = { coop: ['Co.op bán ra', 'Theo tháng × cửa hàng × SKU, có tồn cuối kỳ; doanh số theo giá vốn Co.op'],
   emart: ['Emart bán ra', 'Theo tuần trong tháng (ngày 1–7, 8–14, …) × cửa hàng × sản phẩm; doanh số theo giá bán lẻ sau KM'],
-  sellin: ['Sell-in (giao vào)', 'Sổ chi tiết bán hàng theo ngày × hệ thống × mã hàng; tiền chưa gồm thuế GTGT'] };
+  sellin: ['Sell-in (giao vào)', 'Sổ chi tiết bán hàng theo ngày × hệ thống × mã hàng; tiền chưa gồm thuế GTGT'],
+  gia_ban: ['Bảng giá siêu thị', 'Hệ thống × sản phẩm: giá bán cho siêu thị, mức giảm, trading term, TVP thu về, giá vốn, lãi gộp, giá bán lẻ'] };
 
 async function gui(bang, nguon, rows) {
   const ma = process.env.MA_BI_MAT; if (!ma) throw new Error('Thiếu MA_BI_MAT');
@@ -87,10 +104,12 @@ async function gui(bang, nguon, rows) {
     console.log(`${TEN[n][0]}: ${rows.length} dòng · ${ky.length} kỳ (${rows.reduce((m, r) => r.tu_ngay < m ? r.tu_ngay : m, '9')} → ${rows.reduce((m, r) => r.den_ngay > m ? r.den_ngay : m, '0')}) · SL ${rows.reduce((m, r) => m + r.so_luong, 0)}${thieuNhan ? ' · ' + thieuNhan + ' dòng chưa rõ nhãn' : ''}`);
   }
   if (d.sell_in) console.log(`Sell-in: ${d.sell_in.length} dòng · ${d.sell_in.filter(r => !r.chuoi).length} dòng hệ thống app chưa có (giữ tên gốc)`);
+  if (d.gia_ban) console.log(`Bảng giá: ${d.gia_ban.length} dòng · hệ thống: ${[...new Set(d.gia_ban.map(r => r.he_thong + '→' + (r.chuoi || '?')))].join(', ')} · ${d.gia_ban.filter(r => r.ghi_chu).length} dòng có ghi chú (${d.gia_ban.filter(r => r.ghi_chu_cong_khai).length} khách xem được)`);
   fs.writeFileSync(path.join(dir, 'da-chuyen.json'), JSON.stringify(d));
   if (process.argv.includes('--gui')) {
     for (const [n, rows] of Object.entries(d.sell_out)) await gui('sell_out', n, rows);
     if (d.sell_in) await gui('sell_in', 'sellin', d.sell_in);
+    if (d.gia_ban) await gui('gia_ban', 'gia_ban', d.gia_ban);
     console.log('Xong.');
   }
 })().catch(e => { console.error('LỖI:', e.message); process.exit(1); });

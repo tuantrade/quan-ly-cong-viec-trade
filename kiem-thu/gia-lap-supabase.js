@@ -13,7 +13,7 @@ hoat_dong:[{id:'h1',ten:'CTKM Tết Co.op',nhan_hang_id:1,he_thong_id:1,ngay_bat
 {id:'b3',hoat_dong_id:'h1',thu_tu:3,ten:'C',nguoi_lam:'Tiên',han:'2026-11-09',trang_thai:'chua_lam',ngay_xong:null},
 {id:'b4',hoat_dong_id:'h1',thu_tu:4,ten:'D',nguoi_lam:'Tiên',han:'2026-11-11',trang_thai:'xong',ngay_xong:'2026-11-12'},
 {id:'b5',hoat_dong_id:'h1',thu_tu:5,ten:'E',nguoi_lam:'',han:'2026-11-20',trang_thai:'chua_lam',ngay_xong:null}],
-lich_post:[], dong_bo_lich:[], sell_out:[], sell_in:[], dong_bo_so_ban:[]};
+lich_post:[], dong_bo_lich:[], sell_out:[], sell_in:[], dong_bo_so_ban:[], gia_ban:[]};
 window.__DB=DB;
 const MAC_DINH={buoc_cong_viec:{trang_thai:'chua_lam',ngay_xong:null,ket_qua:'',ghi_chu:'',nguoi_lam:'',vai_tro:'',nguoi_duyet:'',ly_do_tra:'',ngay_nop:null},
 };
@@ -24,6 +24,7 @@ function view(ten){
   const xong=(arr,sku)=>arr.map(({_ch,_sku,...x})=>({...x, ton:x.ton??null, so_cua_hang_ban:_ch.size, ...(sku?{}:{so_sku_ban:_sku.size})}));
   if(ten==='sell_out_ky_sku') return xong(nhom(DB.sell_out,['chuoi','nhan_hang','ky','tu_ngay','den_ngay','ma_sku'],so),true);
   if(ten==='sell_out_ky_nhan') return xong(nhom(DB.sell_out,['chuoi','nhan_hang','ky','tu_ngay','den_ngay'],so),false);
+  if(ten==='gia_ban_cong_khai') return DB.gia_ban.map(x=>({id:x.id,he_thong:x.he_thong,chuoi:x.chuoi,nhan_hang:x.nhan_hang,san_pham:x.san_pham,giam:x.giam,trading_term:x.trading_term,gia_le:x.gia_le,ghi_chu:x.ghi_chu_cong_khai}));
   if(ten==='sell_in_ngay') return nhom(DB.sell_in,['chuoi','nhan_hang','ngay'],(o,r)=>{ o.so_luong=(o.so_luong||0)+(+r.so_luong||0); o.tra_lai_sl=(o.tra_lai_sl||0)+(+r.tra_lai_sl||0); o.doanh_so=(o.doanh_so||0)+(+r.doanh_so||0); }).map(({_ch,_sku,...x})=>x);
 }
 function qb(table){ let op='select',payload=null,filters=[],single=false,conflict=null,lim=null,ord=null;
@@ -32,7 +33,9 @@ function qb(table){ let op='select',payload=null,filters=[],single=false,conflic
  insert(p){op='insert';payload=p;return b},upsert(p,o){op='upsert';payload=p;conflict=(o&&o.onConflict||'').split(',');return b},
  update(p){op='update';payload=p;return b},delete(){op='delete';return b},single(){single=true;return b},
  then(res,rej){ return new Promise((ok,ko)=>{ try{ const match=r=>filters.every(f=>f(r)); let data;
-  const bang=['sell_out_ky_sku','sell_out_ky_nhan','sell_in_ngay'].includes(table)?view(table):DB[table];
+  const laKhach=(DB.thanh_vien.find(m=>m.email===email)||{}).vai_tro==='khach';
+  if(table==='gia_ban' && laKhach && op==='select'){ setTimeout(()=>ok({data:[],error:null}),5); return; }   // giống RLS: khách không đọc bảng giá đầy đủ
+  const bang=['sell_out_ky_sku','sell_out_ky_nhan','sell_in_ngay','gia_ban_cong_khai'].includes(table)?view(table):DB[table];
   if(!bang) throw new Error('Không có bảng '+table);
   if(op==='select'){ data=bang.filter(match).map(r=>({...r})); if(ord) data.sort((x,y)=>(x[ord[0]]>y[ord[0]]?1:x[ord[0]]<y[ord[0]]?-1:0)*(ord[1]?-1:1)); if(lim) data=data.slice(0,lim); }
   if(op==='insert'){ data=(Array.isArray(payload)?payload:[payload]).map(p=>({id:'id'+(++seq),...(MAC_DINH[table]||{}),...p})); DB[table].push(...data); }

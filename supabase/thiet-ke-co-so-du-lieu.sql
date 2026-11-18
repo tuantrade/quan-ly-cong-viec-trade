@@ -14,6 +14,7 @@
 --   nhat_ky_buoc               : lịch sử đổi trạng thái / hạn / người làm (để đo lường)
 --   lich_post                  : lịch CTKM / kỳ post của từng siêu thị, đồng bộ từ Google Sheet
 --   sell_out, sell_in          : số bán ra / giao vào, chép từ dashboard "Data Sell-in/out kênh bán MT"
+--   gia_ban                    : bảng giá siêu thị (giá vốn, lãi gộp chỉ thành viên xem), chép từ dashboard
 -- =====================================================================
 
 create extension if not exists pgcrypto;
@@ -720,7 +721,41 @@ select chuoi, nhan_hang, ngay, sum(so_luong) as so_luong, sum(tra_lai_sl) as tra
 from public.sell_in group by chuoi, nhan_hang, ngay;
 grant select on public.sell_out_ky_sku, public.sell_out_ky_nhan, public.sell_in_ngay to authenticated;
 
--- Chép số từ dashboard: bang = 'sell_out' | 'sell_in'; lam_moi = true ở lượt đầu (xóa số cũ của nguồn đó)
+-- Bảng giá siêu thị. Có giá vốn, lãi gộp: CHỈ thành viên và quản lý xem được bảng này.
+-- Khách xem qua view gia_ban_cong_khai (chỉ giá bán lẻ, mức giảm, trading term, ghi chú không nói về lãi/lỗ).
+create table if not exists public.gia_ban (
+  id                 bigint generated always as identity primary key,
+  he_thong           text not null default '',   -- tên theo bảng giá
+  chuoi              text not null default '',   -- tên hệ thống trong app
+  nhan_hang          text not null default '',
+  san_pham           text not null default '',
+  ten_bang_gia       text not null default '',
+  gia_mua            numeric,                    -- giá TVP bán cho siêu thị, chưa VAT
+  giam               numeric,                    -- mức đang giảm cho siêu thị (0,1 = 10%)
+  trading_term       numeric,
+  tvp_nhan           numeric,                    -- TVP thu về
+  gia_von            numeric,
+  ln_tvp             numeric,                    -- lãi gộp TVP
+  ty_le_ln           numeric,
+  gia_le             numeric,                    -- giá bán lẻ tại quầy (gồm VAT)
+  le_tren_mua        numeric,
+  ghi_chu            text not null default '',
+  ghi_chu_cong_khai  text not null default ''    -- phần ghi chú khách được xem
+);
+alter table public.gia_ban enable row level security;
+grant select on public.gia_ban to authenticated;
+drop policy if exists "thanh_vien_xem" on public.gia_ban;
+create policy "thanh_vien_xem" on public.gia_ban for select to authenticated using (public.la_thanh_vien());
+
+-- View này chạy bằng quyền chủ view nên tự lọc: chỉ người có trong danh sách mới thấy, và chỉ các cột công khai
+create or replace view public.gia_ban_cong_khai as
+select id, he_thong, chuoi, nhan_hang, san_pham, giam, trading_term, gia_le, ghi_chu_cong_khai as ghi_chu
+from public.gia_ban
+where public.duoc_xem();
+revoke all on public.gia_ban_cong_khai from anon;
+grant select on public.gia_ban_cong_khai to authenticated;
+
+-- Chép số từ dashboard: bang = 'sell_out' | 'sell_in' | 'gia_ban'; lam_moi = true ở lượt đầu (xóa số cũ của nguồn đó)
 create or replace function public.dong_bo_so_ban(ma text, bang text, nguon text, lam_moi boolean, du_lieu jsonb,
                                                   ten text default '', mo_ta text default '', nguon_cap_nhat text default '')
 returns integer
@@ -754,6 +789,16 @@ begin
     from jsonb_to_recordset(du_lieu) as x(ngay date, he_thong text, chuoi text, nhan_hang text, ma_hang text, ten_hang text,
          so_luong numeric, tra_lai_sl numeric, doanh_so numeric, chiet_khau numeric, tra_lai numeric)
     where x.ngay is not null;
+  elsif bang = 'gia_ban' then
+    if lam_moi then delete from public.gia_ban where true; end if;
+    insert into public.gia_ban (he_thong, chuoi, nhan_hang, san_pham, ten_bang_gia, gia_mua, giam, trading_term, tvp_nhan,
+                                gia_von, ln_tvp, ty_le_ln, gia_le, le_tren_mua, ghi_chu, ghi_chu_cong_khai)
+    select coalesce(x.he_thong, ''), coalesce(x.chuoi, ''), coalesce(x.nhan_hang, ''), coalesce(x.san_pham, ''), coalesce(x.ten_bang_gia, ''),
+           x.gia_mua, x.giam, x.trading_term, x.tvp_nhan, x.gia_von, x.ln_tvp, x.ty_le_ln, x.gia_le, x.le_tren_mua,
+           coalesce(x.ghi_chu, ''), coalesce(x.ghi_chu_cong_khai, '')
+    from jsonb_to_recordset(du_lieu) as x(he_thong text, chuoi text, nhan_hang text, san_pham text, ten_bang_gia text,
+         gia_mua numeric, giam numeric, trading_term numeric, tvp_nhan numeric, gia_von numeric, ln_tvp numeric, ty_le_ln numeric,
+         gia_le numeric, le_tren_mua numeric, ghi_chu text, ghi_chu_cong_khai text);
   else
     raise exception 'Bảng không hợp lệ: %', bang;
   end if;

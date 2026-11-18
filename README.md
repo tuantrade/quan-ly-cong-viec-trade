@@ -195,7 +195,13 @@ App không đọc thẳng được dashboard (dashboard chỉ mở được khi 
 - Trong mỗi **hoạt động**: bảng **Số bán quanh đợt CTKM**: các kỳ trong khoảng 5 tuần trước đến 5 tuần sau đợt, đánh dấu Trước / Trong (bao nhiêu ngày của kỳ nằm trong đợt) / Sau, có **bán ra / ngày** để so các kỳ dài ngắn khác nhau, và sell-in cùng kỳ. Chuỗi chưa có số bán ra (Lotte, GO…) thì hiện sell-in theo tuần.
 - Chỉ hiện số, chưa tính % tăng / ROI.
 
-**Cập nhật số mới** (sau khi dashboard có số mới): nhờ Claude “cập nhật số bán từ dashboard”. Claude tải các bộ dữ liệu của dashboard rồi chạy `node cong-cu/chep-so-ban-tu-dashboard.js <thư mục> --gui` (cần mã bí mật trong bảng `cau_hinh_nhac`). Mỗi bộ số được thay toàn bộ, không cộng dồn.
+## Giá (bảng giá siêu thị)
+Trang **Giá** lấy bảng giá siêu thị trong cùng dashboard (Emart, GO! / Big C, Co.op, Lotte):
+- **Từng mã tại một hệ thống**: giá TVP bán cho siêu thị (chưa VAT), mức đang giảm, trading term, **TVP thu về**, **giá vốn**, **lãi gộp** (số âm tô đỏ), giá bán lẻ tại quầy, giá bán lẻ ÷ giá siêu thị mua, ghi chú cần kiểm tra.
+- **Giá bán lẻ cùng một mã ở các hệ thống** đặt cạnh nhau.
+- **Khách (chỉ xem)** chỉ thấy mức giảm, trading term, giá bán lẻ và ghi chú kiểu “chưa có giá”. Giá bán cho siêu thị, TVP thu về, giá vốn, lãi gộp và ghi chú nói về lãi/lỗ bị chặn ngay trong cơ sở dữ liệu (bảng `gia_ban` chỉ thành viên đọc được; khách đọc view `gia_ban_cong_khai`).
+
+**Cập nhật số mới** (sau khi dashboard có số mới hoặc đổi bảng giá): nhờ Claude “cập nhật số từ dashboard” (chép cả số bán, sell-in và bảng giá). Claude tải các bộ dữ liệu của dashboard rồi chạy `node cong-cu/chep-so-ban-tu-dashboard.js <thư mục> --gui` (cần mã bí mật trong bảng `cau_hinh_nhac`). Mỗi bộ số được thay toàn bộ, không cộng dồn.
 
 ## Sửa danh mục nhãn hàng / hệ thống
 Supabase → **Table Editor** → bảng `nhan_hang` hoặc `he_thong` → **Insert row**. Muốn ẩn một mục mà không xóa thì đổi `dang_dung` thành `false`.

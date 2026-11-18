@@ -184,6 +184,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
       <a href="#lich-viec" data-v="lich-viec">Lịch việc</a>
       <a href="#lich-post" data-v="lich-post">Lịch post</a>
       <a href="#sell-out" data-v="sell-out">Số bán</a>
+      <a href="#gia" data-v="gia">Giá</a>
       <a href="#quy-trinh" data-v="quy-trinh">Quy trình mẫu</a>
       <a href="#thanh-vien" data-v="thanh-vien">Thành viên</a>
     </nav>
@@ -204,9 +205,10 @@ const TT_DB = {chua:'chua_lam', dang:'dang_lam', cho:'cho_duyet', xong:'xong', b
 const TT_APP = {chua_lam:'chua', dang_lam:'dang', cho_duyet:'cho', xong:'xong', khong_ap_dung:'bo'};
 const MOC_DB = {bd:'bat_dau', kt:'ket_thuc'}, MOC_APP = {bat_dau:'bd', ket_thuc:'kt'};
 const TTHD = {chuabd:['Chưa bắt đầu','neutral'], dangchay:['Đang chạy','info'], tre:['Có việc trễ','bad'], hoanthanh:['Hoàn thành','ok']};
-const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','sell-out','quy-trinh','thanh-vien'];
+const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','sell-out','gia','quy-trinh','thanh-vien'];
 
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
+let giaBan = [], giaLoc = {ht:'', nhan:''};
 let soNguon = [], soLoc = {chuoi:'', nhan:'', soKy:'12'}, soDuLieu = null, soDangTai = '', soHd = {};
 let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tu:'', soThang:'3'};
 let loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
@@ -232,7 +234,7 @@ const isManager = () => me()?.vai_tro==='quan_ly';
 /* Khách: chỉ xem. Cơ sở dữ liệu đã chặn mọi thao tác ghi; phần dưới đây ẩn nút sửa cho gọn */
 const laKhach = () => me()?.vai_tro==='khach';
 const NUT_SUA = '[data-tao-lp],[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
-const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo','soChuoi','soNhan','soKy'];
+const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo','soChuoi','soNhan','soKy','giaHt','giaNhan'];
 function khoaChiXem(goc){
   goc.querySelectorAll(NUT_SUA).forEach(el=>el.remove());
   goc.querySelectorAll('input,select,textarea').forEach(el=>{ if(!O_LOC.includes(el.id)) el.disabled=true; });
@@ -317,6 +319,11 @@ async function loadAll(){
   try{ const r=await sb.from('dong_bo_so_ban').select('*'); if(r.error) throw r.error;
     const moi=JSON.stringify(r.data||[]); if(moi!==JSON.stringify(soNguon)){ soDuLieu=null; soHd={}; } soNguon=r.data||[]; }
   catch(e){ console.warn('Chưa đọc được số bán', e); soNguon=[]; }
+  try{ // bảng giá: thành viên đọc bảng đầy đủ; khách chỉ đọc bảng công khai (không có giá vốn, lãi gộp)
+    let r = laKhach() ? {error:{}} : await sb.from('gia_ban').select('*');
+    if(r.error) r = await sb.from('gia_ban_cong_khai').select('*');
+    if(r.error) throw r.error; giaBan = r.data||[];
+  }catch(e){ console.warn('Chưa đọc được bảng giá', e); giaBan=[]; }
   try{ // lịch post: bảng có thể chưa có nếu chưa chạy SQL mới, khi đó trang Lịch post báo trống
     const [lp, db] = await Promise.all([fetchAll('lich_post','ngay_bat_dau'), sb.from('dong_bo_lich').select('*').then(r=>{ if(r.error) throw r.error; return r.data; })]);
     lichPost = lp.map(x=>({...x, ngay_bat_dau:String(x.ngay_bat_dau).slice(0,10), ngay_ket_thuc:String(x.ngay_ket_thuc).slice(0,10)})); dongBoLich = (db||[])[0]||null;
@@ -370,6 +377,7 @@ function renderNow(){
   else if(view==='lich-viec') html+=renderCal();
   else if(view==='lich-post') html+=renderLichPost();
   else if(view==='sell-out') html+=renderSellOut();
+  else if(view==='gia') html+=renderGia();
   else if(view==='quy-trinh') html+=renderTpls();
   else if(view==='thanh-vien') html+=renderMembers();
   else html+=renderOverview();
@@ -617,7 +625,7 @@ function taiSoXem(){
 function renderSellOut(){
   const L=soLoc; const dsChuoi=[...new Set(soNguon.map(n=>CHUOI_NGUON[n.nguon]).filter(Boolean))];
   if(!L.chuoi || !dsChuoi.includes(L.chuoi)) L.chuoi=dsChuoi[0]||'';
-  let h=`<section class="card"><div class="card-h"><div><h2>Nguồn số liệu</h2><p>Số được chép từ dashboard “Data Sell-in/out kênh bán MT”. App chỉ đọc; muốn cập nhật số mới thì nhờ Claude “cập nhật số bán từ dashboard”.</p></div></div>${
+  let h=`<section class="card"><div class="card-h"><div><h2>Nguồn số liệu</h2><p>Số được chép từ dashboard “Data Sell-in/out kênh bán MT”. App chỉ đọc; muốn cập nhật số mới thì nhờ Claude “cập nhật số từ dashboard”.</p></div></div>${
     soNguon.length?`<div class="scroll"><table><thead><tr><th>Bộ số</th><th>Nội dung</th><th class="n">Số dòng</th><th>Dashboard cập nhật</th><th>Chép sang app</th></tr></thead><tbody>${
       soNguon.slice().sort((a,b)=>a.nguon.localeCompare(b.nguon)).map(n=>`<tr><td><b>${esc(n.ten||n.nguon)}</b></td><td class="sub">${esc(n.mo_ta)}</td><td class="n">${soVN(n.so_dong)}</td><td class="num">${n.nguon_cap_nhat?esc(new Date(n.nguon_cap_nhat).toLocaleString('vi-VN')):'—'}</td><td class="num">${new Date(n.luc).toLocaleString('vi-VN')}</td></tr>`).join('')
     }</tbody></table></div>`:'<div class="empty">Chưa chép số nào từ dashboard.</div>'}</section>`;
@@ -643,6 +651,38 @@ function renderSellOut(){
   ${coTon?dong('Tồn cuối kỳ', k=>`<td class="n">${soVN(k.ton)}</td>`):''}
   ${dong('Sell-in cùng kỳ (SL)', k=>{ const v=sellInTrong(d.si,k.tu,k.den); return `<td class="n">${v?soVN(v.sl):'—'}</td>`; })}</tbody></table></div>
   <p class="hint" style="padding:8px 16px 12px">Doanh số bán ra: Co.op theo giá vốn Co.op, Emart theo giá bán lẻ sau KM. Sell-in = số lượng giao vào trừ trả lại, cùng khoảng ngày của kỳ.</p></section>`;
+  return h;
+}
+/* ---------- Bảng giá siêu thị (chép từ dashboard) ---------- */
+const phanTram = v => v==null||v===''?'—':(Number(v)*100).toLocaleString('vi-VN',{maximumFractionDigits:1})+'%';
+const lanGia = v => v==null||v===''?'—':Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2})+' lần';
+function renderGia(){
+  const coGiaVon = giaBan.some(x=>'gia_von' in x);   // khách không có các cột này
+  const nguon = soNguon.find(n=>n.nguon==='gia_ban');
+  let h=`<section class="card"><div class="card-h"><div><h2>${coGiaVon?'Giá bán và phần TVP thu về':'Giá bán tại siêu thị'}</h2><p>Từ bảng giá siêu thị trong dashboard “Data Sell-in/out kênh bán MT”${nguon?` · dashboard cập nhật ${nguon.nguon_cap_nhat?esc(new Date(nguon.nguon_cap_nhat).toLocaleDateString('vi-VN')):'—'}, chép sang app ${new Date(nguon.luc).toLocaleString('vi-VN')}`:''}. Muốn cập nhật thì nhờ Claude “cập nhật số từ dashboard”.${coGiaVon?'':' Bạn đang xem với quyền khách: không hiện giá bán cho siêu thị, giá vốn, lãi gộp.'}</p></div></div>`;
+  if(!giaBan.length) return h+'<div class="empty">Chưa có bảng giá.</div></section>';
+  const dsHt=[...new Set(giaBan.map(x=>x.he_thong))];
+  const L=giaLoc; if(!dsHt.includes(L.ht)) L.ht=dsHt[0];
+  const dsNhan=[...new Set(giaBan.map(x=>x.nhan_hang).filter(Boolean))];
+  h+=`<div class="filters"><select id="giaHt" aria-label="Hệ thống">${dsHt.map(x=>`<option ${x===L.ht?'selected':''}>${esc(x)}</option>`).join('')}</select>
+    <select id="giaNhan" aria-label="Nhãn hàng"><option value="">Tất cả nhãn</option>${dsNhan.map(x=>`<option ${x===L.nhan?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`;
+  const theoTen=(a,b)=>(a.nhan_hang||'').localeCompare(b.nhan_hang||'','vi')||(a.san_pham||'').localeCompare(b.san_pham||'','vi');
+  const ds=giaBan.filter(x=>x.he_thong===L.ht && (!L.nhan||x.nhan_hang===L.nhan)).sort(theoTen);
+  const cot = coGiaVon
+    ? [['Nhãn',x=>esc(x.nhan_hang||'—'),'l'],['Sản phẩm',x=>esc(x.san_pham),'l'],['Giá TVP bán cho siêu thị (chưa VAT)',x=>soVN(x.gia_mua)],['Đang giảm cho siêu thị',x=>phanTram(x.giam)],['Trading term',x=>phanTram(x.trading_term)],
+       ['TVP thu về',x=>soVN(x.tvp_nhan)],['Giá vốn',x=>soVN(x.gia_von)],['Lãi gộp TVP',x=>`<span class="${Number(x.ln_tvp)<0?'late':''}">${soVN(x.ln_tvp)}</span>`],['Lãi gộp ÷ thu về',x=>`<span class="${Number(x.ty_le_ln)<0?'late':''}">${phanTram(x.ty_le_ln)}</span>`],
+       ['Giá bán lẻ tại quầy',x=>soVN(x.gia_le)],['Giá bán lẻ ÷ giá siêu thị mua',x=>lanGia(x.le_tren_mua)],['Ghi chú',x=>x.ghi_chu?`<span class="late">${esc(x.ghi_chu)}</span>`:'','l']]
+    : [['Nhãn',x=>esc(x.nhan_hang||'—'),'l'],['Sản phẩm',x=>esc(x.san_pham),'l'],['Đang giảm cho siêu thị',x=>phanTram(x.giam)],['Trading term',x=>phanTram(x.trading_term)],['Giá bán lẻ tại quầy',x=>soVN(x.gia_le)],['Ghi chú',x=>x.ghi_chu?`<span class="late">${esc(x.ghi_chu)}</span>`:'','l']];
+  h+=`<div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Từng mã tại ${esc(L.ht)}</h2><p>Đồng trên một đơn vị bán lẻ (hộp, chai, gói).${coGiaVon?' TVP thu về = giá TVP bán cho siêu thị × (1 − mức đang giảm) × (1 − trading term). Lãi gộp = TVP thu về − giá vốn.':''} Giá bán lẻ là giá thực bán tới tay khách (gồm VAT).</p></div></div>
+  <div class="scroll"><table class="so-pivot"><thead><tr>${cot.map(c=>`<th class="${c[2]==='l'?'':'n'}">${c[0]}</th>`).join('')}</tr></thead><tbody>${
+    ds.map(x=>`<tr>${cot.map(c=>`<td class="${c[2]==='l'?'':'n'}">${c[1](x)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cot.length}">Không có mã nào.</td></tr>`
+  }</tbody></table></div></section>`;
+  // So sánh giá bán lẻ cùng một mã ở các hệ thống
+  const sp=new Map(); giaBan.filter(x=>!L.nhan||x.nhan_hang===L.nhan).forEach(x=>{ const k=(x.nhan_hang||'')+'|'+x.san_pham; const o=sp.get(k)||sp.set(k,{nhan_hang:x.nhan_hang,san_pham:x.san_pham,ht:{}}).get(k); o.ht[x.he_thong]=x; });
+  h+=`<section class="card"><div class="card-h"><div><h2>Giá bán lẻ cùng một mã ở các hệ thống</h2><p>Đồng/đơn vị, giá thực bán tới tay khách. “—” = hệ thống không có mã này hoặc chưa có giá bán lẻ. Ô chữ đỏ là giá có ghi chú cần kiểm tra (xem bảng trên).</p></div></div>
+  <div class="scroll"><table class="so-pivot"><thead><tr><th>Nhãn</th><th>Sản phẩm</th>${dsHt.map(x=>`<th class="n">${esc(x)}</th>`).join('')}</tr></thead><tbody>${
+    [...sp.values()].sort(theoTen).map(o=>`<tr><td>${esc(o.nhan_hang||'—')}</td><td>${esc(o.san_pham)}</td>${dsHt.map(ht=>{ const x=o.ht[ht]; return `<td class="n ${x&&x.ghi_chu?'late':''}" ${x&&x.ghi_chu?`title="${esc(x.ghi_chu)}"`:''}>${x?soVN(x.gia_le):'—'}</td>`; }).join('')}</tr>`).join('')
+  }</tbody></table></div></section>`;
   return h;
 }
 /* Bảng số bán quanh đợt CTKM trong màn chi tiết hoạt động */
@@ -1033,6 +1073,8 @@ main.addEventListener('change', e=>{
   if(el.id==='soChuoi'){ soLoc.chuoi=el.value; render(); }
   if(el.id==='soNhan'){ soLoc.nhan=el.value; render(); }
   if(el.id==='soKy'){ soLoc.soKy=el.value; render(); }
+  if(el.id==='giaHt'){ giaLoc.ht=el.value; render(); }
+  if(el.id==='giaNhan'){ giaLoc.nhan=el.value; render(); }
   if(el.id==='lpChuoi'){ lichLoc.chuoi=el.value; render(); }
   if(el.id==='lpNhan'){ lichLoc.nhan=el.value; render(); }
   if(el.id==='lpLoai'){ lichLoc.loai=el.value; render(); }
