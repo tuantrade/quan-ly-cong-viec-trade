@@ -17,6 +17,7 @@ App web quản lý các hoạt động trade theo quy trình mẫu: giao việc,
 | `nhac-han-email/doc-nguon-so-lieu.gs`, `dong-bo-du-lieu.gs`, `appsscript.json` | Script Google tự nạp số liệu mỗi giờ từ thư mục Drive và Google Sheet (xem mục “Báo cáo MT và tự nạp số”) |
 | `cong-cu/nap-tu-dashboard.js` | Nạp lần đầu / nạp lại toàn bộ số gốc từ dashboard cũ |
 | `cong-cu/tao-bao-cao-mt.js`, `khung-bao-cao-mt.html` | Ghép lại trang Báo cáo MT khi dashboard đổi giao diện |
+| `lich-post-2027.html`, `cong-cu/tao-lich-post-2027.js`, `khung-lich-post-2027.html` | Trang **Lịch post 2027** (lịch Tết 2027 của GO/BigC, Emart, Lotte, Co.op; hạn đăng ký; trùng lịch với Co.op). Mã trang lấy từ dashboard, lịch lưu trong Supabase (`bo_so_tinh_san`, bộ `lich_post_2027`) |
 | `nhac-han-email/dong-bo-lich-post.gs` | Script Google đồng bộ lịch CTKM / kỳ post từ Google Sheet kế hoạch vào app (xem mục “Lịch post”) |
 
 ---
