@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#2c6a4c">
 <title>Quản lý công việc Trade MKT</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -42,6 +43,9 @@ h1,h2,h3{text-wrap:balance;margin:0}
 
 header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
 .bar{max-width:1200px;margin:0 auto;padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center}
+.brand-wrap{display:flex;align-items:center;gap:10px}
+.brand-logo{width:46px;height:auto;display:block;flex:none}
+.auth-logo{display:block;width:120px;height:auto;margin:0 auto 10px}
 .brand{display:flex;flex-direction:column}
 .brand h1{font-size:17px;font-weight:700;letter-spacing:-.01em}
 .brand span{font-size:12px;color:var(--muted)}
@@ -177,7 +181,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 <body>
 <header>
   <div class="bar">
-    <div class="brand"><h1>Quản lý công việc Trade MKT</h1><span>Trí Việt Phát · quy trình, giao việc, tiến độ</span></div>
+    <a class="brand-wrap" href="#tong-quan" style="color:inherit;text-decoration:none"><img class="brand-logo" src="logo-tvp.png" alt="Logo Trí Việt Phát"><div class="brand"><h1>Quản lý công việc Trade MKT</h1><span>Trí Việt Phát · quy trình, giao việc, tiến độ</span></div></a>
     <nav id="nav" hidden>
       <a href="#tong-quan" data-v="tong-quan">Tổng quan</a>
       <a href="#hoat-dong" data-v="hoat-dong">Hoạt động</a>
@@ -740,6 +744,7 @@ function renderAuth(){
   const m=authMode;
   const title={login:'Đăng nhập',signup:'Tạo tài khoản',forgot:'Quên mật khẩu',reset:'Đặt mật khẩu mới'}[m];
   main.innerHTML=`<form class="auth" id="authForm" novalidate>
+    <img class="auth-logo" src="logo-tvp-day-du.png" alt="Trí Việt Phát Foods">
     <h2>${title}</h2>
     ${m!=='reset'?`<div class="field"><label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="email" required></div>`:''}
     ${m!=='forgot'?`<div class="field"><label for="aPass">${m==='reset'?'Mật khẩu mới':'Mật khẩu'}</label><input id="aPass" type="password" autocomplete="${m==='login'?'current-password':'new-password'}" minlength="6" required></div>`:''}
