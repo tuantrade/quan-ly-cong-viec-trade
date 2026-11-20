@@ -287,7 +287,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 
   <section class="sv-card" id="bang-sku">
     <h2 class="sv-h">Theo SKU</h2>
-    <p class="sv-note">Số lượng thuần = bán trừ trả lại, theo đơn vị tính của từng SKU. Bấm tiêu đề cột để sắp xếp.</p>
+    <p class="sv-note">Số lượng thuần = bán trừ trả lại, theo đơn vị tính của từng SKU. "So với tháng trước": doanh thu thuần của SKU so với tháng trước, cùng phạm vi đang lọc (hệ thống, điểm nhận); tháng đang chạy so với cùng các ngày của tháng trước. Bấm tiêu đề cột để sắp xếp.</p>
     <div class="sv-filters sv-filters-sku">
       <label class="sv-filter" for="sku-ht">Hệ thống
         <select id="sku-ht"><option value="">Tất cả</option></select>
@@ -308,6 +308,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
           <th class="l" data-field="dvt">ĐVT</th>
           <th data-field="sl_thuan"><button type="button" data-k="sl_thuan">SL thuần</button></th>
           <th data-field="thuan"><button type="button" data-k="thuan">Doanh thu thuần (tr)</button></th>
+          <th data-field="tang"><button type="button" data-k="tang">So với tháng trước</button></th>
           <th data-field="ty_trong"><button type="button" data-k="ty_trong">Tỷ trọng</button></th>
           <th data-field="so_he_thong"><button type="button" data-k="so_he_thong">Số hệ thống có bán</button></th>
         </tr></thead>
@@ -450,6 +451,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
         </label>
         <label class="sv-filter" for="wil-ht">Hệ thống
           <select id="wil-ht" data-source="wil_bang"><option value="">Tất cả</option></select>
+        </label>
+        <label class="sv-filter" for="wil-ch">Siêu thị / điểm nhận hàng
+          <select id="wil-ch" disabled><option value="">Chọn hệ thống trước</option></select>
         </label>
         <label class="sv-filter" for="wil-sp">Sản phẩm
           <select id="wil-sp" data-source="wil_bang"><option value="">Tất cả</option></select>
@@ -895,14 +899,29 @@ function drawSku() {
     if (!goc) { goc = gomSku(raw.filter((r) => r.he_thong === ht), dvt); note = `Đang xem ${ht}. Tỷ trọng tính trên tổng của hệ thống này.`; }
   }
   skuNote.hidden = !note; skuNote.textContent = note;
+  // So với tháng trước: cùng phạm vi đang xem (cả kênh / hệ thống / điểm nhận); tháng mới nhất chưa hết tháng thì so cùng các ngày của tháng trước
+  const prevMap = new Map();
+  if (si.status === 'ok' && skuThang) {
+    const thangs = [...new Set(si.data.map((r) => r.thang))].sort();
+    const ngayCuoi = skuThang === thangs[thangs.length - 1] ? si.data.filter((r) => r.thang === skuThang).map((r) => r.ngay).sort().pop().slice(8, 10) : '99';
+    const pm = prevOf(skuThang), chD = dash.data('sellin_ch');
+    let prevRaw;
+    if (ht && skuCh.value && chD.status === 'ok') prevRaw = chD.data.filter((r) => String(r.ngay).slice(0, 7) === pm && r.he_thong === ht && tenCh(r.diem_nhan) === skuCh.value);
+    else if (ht) prevRaw = si.data.filter((r) => r.thang === pm && r.he_thong === ht);
+    else prevRaw = si.data.filter((r) => r.thang === pm && hopLoc(r.he_thong));
+    prevRaw.filter((r) => String(r.ngay).slice(8, 10) <= ngayCuoi).forEach((r) => prevMap.set(r.ma_hang, (prevMap.get(r.ma_hang) || 0) + thuanR(r)));
+  }
+  goc = goc.map((x) => { const p = prevMap.get(x.ma_hang); return { ...x, tang: p > 0 ? x.thuan / p - 1 : null }; });
   const q = document.getElementById('sv-q').value.trim().toLowerCase();
+  const sv = (r) => (r[skuSort.k] == null ? (skuSort.dir > 0 ? Infinity : -Infinity) : r[skuSort.k]);
   const rows = goc.filter((r) => !q || (r.ten_hang + ' ' + r.brand + ' ' + r.ma_hang).toLowerCase().includes(q))
-    .sort((a, b) => { const x = a[skuSort.k], y = b[skuSort.k]; return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * skuSort.dir; });
+    .sort((a, b) => { const x = sv(a), y = sv(b); return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * skuSort.dir; });
   document.querySelectorAll('#t-sku th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === skuSort.k) th.setAttribute('aria-sort', skuSort.dir > 0 ? 'ascending' : 'descending'); });
   const tb = document.querySelector('#t-sku tbody');
   tb.replaceChildren(...rows.map((r) => {
     const t = document.createElement('tr'); t.dataset.key = enc(r.thang) + ',' + enc(r.ma_hang);
-    for (const [v, c] of [[r.ten_hang, 'l'], [r.brand, 'l'], [r.dvt, 'l'], [vi(r.sl_thuan)], [tr(r.thuan)], [pct(r.ty_trong)], [vi(r.so_he_thong)]]) { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; t.append(td); }
+    const tg = [r.tang == null ? '–' : sgn(r.tang), r.tang == null ? '' : (r.tang >= 0 ? 'sv-up' : 'sv-down')];
+    for (const [v, c] of [[r.ten_hang, 'l'], [r.brand, 'l'], [r.dvt, 'l'], [vi(r.sl_thuan)], [tr(r.thuan)], tg, [pct(r.ty_trong)], [vi(r.so_he_thong)]]) { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; t.append(td); }
     return t;
   }));
 }
@@ -1421,6 +1440,8 @@ const wilNum = (v) => (v == null ? '–' : vi(v, Math.abs(v) < 20 ? 1 : 0));
 const wilEls = ['wil-cap', 'wil-ht', 'wil-sp', 'wil-tin'].map((id) => document.getElementById(id));
 wilEls.forEach((el) => el.addEventListener('change', () => drawWil()));
 document.getElementById('wil-q').addEventListener('input', () => drawWil());
+// Chọn một siêu thị: tự chuyển Cấp sang "Từng siêu thị" (đổi hệ thống thì danh sách siêu thị tự làm lại)
+document.getElementById('wil-ch').addEventListener('change', (e) => { if (e.target.value) wilEls[0].value = 'Siêu thị'; drawWil(); });
 let wilSort = { k: 'baseline', dir: -1 };
 document.querySelectorAll('#t-wil th button').forEach((b) => b.addEventListener('click', () => {
   const k = b.dataset.k; wilSort = { k, dir: wilSort.k === k ? -wilSort.dir : (['he_thong', 'diem', 'san_pham', 'nguon', 'do_tin_cay'].includes(k) ? 1 : -1) }; drawWil();
@@ -1458,8 +1479,12 @@ function drawWil() {
   const fill = (el, vals) => { const cur = el.value; el.replaceChildren(new Option('Tất cả', ''), ...vals.map((v) => new Option(v, v))); el.value = vals.includes(cur) ? cur : ''; };
   fill(eHt, [...new Set(base.map((r) => r.he_thong))].sort((a, b) => a.localeCompare(b, 'vi')));
   fill(eSp, WIL_ORDER.filter((s) => base.some((r) => r.san_pham === s)));
+  const eCh = document.getElementById('wil-ch'), chCu = eCh.value;
+  const chs = eHt.value ? [...new Set(d.data.filter((r) => r.cap === 'Siêu thị' && r.he_thong === eHt.value).map((r) => r.diem))].sort((a, b) => a.localeCompare(b, 'vi')) : [];
+  eCh.replaceChildren(new Option(!eHt.value ? 'Chọn hệ thống trước' : chs.length ? `Tất cả (${chs.length} điểm)` : 'Không có số theo siêu thị', ''), ...chs.map((c) => new Option(c, c)));
+  eCh.value = chs.includes(chCu) ? chCu : ''; eCh.disabled = !chs.length;
   const q = document.getElementById('wil-q').value.trim().toLowerCase();
-  const rs = base.filter((r) => (!eHt.value || r.he_thong === eHt.value) && (!eSp.value || r.san_pham === eSp.value) && (!eTin.value || r.do_tin_cay === eTin.value) && (!q || (r.diem + ' ' + r.he_thong).toLowerCase().includes(q)));
+  const rs = base.filter((r) => (!eHt.value || r.he_thong === eHt.value) && (!eCh.value || r.diem === eCh.value) && (!eSp.value || r.san_pham === eSp.value) && (!eTin.value || r.do_tin_cay === eTin.value) && (!q || (r.diem + ' ' + r.he_thong).toLowerCase().includes(q)));
   const sum = rs.reduce((a, r) => a + (r.baseline || 0), 0), n = (v) => rs.filter((r) => r.do_tin_cay === v).length;
   document.getElementById('wil-tom-tat').textContent = `Đang xem ${vi(rs.length)} dòng, tổng baseline ${vi(sum)} hộp/30 ngày. Độ tin cậy: Cao ${vi(n('Cao'))}, Trung bình ${vi(n('Trung bình'))}, Thấp ${vi(n('Thấp'))}, chưa đủ dữ liệu ${vi(n('Chưa đủ dữ liệu'))}. Bấm tiêu đề cột để sắp xếp.`;
   const val = (r, k) => (r[k] == null ? (wilSort.dir > 0 ? Infinity : -Infinity) : r[k]);
