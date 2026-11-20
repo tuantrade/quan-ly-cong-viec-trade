@@ -28,8 +28,8 @@
       { ten: 'Sell-in', trang: 'bao-cao', v: 'sell-in', href: 'bao-cao-mt.html#sell-in' },
       { ten: 'Sell-out', trang: 'bao-cao', v: 'sell-out', href: 'bao-cao-mt.html#sell-out' },
       { ten: 'Baseline bán trơn', trang: 'bao-cao', v: 'baseline', href: 'bao-cao-mt.html#baseline' },
-      { ten: 'Giá bán & TVP thu về', trang: 'bao-cao', v: 'gia', href: 'bao-cao-mt.html#gia' },
-      { ten: 'Bảng giá siêu thị', trang: 'app', v: 'gia', href: './#gia' } ] },
+      { ten: 'Giá bán & TVP thu về', trang: 'bao-cao', v: 'gia', href: 'bao-cao-mt.html#gia' } ] },
+      // Bảng giá siêu thị (./#gia) đã ẩn: trùng nội dung với Giá bán & TVP thu về. Trang vẫn mở được bằng link ./#gia
     { ten: 'Thiết lập', muc: [
       { ten: 'Quy trình mẫu', trang: 'app', v: 'quy-trinh', href: './#quy-trinh' },
       { ten: 'Thành viên', trang: 'app', v: 'thanh-vien', href: './#thanh-vien' } ] }
