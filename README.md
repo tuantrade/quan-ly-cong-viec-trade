@@ -100,6 +100,11 @@ Quyền chỉ xem được chặn ngay trong cơ sở dữ liệu, nên khách k
 ## Cập nhật cơ sở dữ liệu khi có bản mới
 Khi file `supabase/thiet-ke-co-so-du-lieu.sql` thay đổi (ví dụ thêm vai trò Khách), mở Supabase → **SQL Editor** → **New query**, dán **toàn bộ** file rồi bấm **Run**. File chạy lại nhiều lần vẫn an toàn: không xóa và không tạo trùng dữ liệu. Không cần sửa dòng `EMAIL_CUA_BAN@gmail.com` nữa, vì quản lý đã có sẵn thì dòng đó được bỏ qua.
 
+## Trang Tổng quan: Việc của tôi và mốc Lịch post
+- Khung **Việc của tôi** ở đầu trang: việc của người đang đăng nhập bị trễ, hạn hôm nay, đến hạn trong 7 ngày, và bước đang chờ mình duyệt; bấm thẳng **Đánh dấu xong / Duyệt** tại đây. Kèm số ngày còn lại đến Mùng 1 Tết Đinh Mùi (06/02/2027).
+- Bảng **Mốc Lịch post 30 ngày tới**: hạn đăng ký, ngày bắt đầu giao hàng, ngày bắt đầu chạy của từng kỳ (lấy từ Lịch post và Lịch post 2027). Kỳ chưa có hoạt động thì có nút **Tạo CTKM** (app điền sẵn hệ thống, tên kỳ, ngày chạy). Kỳ Lịch post 2027 được coi là đã có hoạt động khi hoạt động cùng hệ thống có tên chứa mã kỳ, hoặc trùng đúng ngày chạy.
+- Trang **Quy trình mẫu**: mỗi mẫu có nút **+ Tạo hoạt động theo mẫu này** và số lần đã dùng. Khi tạo, app báo trước nếu có bước rơi vào ngày đã qua.
+
 ## Luồng công việc và duyệt bước
 Thiết lập trong **Quy trình mẫu → Sửa** (hoặc **+ Thêm quy trình mẫu**). Mỗi bước có:
 - **Người làm**: người mặc định nhận bước. Để “Giao khi tạo” thì người làm được chọn theo vai trò lúc tạo hoạt động.
@@ -176,6 +181,7 @@ Trang **Lịch post** hiện lịch CTKM của từng chuỗi / nhãn hàng dạ
 - Thanh có viền xanh lá và dấu ✓ = đã có hoạt động trong app cùng kênh, cùng nhãn, trùng thời gian.
 - Bấm một thanh để xem đầy đủ nội dung và bấm **Tạo hoạt động CTKM**: app tự chọn mẫu Onpost/Offpost, điền tên, nhãn, kênh, ngày chạy; hạn các bước tự tính.
 - Bảng **Sắp bắt đầu (45 ngày tới)** cho biết chương trình nào chưa được tạo trong app.
+- Bấm một thanh hoặc một dòng (kể cả bảng **Đã chạy xong gần đây (60 ngày qua)**) là thấy luôn **số bán quanh đợt**: bán ra và sell-in từng kỳ trong 5 tuần trước đến 5 tuần sau, kèm bảng **Tóm tắt theo giai đoạn** (Trước / Trong / Sau CTKM: tổng, trung bình mỗi ngày). Chỉ cộng và chia số đã có; nếu các kỳ chồng ngày nhau thì không cộng gộp.
 - **Sửa lịch thì sửa trên Google Sheet**, app chỉ đọc.
 
 **Cách app đọc sheet:** cột B = chuỗi, cột C = siêu thị (có thể ghi Onpost / Offpost), cột D = nhãn hàng; hàng tiêu đề có “THÁNG 1/2026”, hàng ngay dưới là số ngày, mỗi cột là một ngày. Mỗi chương trình là một ô (gộp ngang nhiều ngày): chữ trong ô là nội dung, độ dài ô gộp là thời gian chạy. Giữ đúng cách trình bày này thì sang năm (tab `PLAN 2027`) vẫn đọc được.

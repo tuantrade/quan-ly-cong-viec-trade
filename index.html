@@ -176,6 +176,10 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 .addrow{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
 .addrow input,.addrow select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .addrow input{flex:1;min-width:160px}
+.toi{border-color:var(--accent)}
+.toi-dem{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 16px 12px}
+.toi-dem .pill{font-size:13px;padding:4px 11px}
+.toi-dem .link{margin-left:auto;font-size:13px}
 </style>
 </head>
 <body>
@@ -215,6 +219,7 @@ const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh'
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
 let giaBan = [], giaLoc = {ht:'', nhan:''};
 let soNguon = [], soHd = {};
+let lich27 = [];   // Lịch post 2027 (4 hệ thống MT), đọc từ bo_so_tinh_san
 let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tu:'', soThang:'3'};
 let loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
 let view = 'tong-quan', selectedId = null, pendingRender = false, notice = '';
@@ -238,7 +243,7 @@ const me = () => members.find(m=>m.email===myEmail());
 const isManager = () => me()?.vai_tro==='quan_ly';
 /* Khách: chỉ xem. Cơ sở dữ liệu đã chặn mọi thao tác ghi; phần dưới đây ẩn nút sửa cho gọn */
 const laKhach = () => me()?.vai_tro==='khach';
-const NUT_SUA = '[data-tao-lp],[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
+const NUT_SUA = '[data-tao-lp],[data-tao27],[data-tao-tu-qt],[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
 const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo','giaHt','giaNhan'];
 function khoaChiXem(goc){
   goc.querySelectorAll(NUT_SUA).forEach(el=>el.remove());
@@ -333,6 +338,9 @@ async function loadAll(){
     const [lp, db] = await Promise.all([fetchAll('lich_post','ngay_bat_dau'), sb.from('dong_bo_lich').select('*').then(r=>{ if(r.error) throw r.error; return r.data; })]);
     lichPost = lp.map(x=>({...x, ngay_bat_dau:String(x.ngay_bat_dau).slice(0,10), ngay_ket_thuc:String(x.ngay_ket_thuc).slice(0,10)})); dongBoLich = (db||[])[0]||null;
   }catch(e){ console.warn('Chưa đọc được lịch post', e); lichPost=[]; dongBoLich=null; }
+  try{ const r=await sb.from('bo_so_tinh_san').select('du_lieu').eq('bo_so','lich_post_2027').maybeSingle(); if(r.error) throw r.error;
+    lich27 = Array.isArray(r.data?.du_lieu) ? r.data.du_lieu : []; }
+  catch(e){ console.warn('Chưa đọc được Lịch post 2027', e); lich27=[]; }
   loaded=true; schedule();
 }
 function scheduleReload(){ clearTimeout(reloadTimer); reloadTimer=setTimeout(()=>{ if(inflight) return scheduleReload(); loadAll(); },600); }
@@ -436,7 +444,7 @@ function renderOverview(){
   const steps=allSteps(); const tinh=steps.filter(x=>x.s.trangThai!=='bo'); const xong=tinh.filter(x=>x.s.trangThai==='xong').length;
   const late=steps.filter(x=>isLate(x.s)).sort((p,q)=>p.s.han.localeCompare(q.s.han));
   const soon=steps.filter(x=>isOpen(x.s)&&x.s.han>=t&&x.s.han<=in7);
-  let h=`<div class="tiles">
+  let h=renderToi()+`<div class="tiles">
     <div class="tile"><span>Hoạt động đang chạy</span><b>${running.length}</b><small>trên tổng ${acts.length} hoạt động</small></div>
     <div class="tile"><span>Tiến độ chung</span><b>${tinh.length?Math.round(xong*100/tinh.length):0}%</b><small>${xong}/${tinh.length} bước đã xong</small></div>
     <div class="tile ${late.length?'bad':''}"><span>Bước đang trễ hạn</span><b>${late.length}</b><small>chưa xong mà đã quá hạn</small></div>
@@ -473,6 +481,55 @@ function renderOverview(){
     }</tbody></table></div>`:'<div class="empty">Chưa có khâu nào bị trễ.</div>'}</section>
   </div>`;
   return h;
+}
+
+/* ---------- Việc của tôi + mốc Lịch post sắp tới (đầu trang Tổng quan) ---------- */
+const TET_2027 = '2027-02-06';   // Mùng 1 Tết Đinh Mùi
+const THU = ['Chủ nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+// Hoạt động trong app ứng với 1 kỳ Lịch post 2027: cùng hệ thống và (tên có mã kỳ hoặc trùng đúng ngày chạy)
+function hdCua27(x){ const k=khopKenh(x.he_thong), bd=ngay10(x.ntd_bat_dau), kt=ngay10(x.ntd_ket_thuc)||bd; if(!k||!bd) return [];
+  return acts.filter(a=>a.kenhId===k.id && ((x.ma_ky && (a.ten||'').includes(x.ma_ky)) || (a.bd===bd && a.kt===kt))); }
+function mocSapToi(t, n){
+  const den=addDays(t,n), ds=[];
+  lich27.forEach(x=>{ const hd=hdCua27(x);
+    [['han_dang_ky','Hạn đăng ký'],['gh_bat_dau','Bắt đầu giao hàng'],['ntd_bat_dau','Bắt đầu chạy']].forEach(([c,loai])=>{ const d=ngay10(x[c]);
+      if(d && d>=t && d<=den) ds.push({ngay:d, loai, ht:x.he_thong||'', nd:[...new Set([x.ma_ky, x.chu_de].filter(Boolean))].join(' · '), tu:ngay10(x.ntd_bat_dau), den:ngay10(x.ntd_ket_thuc), hd, tao27:x.ma_dong}); }); });
+  lichPost.forEach(x=>{ if(x.ngay_bat_dau>=t && x.ngay_bat_dau<=den) ds.push({ngay:x.ngay_bat_dau, loai:'Bắt đầu chạy', ht:x.chuoi||'', nd:[x.nhan_hang, dongDau(x.noi_dung)].filter(Boolean).join(' · '), tu:x.ngay_bat_dau, den:x.ngay_ket_thuc, hd:hdCuaLp(x), lp:x.id}); });
+  return ds.sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.ht.localeCompare(b.ht,'vi'));
+}
+function renderToi(){
+  const t=todayStr(), in7=addDays(t,7), ten=laKhach()?'':(me()?.ho_ten||''), conTet=diff(t,TET_2027);
+  let h=`<section class="card toi"><div class="card-h"><div><h2>${ten?'Việc của tôi · '+esc(ten):'Hôm nay'}</h2><p>${THU[new Date().getDay()]}, ${fd(t)}${conTet>=0?` · còn <b>${conTet}</b> ngày đến Mùng 1 Tết Đinh Mùi (${fd(TET_2027)})`:''}</p></div></div>`;
+  if(ten){
+    const k=khoaTen(ten);
+    const cua=allSteps().filter(x=>isOpen(x.s) && khoaTen(phuTrach(x.s))===k);
+    const nhom=[['Trễ hạn','bad',x=>x.s.han&&x.s.han<t],['Hạn hôm nay','warn',x=>x.s.han===t],['7 ngày tới','info',x=>x.s.han>t&&x.s.han<=in7],['Chờ tôi duyệt','neutral',x=>x.s.trangThai==='cho']];
+    const ds=cua.filter(x=>x.s.trangThai==='cho' || (x.s.han && x.s.han<=in7)).sort((p,q)=>(p.s.han||'9').localeCompare(q.s.han||'9'));
+    const tinhTrang=s=>s.trangThai==='cho'?'<span class="pill neutral">Chờ tôi duyệt</span>':!s.han?'':s.han<t?`<span class="pill bad">Trễ ${diff(s.han,t)} ngày</span>`:s.han===t?'<span class="pill warn">Hôm nay</span>':`<span class="pill info">Còn ${diff(t,s.han)} ngày</span>`;
+    h+=`<div class="toi-dem">${nhom.map(([n,cls,fn])=>`<span class="pill ${cls}">${cua.filter(fn).length} · ${n}</span>`).join('')}<button class="link" data-xem-lich type="button">Xem tất cả việc của tôi →</button></div>`;
+    h+= ds.length ? `<div class="scroll"><table><thead><tr><th>Hạn</th><th>Việc</th><th>Tình trạng</th><th></th></tr></thead><tbody>${
+      ds.slice(0,12).map(x=>`<tr><td class="num" style="width:100px">${fd(x.s.han)}</td><td><b>${esc(x.s.ten)}</b><div class="sub">${esc(x.a.ten)}</div></td><td>${tinhTrang(x.s)}</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-open="${esc(x.a.id)}" type="button">Xem</button> ${nutXuLy(x.a,x.i,x.s)}</td></tr>`).join('')
+    }</tbody></table></div>${ds.length>12?`<p class="hint" style="padding:8px 16px 12px">Còn ${ds.length-12} việc nữa, bấm “Xem tất cả việc của tôi”.</p>`:''}` : `<div class="empty">Không có việc nào trễ, đến hạn trong 7 ngày hay chờ bạn duyệt.</div>`;
+  }
+  h+=`</section>`;
+  const moc=mocSapToi(t,30);
+  h+=`<section class="card"><div class="card-h"><div><h2>Mốc Lịch post 30 ngày tới</h2><p>Hạn đăng ký, ngày bắt đầu giao hàng và ngày bắt đầu chạy của từng kỳ (Lịch post và Lịch post 2027) · cột cuối cho biết đã có hoạt động trong app chưa</p></div><a class="btn sm" href="lich-post-2027.html">Lịch post 2027 ↗</a></div>${
+    moc.length ? `<div class="scroll"><table><thead><tr><th>Ngày</th><th>Còn</th><th>Mốc</th><th>Hệ thống</th><th>Kỳ / nội dung</th><th>Hoạt động trong app</th></tr></thead><tbody>${
+      moc.slice(0,20).map(m=>{ const con=diff(t,m.ngay); return `<tr><td class="num">${fd(m.ngay)}</td><td class="num ${con<=3?'late':''}">${con===0?'Hôm nay':con+' ngày'}</td><td><span class="pill ${m.loai==='Hạn đăng ký'?(con<=7?'bad':'warn'):m.loai==='Bắt đầu giao hàng'?'info':'neutral'}">${m.loai}</span></td><td>${esc(m.ht)}</td><td>${m.lp!=null?`<button type="button" class="link" data-lp="${m.lp}">${esc(m.nd)}</button>`:esc(m.nd)}<div class="sub">Chạy ${fd(m.tu)} – ${fd(m.den)}${m.tao27?' · Lịch post 2027':''}</div></td><td>${
+        m.hd.length?m.hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):m.tao27?`<button class="btn sm" data-tao27="${esc(m.tao27)}" type="button">Tạo CTKM</button>`:`<button class="btn sm" data-tao-lp="${m.lp}" type="button">Tạo CTKM</button>`}</td></tr>`; }).join('')
+    }</tbody></table></div>${moc.length>20?`<p class="hint" style="padding:8px 16px 12px">Còn ${moc.length-20} mốc nữa trong 30 ngày tới, xem đủ ở trang Lịch post và Lịch post 2027.</p>`:''}` : `<div class="empty">Không có mốc nào trong 30 ngày tới.</div>`
+  }</section>`;
+  return h;
+}
+function taoTu27(ma){
+  const x=lich27.find(v=>v.ma_dong===ma); if(!x) return;
+  const k=khopKenh(x.he_thong);
+  const tp=templates.find(tp=>/catalogue|onpost/i.test(tp.ten)) || templates.find(tp=>/ctkm/i.test(tp.ten)) || templates[0];
+  openNew();
+  Object.assign(modal.d, {tplId:tp?tp.id:'', ten:`CTKM ${x.he_thong||''} ${[...new Set([x.ma_ky, x.chu_de].filter(Boolean))].join(' – ')}`.replace(/\s+/g,' ').trim(), tenSua:true,
+    kenh:k?String(k.id):modal.d.kenh, bd:ngay10(x.ntd_bat_dau), kt:ngay10(x.ntd_ket_thuc)||ngay10(x.ntd_bat_dau)});
+  renderModal();
+  if(!k) toast(`Chưa có hệ thống “${x.he_thong}” trong danh mục, hãy chọn kênh phù hợp.`);
 }
 
 function actTable(list){
@@ -586,6 +643,7 @@ function renderLichPost(){
     const x0=ds[0]; const dauChuoi=x0.chuoi!==chuoiTruoc; chuoiTruoc=x0.chuoi;
     return `<div class="g-row"><div class="g-lab ${dauChuoi?'chuoi-dau':''}">${dauChuoi?`<b>${esc(x0.chuoi||'—')}</b>`:''}${esc([x0.nhan_hang, /all\s*stores?/i.test(x0.sieu_thi)?'':x0.sieu_thi].filter(Boolean).join(' · ')||'—')}</div><div class="g-track" style="height:${10+lan.length*28}px">${nenThang}${homNay}${bars}</div></div>`; }).join('');
   const sapToi=loc.filter(x=>x.ngay_bat_dau>=t && x.ngay_bat_dau<=addDays(t,45)).sort((a,b)=>a.ngay_bat_dau.localeCompare(b.ngay_bat_dau));
+  const ganDay=loc.filter(x=>x.ngay_ket_thuc<t && x.ngay_ket_thuc>=addDays(t,-60)).sort((a,b)=>b.ngay_ket_thuc.localeCompare(a.ngay_ket_thuc));
   const opt=(arr,sel,blank)=>`<option value="">${blank}</option>`+arr.map(v=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v)}</option>`).join('');
   return `<section class="card"><div class="card-h"><div><h2>Lịch post</h2><p>${dongBoLich?`Đồng bộ lần cuối ${new Date(dongBoLich.luc).toLocaleString('vi-VN')} từ “${esc(dongBoLich.nguon)}” · ${dongBoLich.so_dong} chương trình.`:''} Muốn sửa lịch thì sửa trên Google Sheet.</p></div></div>
     <div class="filters">
@@ -600,7 +658,10 @@ function renderLichPost(){
   </section>
   <section class="card"><div class="card-h"><h2>Sắp bắt đầu (45 ngày tới)</h2><p>${sapToi.length} chương trình · cột “Hoạt động” cho biết đã tạo CTKM trong app chưa</p></div>${sapToi.length?`<div class="scroll"><table><thead><tr><th>Bắt đầu</th><th>Chuỗi</th><th>Nhãn</th><th>Loại</th><th>Nội dung</th><th>Hoạt động trong app</th></tr></thead><tbody>${
     sapToi.map(x=>{ const hd=hdCuaLp(x); return `<tr><td class="num">${fd(x.ngay_bat_dau)}<div class="sub">đến ${fd(x.ngay_ket_thuc)}</div></td><td>${esc(x.chuoi)}</td><td>${esc(x.nhan_hang||'—')}</td><td>${LOAI_LP[x.loai]}</td><td><button type="button" class="link" data-lp="${x.id}">${esc(dongDau(x.noi_dung))}</button></td><td>${hd.length?hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):`<button class="btn sm" data-tao-lp="${x.id}" type="button">Tạo CTKM</button>`}</td></tr>`; }).join('')
-  }</tbody></table></div>`:'<div class="empty">Không có chương trình nào sắp bắt đầu.</div>'}</section>`;
+  }</tbody></table></div>`:'<div class="empty">Không có chương trình nào sắp bắt đầu.</div>'}</section>
+  <section class="card"><div class="card-h"><h2>Đã chạy xong gần đây (60 ngày qua)</h2><p>${ganDay.length} chương trình · bấm vào nội dung để xem số bán trước, trong và sau đợt</p></div>${ganDay.length?`<div class="scroll"><table><thead><tr><th>Thời gian</th><th>Chuỗi</th><th>Nhãn</th><th>Loại</th><th>Nội dung</th><th>Hoạt động trong app</th></tr></thead><tbody>${
+    ganDay.map(x=>{ const hd=hdCuaLp(x); return `<tr><td class="num">${fd(x.ngay_bat_dau)}<div class="sub">đến ${fd(x.ngay_ket_thuc)}</div></td><td>${esc(x.chuoi)}</td><td>${esc(x.nhan_hang||'—')}</td><td>${LOAI_LP[x.loai]}</td><td><button type="button" class="link" data-lp="${x.id}">${esc(dongDau(x.noi_dung))}</button></td><td>${hd.length?hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):'<span class="muted">chưa có</span>'}</td></tr>`; }).join('')
+  }</tbody></table></div>`:'<div class="empty">Không có chương trình nào kết thúc trong 60 ngày qua.</div>'}</section>`;
 }
 /* ---------- Số bán (sell-out) và giao vào (sell-in): dùng cho bảng “Số bán quanh đợt CTKM” trong hoạt động ---------- */
 const CHUOI_NGUON = {coop:'Co.op', emart:'Emart'};      // nguồn bán ra -> hệ thống trong app
@@ -660,11 +721,11 @@ function renderSoHd(a){
       const loc=q=>a.nhan?q.eq('nhan_hang',a.nhan):q;
       Promise.all([layHet(()=>loc(sb.from('sell_out_ky_nhan').select('*').eq('chuoi',a.kenh).gte('den_ngay',dau).lte('tu_ngay',cuoi))),
                    layHet(()=>loc(sb.from('sell_in_ngay').select('*').eq('chuoi',a.kenh).gte('ngay',dau).lte('ngay',cuoi)))])
-        .then(([so,si])=>{ soHd[a.id]={key, so, si}; }).catch(e=>{ soHd[a.id]={key, loi:errText(e)}; }).finally(()=>schedule()); }
-    return `<section class="card"><div class="card-h"><h2>Số bán quanh đợt CTKM</h2></div><div class="empty">Đang tải số bán…</div></section>`;
+        .then(([so,si])=>{ soHd[a.id]={key, so, si}; }).catch(e=>{ soHd[a.id]={key, loi:errText(e)}; })
+        .finally(()=>{ schedule(); if(modal?.type==='lp') rerenderKeepScroll(); }); }
   }
-  if(c.dang) return '';
-  const tieuDe=`<div class="card-h"><div><h2>Số bán quanh đợt CTKM</h2><p>${esc(a.kenh)}${a.nhan?' · '+esc(a.nhan):' · tất cả nhãn'} · các kỳ trong khoảng 5 tuần trước đến 5 tuần sau đợt (${fd(a.bd)} – ${fd(a.kt)}). Chỉ hiện số, chưa tính toán.</p></div>${(soNguon.some(n=>CHUOI_NGUON[n.nguon]===a.kenh))?'<a class="btn sm" href="bao-cao-mt.html#sell-out">Xem theo SKU ↗</a>':''}</div>`;
+  if(!c || c.key!==key || c.dang) return `<section class="card"><div class="card-h"><h2>Số bán quanh đợt CTKM</h2></div><div class="empty">Đang tải số bán…</div></section>`;
+  const tieuDe=`<div class="card-h"><div><h2>Số bán quanh đợt CTKM</h2><p>${esc(a.kenh)}${a.nhan?' · '+esc(a.nhan):' · tất cả nhãn'} · các kỳ trong khoảng 5 tuần trước đến 5 tuần sau đợt (${fd(a.bd)} – ${fd(a.kt)}). Chỉ cộng và chia số đã có, không ước tính.</p></div>${(soNguon.some(n=>CHUOI_NGUON[n.nguon]===a.kenh))?'<a class="btn sm" href="bao-cao-mt.html#sell-out">Xem theo SKU ↗</a>':''}</div>`;
   if(c.loi) return `<section class="card">${tieuDe}<div class="empty">Không tải được: ${esc(c.loi)}</div></section>`;
   const giaiDoan=(tu,den)=>{ const g=Math.max(0, diff(tu>a.bd?tu:a.bd, den<a.kt?den:a.kt)+1), n=diff(tu,den)+1;
     return g>0 ? (g<n?`Trong CTKM (${g}/${n} ngày)`:'Trong CTKM') : (den<a.bd?'Trước CTKM':'Sau CTKM'); };
@@ -676,7 +737,19 @@ function renderSoHd(a){
   const coTon=ky.some(k=>k.ton!=null);
   const rows=ky.map(k=>{ const gd=giaiDoan(k.tu,k.den), si=sellInTrong(c.si,k.tu,k.den);
     return `<tr class="${gd.startsWith('Trong')?'trong-ctkm':''}"><td class="num">${fd(k.tu).slice(0,5)} – ${fd(k.den)}<div class="sub">${k.so_ngay} ngày</div></td><td>${gd}</td>${coBanRa?`<td class="n">${soVN(k.sl)}</td><td class="n">${so1(k.sl/k.so_ngay)}</td><td class="n">${soVN(k.ds)}</td><td class="n">${soVN(k.ch)}</td>${coTon?`<td class="n">${soVN(k.ton)}</td>`:''}`:''}<td class="n">${si?soVN(si.sl):'—'}</td></tr>`; }).join('');
-  return `<section class="card">${tieuDe}${coBanRa?'':`<p class="hint" style="padding:0 16px">Dashboard chưa có số bán ra của ${esc(a.kenh)}, tạm hiện sell-in theo tuần (thứ Hai – Chủ nhật).</p>`}<div class="scroll"><table class="so-pivot"><thead><tr><th>Kỳ</th><th>Giai đoạn</th>${coBanRa?`<th class="n">Bán ra (SL)</th><th class="n">Bán ra / ngày</th><th class="n">Doanh số bán ra</th><th class="n">Cửa hàng có bán</th>${coTon?'<th class="n">Tồn cuối kỳ</th>':''}`:''}<th class="n">Sell-in (SL)</th></tr></thead><tbody>${rows}</tbody></table></div>
+  // Tóm tắt theo giai đoạn: cộng các kỳ (chỉ khi các kỳ không chồng ngày nhau, để không cộng trùng)
+  const xep=ky.slice().sort((p,q)=>p.tu.localeCompare(q.tu)), chong=xep.some((k,i)=>i&&k.tu<=xep[i-1].den);
+  let tomTat='';
+  if(!chong){
+    const gd={}; ky.forEach(k=>{ const g=giaiDoan(k.tu,k.den).split(' (')[0], si=sellInTrong(c.si,k.tu,k.den);
+      const o=gd[g]||(gd[g]={n:0,ngay:0,sl:0,ds:0,si:0,coSi:false}); o.n++; o.ngay+=k.so_ngay; if(coBanRa){ o.sl+=k.sl; o.ds+=k.ds; } if(si){ o.si+=si.sl; o.coSi=true; } });
+    const ds=['Trước CTKM','Trong CTKM','Sau CTKM'].filter(g=>gd[g]);
+    tomTat=`<div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Tóm tắt theo giai đoạn</h2><p>Cộng các kỳ ở bảng dưới. Kỳ chỉ trùng một phần với đợt CTKM được tính vào “Trong CTKM”.</p></div></div>
+    <div class="scroll"><table class="so-pivot"><thead><tr><th>Giai đoạn</th><th class="n">Số kỳ</th><th class="n">Số ngày</th>${coBanRa?'<th class="n">Bán ra (SL)</th><th class="n">Bán ra / ngày</th><th class="n">Doanh số bán ra</th>':''}<th class="n">Sell-in (SL)</th><th class="n">Sell-in / ngày</th></tr></thead><tbody>${
+      ds.map(g=>{ const o=gd[g]; return `<tr class="${g==='Trong CTKM'?'trong-ctkm':''}"><td>${g}</td><td class="n">${o.n}</td><td class="n">${o.ngay}</td>${coBanRa?`<td class="n">${soVN(o.sl)}</td><td class="n">${so1(o.sl/o.ngay)}</td><td class="n">${soVN(o.ds)}</td>`:''}<td class="n">${o.coSi?soVN(o.si):'—'}</td><td class="n">${o.coSi?so1(o.si/o.ngay):'—'}</td></tr>`; }).join('')
+    }</tbody></table></div><div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Từng kỳ</h2></div></div>`;
+  }
+  return `<section class="card">${tieuDe}${coBanRa?'':`<p class="hint" style="padding:0 16px">Dashboard chưa có số bán ra của ${esc(a.kenh)}, tạm hiện sell-in theo tuần (thứ Hai – Chủ nhật).</p>`}${tomTat}${chong?'<p class="hint" style="padding:0 16px">Các kỳ số bán ra chồng ngày nhau nên không cộng gộp theo giai đoạn.</p>':''}<div class="scroll"><table class="so-pivot"><thead><tr><th>Kỳ</th><th>Giai đoạn</th>${coBanRa?`<th class="n">Bán ra (SL)</th><th class="n">Bán ra / ngày</th><th class="n">Doanh số bán ra</th><th class="n">Cửa hàng có bán</th>${coTon?'<th class="n">Tồn cuối kỳ</th>':''}`:''}<th class="n">Sell-in (SL)</th></tr></thead><tbody>${rows}</tbody></table></div>
   <p class="hint" style="padding:8px 16px 12px">Bán ra / ngày = số lượng bán ra chia số ngày của kỳ (vì các kỳ dài ngắn khác nhau). Sell-in = giao vào trừ trả lại trong cùng khoảng ngày. “—” = không có số.</p></section>`;
 }
 function moLp(id){ const x=lichPost.find(v=>String(v.id)===String(id)); if(!x) return; modal={type:'lp', d:{id:x.id}}; renderModal(); }
@@ -694,7 +767,7 @@ function taoTuLp(id){
 function renderTpls(){
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><p class="hint" style="max-width:640px">Mỗi quy trình mẫu là danh sách bước chuẩn. Khi tạo hoạt động mới, hạn của từng bước được tính tự động từ ngày bắt đầu hoặc ngày kết thúc chương trình. Bước có người duyệt chỉ tính xong khi người đó bấm Duyệt.</p><button class="btn pri" data-act="tao-qt" type="button">+ Thêm quy trình mẫu</button></div><div class="tpl-list">`;
   if(!templates.length) h+=`<div class="empty">Chưa có quy trình mẫu nào.</div>`;
-  templates.forEach(tp=>{ h+=`<section class="card"><div class="card-h"><div><h2>${esc(tp.ten)}</h2><p>${esc(tp.moTa||'')}</p></div><div style="display:flex;gap:8px"><span class="chip">${(tp.buoc||[]).length} bước</span><button class="btn sm" data-sua-qt="${esc(tp.id)}" type="button">Sửa</button></div></div>
+  templates.forEach(tp=>{ h+=`<section class="card"><div class="card-h"><div><h2>${esc(tp.ten)}</h2><p>${esc(tp.moTa||'')}</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="chip">${(tp.buoc||[]).length} bước · đã dùng ${acts.filter(a=>a.quyTrinhId===tp.id).length} lần</span><button class="btn sm" data-sua-qt="${esc(tp.id)}" type="button">Sửa</button><button class="btn sm pri" data-tao-tu-qt="${esc(tp.id)}" type="button">+ Tạo hoạt động theo mẫu này</button></div></div>
     <ol class="tsteps">${(tp.buoc||[]).map(b=>`<li><b>${esc(b.ten)}</b> <span class="when">· ${esc(b.vaiTro||'')}${b.nguoiLam?' · Làm: '+esc(b.nguoiLam):''} · ${esc(moTaMoc(b))}${b.ketQua?' · Nộp: '+esc(b.ketQua):''}</span>${b.nguoiDuyet?` <span class="pill warn">Cần ${esc(b.nguoiDuyet)} duyệt</span>`:''}</li>`).join('')}</ol></section>`; });
   return h+'</div>';
 }
@@ -792,11 +865,13 @@ function renderModalNow(){
   if(modal.type==='edit') inner=renderEditModal();
   if(modal.type==='tpl') inner=renderTplModal();
   if(modal.type==='lp'){ const x=lichPost.find(v=>String(v.id)===String(modal.d.id)); const hd=x?hdCuaLp(x):[];
-    inner = x ? `<div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="ttLp"><header><h2 id="ttLp">${esc(x.chuoi)} · ${esc(x.nhan_hang||'—')}</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header>
+    const kLp=x?khopKenh(x.chuoi):null, nLp=x?khopNhan(x.nhan_hang):null;
+    const soLp=kLp ? renderSoHd({id:'lp'+x.id, kenh:kLp.ten, nhan:nLp?nLp.ten:'', bd:x.ngay_bat_dau, kt:x.ngay_ket_thuc}) : '';
+    inner = x ? `<div class="dialog ${kLp?'':'small'}" role="dialog" aria-modal="true" aria-labelledby="ttLp"><header><h2 id="ttLp">${esc(x.chuoi)} · ${esc(x.nhan_hang||'—')}</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header>
       <div class="body"><div class="chips"><span class="chip num">${fd(x.ngay_bat_dau)} – ${fd(x.ngay_ket_thuc)} (${diff(x.ngay_bat_dau,x.ngay_ket_thuc)+1} ngày)</span><span class="chip">${LOAI_LP[x.loai]}</span>${x.sieu_thi?`<span class="chip">${esc(x.sieu_thi)}</span>`:''}</div>
       <p class="lp-nd">${esc(x.noi_dung)}</p>
       <p class="hint" style="margin:0">Trong sheet: hàng ${x.dong}, cột ${x.cot}${x.nhom?' · '+esc(x.nhom):''}</p>
-      <div><b>Hoạt động trong app:</b> ${hd.length?hd.map(a=>`<button type="button" class="link" data-m="mo-hd" data-id="${esc(a.id)}">${esc(a.ten)}</button>`).join(', '):'<span class="muted">chưa có</span>'}</div></div>
+      <div><b>Hoạt động trong app:</b> ${hd.length?hd.map(a=>`<button type="button" class="link" data-m="mo-hd" data-id="${esc(a.id)}">${esc(a.ten)}</button>`).join(', '):'<span class="muted">chưa có</span>'}</div>${soLp}</div>
       <footer><button class="btn" data-m="close" type="button">Đóng</button>${laKhach()?'':`<button class="btn pri" data-m="tao-lp" type="button">Tạo hoạt động CTKM</button>`}</footer></div>` : ''; }
   if(modal.type==='tralai') inner=`<div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="ttTr"><header><h2 id="ttTr">Trả lại bước</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header><div class="body"><p style="margin:0 0 8px">“${esc(modal.d.ten)}” sẽ quay về ${esc(modal.d.nguoi)} ở trạng thái Đang làm.</p><div class="field"><label for="trLyDo">Lý do / cần sửa gì</label><textarea id="trLyDo" data-t="lyDo" rows="3">${esc(modal.d.lyDo)}</textarea></div></div><footer><button class="btn" data-m="close" type="button">Hủy</button><button class="btn pri" data-m="tralai-ok" type="button">Trả lại</button></footer></div>`;
   modalEl.innerHTML=`<div class="backdrop" data-m="bg">${inner}</div>`;
@@ -806,7 +881,8 @@ function rolesOf(tp){ return [...new Set((tp?.buoc||[]).map(b=>b.vaiTro||'Khác'
 function renderNewModal(){
   const d=modal.d; const tp=templates.find(x=>x.id===d.tplId);
   const roles=rolesOf(tp);
-  const rows=(tp?.buoc||[]).map(b=>{ const han=addDays(b.moc==='kt'?d.kt:d.bd, b.soNgay); return `<tr><td>${esc(b.ten)}</td><td>${d.roles[b.vaiTro||'Khác']||b.nguoiLam?esc(d.roles[b.vaiTro||'Khác']||b.nguoiLam):`<span class="muted">${esc(b.vaiTro||'Chưa giao')}</span>`}</td><td>${b.nguoiDuyet?esc(b.nguoiDuyet):'<span class="muted">—</span>'}</td><td class="num">${han?fd(han):'<span class="muted">Chọn ngày</span>'}</td></tr>`; }).join('');
+  const homNay=todayStr(); let daQua=0;
+  const rows=(tp?.buoc||[]).map(b=>{ const han=addDays(b.moc==='kt'?d.kt:d.bd, b.soNgay); const qua=han&&han<homNay; if(qua) daQua++; return `<tr><td>${esc(b.ten)}</td><td>${d.roles[b.vaiTro||'Khác']||b.nguoiLam?esc(d.roles[b.vaiTro||'Khác']||b.nguoiLam):`<span class="muted">${esc(b.vaiTro||'Chưa giao')}</span>`}</td><td>${b.nguoiDuyet?esc(b.nguoiDuyet):'<span class="muted">—</span>'}</td><td class="num ${qua?'late':''}">${han?fd(han):'<span class="muted">Chọn ngày</span>'}${qua?'<div class="sub late">đã qua</div>':''}</td></tr>`; }).join('');
   return `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ttNew"><header><h2 id="ttNew">Tạo hoạt động mới</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header>
   <div class="body">
     <div class="form">
@@ -818,6 +894,7 @@ function renderNewModal(){
       <div class="field"><label for="nKt">Ngày kết thúc</label><input id="nKt" type="date" data-n="kt" value="${esc(d.kt)}"></div>
     </div>
     ${roles.length&&tp?`<div><p class="hint" style="margin-bottom:8px">Giao người cho từng vai trò (để “Chưa giao” thì dùng người làm mặc định trong quy trình mẫu; có thể sửa riêng từng bước sau):</p><div class="form">${roles.map((r,k)=>`<div class="field"><label for="nr${k}">${esc(r)}</label>${chonNguoi(d.roles[r]||'', `id="nr${k}" data-role="${esc(r)}"`)}</div>`).join('')}</div></div>`:''}
+    ${daQua?`<p class="err">${daQua} bước có hạn trước hôm nay nên sẽ hiện là trễ ngay khi tạo. Nếu bước đó đã làm rồi thì sau khi tạo chọn “Xong”, nếu không cần thì chọn “Không áp dụng”.</p>`:''}
     ${tp?`<div class="preview"><div class="scroll"><table><thead><tr><th>Bước sẽ tạo</th><th>Người làm</th><th>Người duyệt</th><th>Hạn</th></tr></thead><tbody>${rows}</tbody></table></div></div>`:''}
   </div>
   <footer><button class="btn" data-m="close" type="button">Hủy</button><button class="btn pri" data-m="create" type="button">Tạo hoạt động</button></footer></div>`;
@@ -997,10 +1074,13 @@ function traLai(){
 document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach()) openNew(); });
 main.addEventListener('click', e=>{
   if(!authed) return;
-  const t=e.target.closest('[data-lp],[data-tao-lp],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
+  const t=e.target.closest('[data-lp],[data-tao-lp],[data-tao27],[data-tao-tu-qt],[data-xem-lich],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
   if(laKhach() && t.matches(NUT_SUA)) return toast('Bạn đang xem với quyền khách nên không sửa được.');
   if(t.dataset.lp!=null) return moLp(t.dataset.lp);
   if(t.dataset.taoLp!=null) return taoTuLp(t.dataset.taoLp);
+  if(t.dataset.tao27!=null) return taoTu27(t.dataset.tao27);
+  if(t.dataset.taoTuQt!=null){ const tp=templates.find(x=>String(x.id)===t.dataset.taoTuQt); if(!tp) return; openNew(); Object.assign(modal.d,{tplId:tp.id, ten:tp.ten}); renderModal(); return; }
+  if(t.dataset.xemLich!=null){ calPerson=tenNguoi(me()?.ho_ten)||''; selectedId=null; location.hash='lich-viec'; return; }
   if(t.dataset.pnav!=null){ const w=+t.dataset.pnav; period.off = w===0?0:period.off+w; return render(); }
   if(t.dataset.person!=null){ calPerson=t.dataset.person==='Chưa giao'?'__none':t.dataset.person; selectedId=null; location.hash='lich-viec'; return; }
   if(t.dataset.duyet){ e.stopPropagation(); const [id,i]=t.dataset.duyet.split(':'); return updateStep(id,+i,'trangThai','xong'); }
