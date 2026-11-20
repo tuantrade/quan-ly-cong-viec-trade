@@ -176,6 +176,29 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 .addrow{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
 .addrow input,.addrow select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .addrow input{flex:1;min-width:160px}
+/* ---- Họa tiết theo mùa (Noel, Tết): tự bật theo ngày, không chắn thao tác ---- */
+.mua-lop{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+.mua-lop i{position:absolute;top:-24px;font-style:normal;line-height:1;animation:roi linear infinite;will-change:transform}
+@keyframes roi{0%{transform:translate(0,-30px) rotate(0)}50%{transform:translate(var(--lac,20px),50vh) rotate(180deg)}100%{transform:translate(0,105vh) rotate(360deg)}}
+.mua-noel .mua-lop i{color:#9cc4e4;text-shadow:0 0 2px rgba(255,255,255,.6)}
+.brand-wrap{position:relative}
+.mu-noel{position:absolute;left:14px;top:-15px;width:34px;transform:rotate(-14deg);pointer-events:none;display:none}
+.mua-noel .mu-noel{display:block}
+.den-day{display:none;height:12px;max-width:none;justify-content:space-between;padding:0 6px;background:linear-gradient(transparent 3px,var(--line) 3px,var(--line) 4px,transparent 4px)}
+.mua-noel .den-day,.mua-tet .den-day{display:flex}
+.den-day b{width:7px;height:9px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;margin-top:3px;animation:nhay 1.6s ease-in-out infinite}
+.den-day b:nth-child(4n+1){background:#e0453a}.den-day b:nth-child(4n+2){background:#f2b632;animation-delay:.4s}
+.den-day b:nth-child(4n+3){background:#3fa463;animation-delay:.8s}.den-day b:nth-child(4n){background:#3d8bd9;animation-delay:1.2s}
+.mua-tet .den-day b:nth-child(odd){background:#d8322b}.mua-tet .den-day b:nth-child(even){background:#f2b632}
+@keyframes nhay{0%,100%{opacity:1;filter:brightness(1.15)}50%{opacity:.35;filter:none}}
+.long-den{position:fixed;top:0;width:38px;pointer-events:none;z-index:6;display:none;transform-origin:top center;animation:dua 3.5s ease-in-out infinite}
+.long-den.trai{left:10px}.long-den.phai{right:10px;animation-delay:1.2s}
+.mua-tet .long-den{display:block}
+@keyframes dua{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+.chao-mua{display:inline-block;margin-left:6px}
+#nutMua{font-size:12px}
+@media (max-width:1299px){ .long-den{display:none!important} }
+@media (prefers-reduced-motion:reduce){ .mua-lop{display:none} .den-day b,.long-den{animation:none} }
 .toi{border-color:var(--accent)}
 .toi-dem{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 16px 12px}
 .toi-dem .pill{font-size:13px;padding:4px 11px}
@@ -185,7 +208,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 <body>
 <header>
   <div class="bar">
-    <a class="brand-wrap" href="#tong-quan" style="color:inherit;text-decoration:none"><img class="brand-logo" src="logo-tvp.png" alt="Logo Trí Việt Phát"><div class="brand"><h1>Quản lý công việc Trade MKT</h1><span>Trí Việt Phát · quy trình, giao việc, tiến độ</span></div></a>
+    <a class="brand-wrap" href="#tong-quan" style="color:inherit;text-decoration:none"><img class="brand-logo" src="logo-tvp.png" alt="Logo Trí Việt Phát"><svg class="mu-noel" viewBox="0 0 64 48" aria-hidden="true"><path d="M8 38 C14 14 34 2 52 10 C46 16 44 26 46 36 Z" fill="#d6312b"/><path d="M52 10 C58 14 60 22 58 30" stroke="#d6312b" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="58" cy="32" r="6" fill="#fff" stroke="#ddd"/><rect x="4" y="34" width="46" height="11" rx="5.5" fill="#fff" stroke="#ddd"/></svg><div class="brand"><h1>Quản lý công việc Trade MKT</h1><span>Trí Việt Phát · quy trình, giao việc, tiến độ</span></div></a>
     <nav id="nav" hidden>
       <a href="#tong-quan" data-v="tong-quan">Tổng quan</a>
       <a href="#hoat-dong" data-v="hoat-dong">Hoạt động</a>
@@ -198,9 +221,14 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
       <a href="#thanh-vien" data-v="thanh-vien">Thành viên</a>
     </nav>
     <button class="btn pri" id="btnNew" type="button" hidden>+ Tạo hoạt động</button>
+    <button class="btn sm ghost" id="nutMua" type="button" hidden></button>
     <div class="who" id="who" hidden></div>
   </div>
+  <div class="den-day" aria-hidden="true"></div>
 </header>
+<svg class="long-den trai" viewBox="0 0 40 96" aria-hidden="true"><line x1="20" y1="0" x2="20" y2="22" stroke="#b8860b" stroke-width="2"/><rect x="13" y="20" width="14" height="6" rx="2" fill="#f2b632"/><ellipse cx="20" cy="46" rx="17" ry="21" fill="#d8322b"/><path d="M20 25 V67 M10 30 Q4 46 10 62 M30 30 Q36 46 30 62" stroke="#a51f1a" stroke-width="1.5" fill="none"/><circle cx="20" cy="46" r="6" fill="none" stroke="#f8d36a" stroke-width="1.5"/><rect x="13" y="65" width="14" height="6" rx="2" fill="#f2b632"/><path d="M15 71 V92 M20 71 V94 M25 71 V92" stroke="#f2b632" stroke-width="2"/></svg>
+<svg class="long-den phai" viewBox="0 0 40 96" aria-hidden="true"><line x1="20" y1="0" x2="20" y2="22" stroke="#b8860b" stroke-width="2"/><rect x="13" y="20" width="14" height="6" rx="2" fill="#f2b632"/><ellipse cx="20" cy="46" rx="17" ry="21" fill="#d8322b"/><path d="M20 25 V67 M10 30 Q4 46 10 62 M30 30 Q36 46 30 62" stroke="#a51f1a" stroke-width="1.5" fill="none"/><circle cx="20" cy="46" r="6" fill="none" stroke="#f8d36a" stroke-width="1.5"/><rect x="13" y="65" width="14" height="6" rx="2" fill="#f2b632"/><path d="M15 71 V92 M20 71 V94 M25 71 V92" stroke="#f2b632" stroke-width="2"/></svg>
+<div class="mua-lop" aria-hidden="true"></div>
 <main id="main"><div class="empty">Đang khởi động…</div></main>
 <div id="modal"></div>
 <div id="toast" class="toast" hidden></div>
@@ -499,7 +527,10 @@ function mocSapToi(t, n){
 }
 function renderToi(){
   const t=todayStr(), in7=addDays(t,7), ten=laKhach()?'':(me()?.ho_ten||''), conTet=diff(t,TET_2027);
-  let h=`<section class="card toi"><div class="card-h"><div><h2>${ten?'Việc của tôi · '+esc(ten):'Hôm nay'}</h2><p>${THU[new Date().getDay()]}, ${fd(t)}${conTet>=0?` · còn <b>${conTet}</b> ngày đến Mùng 1 Tết Đinh Mùi (${fd(TET_2027)})`:''}</p></div></div>`;
+  const noel=t.slice(0,4)+'-12-25', conNoel=diff(t,noel);
+  const chao = MUA==='noel' ? (conNoel>1?` · 🎄 còn <b>${conNoel}</b> ngày đến Giáng sinh`:conNoel>=-1?' · 🎄 Giáng sinh an lành!':'')
+             : MUA==='tet' && conTet<=0 ? ' · 🧧 Chúc mừng năm mới Đinh Mùi, an khang thịnh vượng!' : '';
+  let h=`<section class="card toi"><div class="card-h"><div><h2>${ten?'Việc của tôi · '+esc(ten):'Hôm nay'}</h2><p>${THU[new Date().getDay()]}, ${fd(t)}${chao}${conTet>0?` · ${MUA==='tet'?'🌼 ':''}còn <b>${conTet}</b> ngày đến Mùng 1 Tết Đinh Mùi (${fd(TET_2027)})`:''}</p></div></div>`;
   if(ten){
     const k=khoaTen(ten);
     const cua=allSteps().filter(x=>isOpen(x.s) && khoaTen(phuTrach(x.s))===k);
@@ -1146,6 +1177,29 @@ async function afterAuth(){
   await loadAll();
   channel=sb.channel('thay-doi').on('postgres_changes',{event:'*',schema:'public'},()=>scheduleReload()).subscribe();
 }
+/* ---------- Họa tiết theo mùa: Noel (15/11 – 26/12), Tết (27 ngày trước Mùng 1 đến 14 ngày sau) ---------- */
+const NGAY_TET = {'2027':'2027-02-06', '2028':'2028-01-26', '2029':'2029-02-13'};
+const MUA = (()=>{
+  const ep=new URLSearchParams(location.search).get('mua'); if(['noel','tet','tat'].includes(ep)) return ep==='tat'?'':ep;
+  const t=todayStr(), md=t.slice(5);
+  if(md>='11-15' && md<='12-26') return 'noel';
+  const tet=NGAY_TET[t.slice(0,4)]; if(tet && t>=addDays(tet,-27) && t<=addDays(tet,14)) return 'tet';
+  return '';
+})();
+function trangTriMua(){
+  if(!MUA) return;
+  document.body.classList.add('mua-'+MUA);
+  document.querySelector('.den-day').innerHTML='<b></b>'.repeat(48);
+  const lop=document.querySelector('.mua-lop'), nut=document.getElementById('nutMua');
+  const HOA='<svg viewBox="0 0 20 20" width="100%" height="100%"><g fill="#f2b632">'+[0,72,144,216,288].map(g=>`<ellipse cx="10" cy="4.6" rx="3.4" ry="4.6" transform="rotate(${g} 10 10)"/>`).join('')+'</g><circle cx="10" cy="10" r="2.2" fill="#d8322b"/></svg>';
+  const veRoi=()=>{ lop.innerHTML=Array.from({length:MUA==='noel'?26:16},()=>{ const c=8+Math.random()*12;
+    return `<i style="left:${Math.random()*100}%;font-size:${c}px;width:${c}px;height:${c}px;opacity:${(.45+Math.random()*.45).toFixed(2)};--lac:${Math.round(Math.random()*80-40)}px;animation-duration:${(9+Math.random()*10).toFixed(1)}s;animation-delay:-${(Math.random()*18).toFixed(1)}s">${MUA==='noel'?'❄':HOA}</i>`; }).join(''); };
+  let tat=false; try{ tat=localStorage.getItem('tatHieuUngMua')==='1'; }catch(_){}
+  const capNhat=()=>{ if(tat) lop.innerHTML=''; else veRoi(); nut.textContent = MUA==='noel' ? (tat?'❄ Bật tuyết rơi':'❄ Tắt tuyết rơi') : (tat?'🌼 Bật hoa mai rơi':'🌼 Tắt hoa mai rơi'); };
+  nut.hidden=false; capNhat();
+  nut.addEventListener('click', ()=>{ tat=!tat; try{ localStorage.setItem('tatHieuUngMua', tat?'1':'0'); }catch(_){} capNhat(); });
+}
+trangTriMua();
 (async function init(){
   if(!CFG.url || /DIEN_/.test(CFG.url) || !CFG.khoa || /DIEN_/.test(CFG.khoa)){
     main.innerHTML=`<div class="auth"><h2>Chưa cấu hình</h2><p>Hãy mở file <b>cau-hinh.js</b> và điền <b>Project URL</b> cùng <b>khóa công khai</b> của Supabase.</p></div>`; return;
