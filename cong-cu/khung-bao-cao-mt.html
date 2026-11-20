@@ -51,9 +51,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 (function(){
   var CFG = window.CAU_HINH || {}, sb = window.supabase.createClient(CFG.url, CFG.khoa);
   var NGUON = {   // bộ số của dashboard -> bảng trong Supabase
-    sellin:      { bang:'nguon_sellin',  cot:'ngay,thang,he_thong,brand,ma_hang,ten_hang,dvt,sl_ban,sl_tra,sl_doi,doanh_so,chiet_khau,tra_lai', thu_tu:'id' },
-    don_hang:    { bang:'nguon_don_hang', cot:'ngay,thang,he_thong,diem_nhan,so_chung_tu', thu_tu:'id' },
-    coop_ban:    { bang:'nguon_coop_ban', cot:'ky,sku,ch,sl_ban,gt_ban,sl_ton,gt_ton', thu_tu:'id' },
+    sellin:      { bang:'nguon_sellin',  cot:'ngay,thang,he_thong,brand,ma_hang,ten_hang,dvt,sl_ban,sl_tra,sl_doi,doanh_so,chiet_khau,tra_lai', thu_tu:'id', luu:true },
+    don_hang:    { bang:'nguon_don_hang', cot:'ngay,thang,he_thong,diem_nhan,so_chung_tu', thu_tu:'id', luu:true },
+    coop_ban:    { bang:'nguon_coop_ban', cot:'ky,sku,ch,sl_ban,gt_ban,sl_ton,gt_ton', thu_tu:'id', luu:true },   // luu: giữ bản sao trong máy, chỉ tải lại khi bảng đổi
     coop_sku:    { bang:'ds_coop_sku',   cot:'*', thu_tu:'ma_sku_coop' },
     coop_ch:     { bang:'nguon_coop_ch', cot:'*', thu_tu:'ma_ch' },
     emart_tuan:  { bang:'ds_emart_tuan', cot:'*', thu_tu:'tu' },
@@ -91,16 +91,40 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     var n = NGUON[id]; if (n.rong) { ds[id] = { status:'ok', data:[] }; return; }
     if (n.bo_so) { var b = await sb.from('bo_so_tinh_san').select('du_lieu').eq('bo_so', n.bo_so).maybeSingle(); if (b.error) throw b.error; ds[id] = { status:'ok', data:(b.data && b.data.du_lieu) || [] }; return; }
     var cfg = (laKhach && n.khach) ? Object.assign({}, n, n.khach) : n;
-    var dau = await sb.from(cfg.bang).select('*', { count:'exact', head:true }); if (dau.error) throw dau.error;
+    var khoa = nguoiXem + '|' + cfg.bang + '|' + cfg.cot, cu = null, dau, cuoi;
+    if (cfg.luu) {   // bảng lớn: hiện ngay bản đã lưu trong máy, rồi hỏi máy chủ xem bảng có đổi không
+      cu = await khoLay(khoa);
+      if (cu && ds[id].status !== 'ok') { ds[id] = { status:'ok', data:cu.rows }; henVe(); }
+      var hoi = await Promise.all([ sb.from(cfg.bang).select('id', { count:'exact', head:true }), sb.from(cfg.bang).select('id').order('id', { ascending:false }).limit(1) ]);
+      dau = hoi[0]; if (dau.error) throw dau.error; if (hoi[1].error) throw hoi[1].error;
+      cuoi = (hoi[1].data[0] || {}).id || 0;
+      if (cu && cu.so === dau.count && cu.cuoi === cuoi) { ds[id] = { status:'ok', data:cu.rows }; return; }   // không đổi: khỏi tải lại
+    } else {
+      dau = await sb.from(cfg.bang).select('*', { count:'exact', head:true }); if (dau.error) throw dau.error;
+    }
     var tong = dau.count || 0, trang = [];
     for (var tu = 0; tu < tong; tu += 1000) trang.push(sb.from(cfg.bang).select(cfg.cot).order(cfg.thu_tu || 'id').range(tu, tu + 999));
     var ra = await Promise.all(trang), rows = [];
     ra.forEach(function(r){ if (r.error) throw r.error; rows.push.apply(rows, r.data); });
     ds[id] = { status:'ok', data:rows };
+    if (cfg.luu) khoGhi(khoa, { so:tong, cuoi:cuoi, rows:rows });
   }
+  /* Kho trong máy (IndexedDB): lỗi hoặc trình duyệt chặn thì coi như không có, vẫn tải bình thường */
+  var khoMo = null, nguoiXem = '';
+  function moKho(){
+    if (!khoMo) khoMo = new Promise(function(ok, loi){
+      try { var r = indexedDB.open('bao-cao-mt', 1); r.onupgradeneeded = function(){ r.result.createObjectStore('bang'); };
+        r.onsuccess = function(){ ok(r.result); }; r.onerror = function(){ loi(r.error); }; } catch(e){ loi(e); } });
+    return khoMo;
+  }
+  function khoLay(k){ return moKho().then(function(db){ return new Promise(function(ok){ try { var q = db.transaction('bang').objectStore('bang').get(k);
+    q.onsuccess = function(){ ok(q.result || null); }; q.onerror = function(){ ok(null); }; } catch(e){ ok(null); } }); }).catch(function(){ return null; }); }
+  function khoGhi(k, v){ return moKho().then(function(db){ try { db.transaction('bang', 'readwrite').objectStore('bang').put(v, k); } catch(e){} }).catch(function(){}); }
+  var hen = 0;   // gom nhiều lần có số mới thành một lần vẽ lại
+  function henVe(){ if (!hen) hen = requestAnimationFrame(function(){ hen = 0; goiNghe(); }); }
   async function taiHet(){
     await Promise.all(Object.keys(NGUON).map(function(id){
-      return layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(function(){ goiNghe(); });
+      return layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(henVe);
     }));
     var tt = await sb.from('dong_bo_so_ban').select('*');
     if (!tt.error && tt.data) document.getElementById('bc-nguon').textContent = '· Số cập nhật: ' + tt.data.map(function(x){ return x.ten + ' ' + new Date(x.luc).toLocaleString('vi-VN'); }).join(' · ');
@@ -113,6 +137,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     if (x.error || !x.data) { loi.hidden = false; loi.textContent = 'Email ' + s.user.email + ' chưa có trong danh sách thành viên của app.'; return; }
     var tv = await sb.from('thanh_vien').select('ho_ten,vai_tro').eq('email', s.user.email.toLowerCase()).maybeSingle();
     laKhach = !!(tv.data && tv.data.vai_tro === 'khach');
+    nguoiXem = s.user.email.toLowerCase() + (laKhach ? '#khach' : '');   // mỗi tài khoản một bản lưu riêng
     document.getElementById('bc-ai').textContent = ((tv.data && tv.data.ho_ten) || s.user.email) + (laKhach ? ' · Khách (chỉ xem; không có giá vốn, lãi gộp)' : '');
     await taiHet();
   })();

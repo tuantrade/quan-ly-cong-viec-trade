@@ -210,6 +210,8 @@ Trang **Lịch post** hiện lịch CTKM của từng chuỗi / nhãn hàng dạ
 ## Báo cáo MT và tự nạp số
 Trang **Báo cáo MT** (menu “Báo cáo MT ↗”, file `bao-cao-mt.html`) là bản đưa nguyên dạng dashboard “Data Sell-in/out kênh bán MT” lên app: trang **Sell-in**, **Sell-out**, **Giá** với đủ bảng, biểu đồ và cách tính như dashboard. Dùng chung đăng nhập với app; khách xem được nhưng không có giá vốn, lãi gộp. Trang **Baseline** làm ở chặng sau.
 
+Tốc độ mở trang: 3 bảng lớn (sell-in, đơn hàng, Co.op bán ra – tồn) được lưu một bản trong trình duyệt (IndexedDB, mỗi tài khoản một bản riêng). Lần mở sau, trang hiện ngay bản đã lưu rồi chỉ hỏi máy chủ số dòng và mã dòng cuối của từng bảng; chỉ khi bảng đã đổi (script vừa nạp file mới) mới tải lại cả bảng. Trình duyệt chặn lưu thì trang vẫn tải bình thường như cũ.
+
 **Số tự nạp mỗi giờ** (script Google, không cần Claude):
 | Nguồn | Cách đưa vào |
 |---|---|
