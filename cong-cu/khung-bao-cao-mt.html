@@ -53,6 +53,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
   var NGUON = {   // bộ số của dashboard -> bảng trong Supabase
     sellin:      { bang:'nguon_sellin',  cot:'ngay,thang,he_thong,brand,ma_hang,ten_hang,dvt,sl_ban,sl_tra,sl_doi,doanh_so,chiet_khau,tra_lai', thu_tu:'id', luu:true },
     don_hang:    { bang:'nguon_don_hang', cot:'ngay,thang,he_thong,diem_nhan,so_chung_tu', thu_tu:'id', luu:true },
+    sellin_ch:   { bang:'nguon_sellin_ch', cot:'ngay,he_thong,diem_nhan,brand,ma_hang,ten_hang,sl_ban,sl_tra,doanh_so,chiet_khau,tra_lai', thu_tu:'id', luu:true, khiCan:true },   // khiCan: chỉ tải khi trang cần (lọc theo cửa hàng)
     coop_ban:    { bang:'nguon_coop_ban', cot:'ky,sku,ch,sl_ban,gt_ban,sl_ton,gt_ton', thu_tu:'id', luu:true },   // luu: giữ bản sao trong máy, chỉ tải lại khi bảng đổi
     coop_sku:    { bang:'ds_coop_sku',   cot:'*', thu_tu:'ma_sku_coop' },
     coop_ch:     { bang:'nguon_coop_ch', cot:'*', thu_tu:'ma_ch' },
@@ -71,7 +72,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     var vao = c.inputs.map(function(i){ return calcs[i] ? chay(i) : (ds[i] || { status:'missing' }); });
     var chua = vao.filter(function(x){ return x.status !== 'ok'; })[0];
     if (chua) return { status: chua.status === 'error' ? 'error' : 'loading', data:[], rows:[], message: chua.message };
-    try { var d = c.fn.apply(null, vao.map(function(x){ return x.data; })); var r = { status:'ok', data:d, rows:Array.isArray(d)?d:[], columns:Array.isArray(d)&&d[0]?Object.keys(d[0]):[], meta:[] }; kq[id] = r; return r; }
+    try { var d = c.fn.apply(null, vao.map(function(x, j){ return window.dash.locVao ? window.dash.locVao(id, c.inputs[j], x.data) : x.data; }));   /* locVao: trang lọc đầu vào (VD theo hệ thống) */ var r = { status:'ok', data:d, rows:Array.isArray(d)?d:[], columns:Array.isArray(d)&&d[0]?Object.keys(d[0]):[], meta:[] }; kq[id] = r; return r; }
     catch(e){ console.error('Phép tính ' + id + ' lỗi', e); return { status:'error', data:[], rows:[], message:String(e.message||e) }; }
   }
   window.dash = {
@@ -82,6 +83,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     onData: function(fn){ nghe.push(fn); try{ fn(); }catch(e){ console.error(e); } },
     colors: ['#2f7cb8','#e0823d','#3d9a5b','#c9506e','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],
     refresh: function(){ taiHet(); },
+    can: function(id){ if (!NGUON[id] || daGoi[id]) return; daGoi[id] = 1; layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(henVe); },
     params: function(){ return Object.assign({}, thamSo); },
     setParams: function(o){ Object.assign(thamSo, o); goiNghe(); },
     resetParams: function(){ thamSo = {}; goiNghe(); },
@@ -120,10 +122,11 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
   function khoLay(k){ return moKho().then(function(db){ return new Promise(function(ok){ try { var q = db.transaction('bang').objectStore('bang').get(k);
     q.onsuccess = function(){ ok(q.result || null); }; q.onerror = function(){ ok(null); }; } catch(e){ ok(null); } }); }).catch(function(){ return null; }); }
   function khoGhi(k, v){ return moKho().then(function(db){ try { db.transaction('bang', 'readwrite').objectStore('bang').put(v, k); } catch(e){} }).catch(function(){}); }
+  var daGoi = {};
   var hen = 0;   // gom nhiều lần có số mới thành một lần vẽ lại
-  function henVe(){ if (!hen) hen = requestAnimationFrame(function(){ hen = 0; goiNghe(); }); }
+  function henVe(){ if (!hen) hen = setTimeout(function(){ hen = 0; goiNghe(); }, 0); }
   async function taiHet(){
-    await Promise.all(Object.keys(NGUON).map(function(id){
+    await Promise.all(Object.keys(NGUON).filter(function(id){ return !NGUON[id].khiCan || daGoi[id]; }).map(function(id){
       return layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(henVe);
     }));
     var tt = await sb.from('dong_bo_so_ban').select('*');

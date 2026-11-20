@@ -17,7 +17,7 @@
  */
 
 // Đổi phiên bản đọc của một loại file thì các file đã đọc sẽ được đọc lại 1 lần (VD: v2 = sổ bán hàng có thêm số theo cửa hàng Lotte, GO)
-var PHIEN_BAN_DOC = { so_ban_hang: '#v2', coop: '#v2' };
+var PHIEN_BAN_DOC = { so_ban_hang: '#v3', coop: '#v2' };
 var THU_MUC_CON = { '1. Sổ chi tiết bán hàng': 'so_ban_hang', '2. Co.op bán ra – tồn': 'coop', '3. Kiểm tồn CTV': 'kiem_ton' };
 
 /** Chạy 1 lần: tạo thư mục DATA TRADE MT và 3 thư mục con trong Drive của bạn. */

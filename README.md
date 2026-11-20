@@ -212,6 +212,12 @@ Trang **Báo cáo MT** (menu “Báo cáo MT ↗”, file `bao-cao-mt.html`) là
 
 Tốc độ mở trang: 3 bảng lớn (sell-in, đơn hàng, Co.op bán ra – tồn) được lưu một bản trong trình duyệt (IndexedDB, mỗi tài khoản một bản riêng). Lần mở sau, trang hiện ngay bản đã lưu rồi chỉ hỏi máy chủ số dòng và mã dòng cuối của từng bảng; chỉ khi bảng đã đổi (script vừa nạp file mới) mới tải lại cả bảng. Trình duyệt chặn lưu thì trang vẫn tải bình thường như cũ.
 
+Lọc trên trang Báo cáo MT:
+- **Hệ thống (áp dụng cho mọi trang)** ở trên cùng: Toàn bộ hệ thống, Co.op (gồm Co.opMart, Co.op Food, Co.op Finelife), GO! / Big C, Lotte, Emart, rồi các hệ thống khác. Trang Sell-in lọc toàn bộ số theo lựa chọn này; các trang Sell-out, Baseline, Giá thì ô chọn hệ thống riêng của trang đi theo và bị khóa. Lựa chọn được nhớ trong trình duyệt.
+- Cột **So với tháng trước** (bảng hệ thống × brand, bảng brand): so với cả tháng trước; tháng mới nhất chưa hết tháng thì so với cùng các ngày của tháng trước.
+- **Bảng SKU** lọc thêm theo hệ thống và theo cửa hàng / điểm nhận hàng. Số theo cửa hàng lấy từ bảng `nguon_sellin_ch` (cột Diễn giải chung của Sổ chi tiết bán hàng, mọi hệ thống, có chiết khấu và hàng trả lại), chỉ tải khi chọn một hệ thống. Tên điểm nhận hàng bỏ phần ghi chú sau dấu " - ".
+- Từ đợt này trang `bao-cao-mt.html` được sửa trực tiếp, không ghép lại từ dashboard nữa (chạy lại `cong-cu/tao-bao-cao-mt.js` sẽ mất các phần đã sửa).
+
 **Số tự nạp mỗi giờ** (script Google, không cần Claude):
 | Nguồn | Cách đưa vào |
 |---|---|

@@ -670,6 +670,8 @@ create table if not exists public.nguon_sellin_ch (
   sl_ban numeric not null default 0, sl_tra numeric not null default 0, doanh_so numeric not null default 0, tep text not null default ''
 );
 create index if not exists nguon_sellin_ch_ngay_idx on public.nguon_sellin_ch (ngay);
+alter table public.nguon_sellin_ch add column if not exists chiet_khau numeric not null default 0;
+alter table public.nguon_sellin_ch add column if not exists tra_lai numeric not null default 0;
 -- Co.op: kỳ × SKU Co.op × mã cửa hàng (bỏ dòng toàn số 0)
 create table if not exists public.nguon_coop_ban (
   id bigint generated always as identity primary key,
@@ -885,10 +887,10 @@ begin
     where x.ngay is not null;
   elsif loai = 'sellin_ch' then
     if lam_moi then delete from public.nguon_sellin_ch where ngay between tu and den; end if;
-    insert into public.nguon_sellin_ch (ngay, he_thong, diem_nhan, brand, ma_hang, ten_hang, sl_ban, sl_tra, doanh_so, tep)
+    insert into public.nguon_sellin_ch (ngay, he_thong, diem_nhan, brand, ma_hang, ten_hang, sl_ban, sl_tra, doanh_so, chiet_khau, tra_lai, tep)
     select x.ngay, coalesce(x.he_thong, ''), coalesce(x.diem_nhan, ''), coalesce(x.brand, ''), coalesce(x.ma_hang, ''), coalesce(x.ten_hang, ''),
-           coalesce(x.sl_ban, 0), coalesce(x.sl_tra, 0), coalesce(x.doanh_so, 0), tep
-    from jsonb_to_recordset(du_lieu) as x(ngay date, he_thong text, diem_nhan text, brand text, ma_hang text, ten_hang text, sl_ban numeric, sl_tra numeric, doanh_so numeric)
+           coalesce(x.sl_ban, 0), coalesce(x.sl_tra, 0), coalesce(x.doanh_so, 0), coalesce(x.chiet_khau, 0), coalesce(x.tra_lai, 0), tep
+    from jsonb_to_recordset(du_lieu) as x(ngay date, he_thong text, diem_nhan text, brand text, ma_hang text, ten_hang text, sl_ban numeric, sl_tra numeric, doanh_so numeric, chiet_khau numeric, tra_lai numeric)
     where x.ngay is not null;
   elsif loai = 'don_hang' then
     if lam_moi then delete from public.nguon_don_hang where ngay between tu and den; end if;

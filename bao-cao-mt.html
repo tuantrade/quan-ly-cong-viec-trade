@@ -53,6 +53,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
   var NGUON = {   // bộ số của dashboard -> bảng trong Supabase
     sellin:      { bang:'nguon_sellin',  cot:'ngay,thang,he_thong,brand,ma_hang,ten_hang,dvt,sl_ban,sl_tra,sl_doi,doanh_so,chiet_khau,tra_lai', thu_tu:'id', luu:true },
     don_hang:    { bang:'nguon_don_hang', cot:'ngay,thang,he_thong,diem_nhan,so_chung_tu', thu_tu:'id', luu:true },
+    sellin_ch:   { bang:'nguon_sellin_ch', cot:'ngay,he_thong,diem_nhan,brand,ma_hang,ten_hang,sl_ban,sl_tra,doanh_so,chiet_khau,tra_lai', thu_tu:'id', luu:true, khiCan:true },   // khiCan: chỉ tải khi trang cần (lọc theo cửa hàng)
     coop_ban:    { bang:'nguon_coop_ban', cot:'ky,sku,ch,sl_ban,gt_ban,sl_ton,gt_ton', thu_tu:'id', luu:true },   // luu: giữ bản sao trong máy, chỉ tải lại khi bảng đổi
     coop_sku:    { bang:'ds_coop_sku',   cot:'*', thu_tu:'ma_sku_coop' },
     coop_ch:     { bang:'nguon_coop_ch', cot:'*', thu_tu:'ma_ch' },
@@ -71,7 +72,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     var vao = c.inputs.map(function(i){ return calcs[i] ? chay(i) : (ds[i] || { status:'missing' }); });
     var chua = vao.filter(function(x){ return x.status !== 'ok'; })[0];
     if (chua) return { status: chua.status === 'error' ? 'error' : 'loading', data:[], rows:[], message: chua.message };
-    try { var d = c.fn.apply(null, vao.map(function(x){ return x.data; })); var r = { status:'ok', data:d, rows:Array.isArray(d)?d:[], columns:Array.isArray(d)&&d[0]?Object.keys(d[0]):[], meta:[] }; kq[id] = r; return r; }
+    try { var d = c.fn.apply(null, vao.map(function(x, j){ return window.dash.locVao ? window.dash.locVao(id, c.inputs[j], x.data) : x.data; }));   /* locVao: trang lọc đầu vào (VD theo hệ thống) */ var r = { status:'ok', data:d, rows:Array.isArray(d)?d:[], columns:Array.isArray(d)&&d[0]?Object.keys(d[0]):[], meta:[] }; kq[id] = r; return r; }
     catch(e){ console.error('Phép tính ' + id + ' lỗi', e); return { status:'error', data:[], rows:[], message:String(e.message||e) }; }
   }
   window.dash = {
@@ -82,6 +83,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     onData: function(fn){ nghe.push(fn); try{ fn(); }catch(e){ console.error(e); } },
     colors: ['#2f7cb8','#e0823d','#3d9a5b','#c9506e','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],
     refresh: function(){ taiHet(); },
+    can: function(id){ if (!NGUON[id] || daGoi[id]) return; daGoi[id] = 1; layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(henVe); },
     params: function(){ return Object.assign({}, thamSo); },
     setParams: function(o){ Object.assign(thamSo, o); goiNghe(); },
     resetParams: function(){ thamSo = {}; goiNghe(); },
@@ -120,10 +122,11 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
   function khoLay(k){ return moKho().then(function(db){ return new Promise(function(ok){ try { var q = db.transaction('bang').objectStore('bang').get(k);
     q.onsuccess = function(){ ok(q.result || null); }; q.onerror = function(){ ok(null); }; } catch(e){ ok(null); } }); }).catch(function(){ return null; }); }
   function khoGhi(k, v){ return moKho().then(function(db){ try { db.transaction('bang', 'readwrite').objectStore('bang').put(v, k); } catch(e){} }).catch(function(){}); }
+  var daGoi = {};
   var hen = 0;   // gom nhiều lần có số mới thành một lần vẽ lại
-  function henVe(){ if (!hen) hen = requestAnimationFrame(function(){ hen = 0; goiNghe(); }); }
+  function henVe(){ if (!hen) hen = setTimeout(function(){ hen = 0; goiNghe(); }, 0); }
   async function taiHet(){
-    await Promise.all(Object.keys(NGUON).map(function(id){
+    await Promise.all(Object.keys(NGUON).filter(function(id){ return !NGUON[id].khiCan || daGoi[id]; }).map(function(id){
       return layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(henVe);
     }));
     var tt = await sb.from('dong_bo_so_ban').select('*');
@@ -153,6 +156,11 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .sv-lede .sv b,.sv-lede b{font-weight:var(--cds-font-weight-medium);color:var(--color-fg)}
 .sv-filter{display:flex;flex-direction:column;gap:var(--cds-gap-xs);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
 .sv-filters{display:flex;flex-wrap:wrap;gap:var(--cds-gap-sm)}
+.sv-loc-chung{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--cds-gap-md);padding:var(--cds-pad-md) var(--cds-pad-lg);background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius)}
+.sv-loc-chung select{min-width:14rem}
+.sv-filters-sku{align-items:flex-end}
+.sv-filters-sku select{max-width:22rem}
+.sv-filter select:disabled{opacity:.6}
 .sv-filter select{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);min-width:10rem}
 .sv-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:var(--cds-gap-md)}
 .sv-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0;display:flex;flex-direction:column;gap:var(--cds-gap-sm)}
@@ -193,6 +201,12 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 </style>
 
 <div class="sv">
+  <div class="sv-loc-chung">
+    <label class="sv-filter" for="g-ht">Hệ thống (áp dụng cho mọi trang)
+      <select id="g-ht"><option value="">Toàn bộ hệ thống</option></select>
+    </label>
+    <span class="sv-note" id="g-ht-note"></span>
+  </div>
   <nav class="sv-tabs" role="tablist" aria-label="Trang">
     <button type="button" class="sv-tab" role="tab" id="tab-sell-in" data-page="sell-in" aria-selected="true">1. Sell-in (TVP giao vào siêu thị)</button>
     <button type="button" class="sv-tab" role="tab" id="tab-sell-out" data-page="sell-out" aria-selected="false">2. Sell-out (bán ra tại siêu thị)</button>
@@ -240,13 +254,13 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 
   <section class="sv-card" id="bang-he-thong">
     <h2 class="sv-h">Bảng hệ thống × brand</h2>
-    <p class="sv-note">Doanh thu thuần, đơn vị triệu đồng. "So với cùng kỳ" so với cả tháng trước; riêng tháng mới nhất (chưa hết tháng) so với cùng các ngày của tháng trước.</p>
+    <p class="sv-note">Doanh thu thuần, đơn vị triệu đồng. "So với tháng trước": so với cả tháng trước; riêng tháng mới nhất (chưa hết tháng) so với cùng các ngày của tháng trước (ví dụ 1–15/11 so với 1–15/10).</p>
     <div class="sv-tablewrap">
       <table class="sv-table" id="t-hethong" data-source="he_thong" data-row-key="thang,he_thong">
         <thead><tr>
           <th class="l" data-field="he_thong">Hệ thống</th>
           <th data-field="wil">Wil</th><th data-field="gungon">Gungon</th><th data-field="guyumi">Guyumi</th><th data-field="ma_bay">Má Bảy</th><th data-field="khac">Không theo brand</th>
-          <th data-field="thuan">Tổng</th><th data-field="ty_trong">Tỷ trọng</th><th data-field="tang_truong">So với cùng kỳ</th>
+          <th data-field="thuan">Tổng</th><th data-field="ty_trong">Tỷ trọng</th><th data-field="tang_truong">So với tháng trước</th>
           <th data-field="so_don">Số đơn</th><th data-field="so_diem">Số điểm nhận hàng</th>
         </tr></thead>
         <tbody></tbody>
@@ -262,7 +276,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
         <table class="sv-table" id="t-brand" data-source="brand" data-row-key="thang,brand">
           <thead><tr>
             <th class="l" data-field="brand">Brand</th><th data-field="thuan">Doanh thu thuần</th><th data-field="ty_trong">Tỷ trọng</th>
-            <th data-field="tang_truong">So với cùng kỳ</th><th data-field="so_he_thong">Số hệ thống có bán</th><th data-field="so_sku">Số SKU có bán</th>
+            <th data-field="tang_truong">So với tháng trước</th><th data-field="so_he_thong">Số hệ thống có bán</th><th data-field="so_sku">Số SKU có bán</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -273,7 +287,18 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
   <section class="sv-card" id="bang-sku">
     <h2 class="sv-h">Theo SKU</h2>
     <p class="sv-note">Số lượng thuần = bán trừ trả lại, theo đơn vị tính của từng SKU. Bấm tiêu đề cột để sắp xếp.</p>
-    <input class="sv-search" id="sv-q" type="search" placeholder="Tìm SKU hoặc brand" aria-label="Tìm SKU">
+    <div class="sv-filters sv-filters-sku">
+      <label class="sv-filter" for="sku-ht">Hệ thống
+        <select id="sku-ht"><option value="">Tất cả</option></select>
+      </label>
+      <label class="sv-filter" for="sku-ch">Cửa hàng / điểm nhận hàng
+        <select id="sku-ch" disabled><option value="">Chọn hệ thống trước</option></select>
+      </label>
+      <label class="sv-filter" for="sv-q">Tìm
+        <input class="sv-search" id="sv-q" type="search" placeholder="Tìm SKU hoặc brand" aria-label="Tìm SKU">
+      </label>
+    </div>
+    <p class="sv-note" id="sku-ch-note" hidden></p>
     <div class="sv-tablewrap">
       <table class="sv-table" id="t-sku" data-source="sku" data-row-key="thang,ma_hang">
         <thead><tr>
@@ -772,10 +797,97 @@ document.querySelectorAll('#t-sku th button').forEach((b) => b.addEventListener(
   const k = b.dataset.k; skuSort = { k, dir: skuSort.k === k ? -skuSort.dir : (['ten_hang', 'brand'].includes(k) ? 1 : -1) }; drawSku();
 }));
 document.getElementById('sv-q').addEventListener('input', () => drawSku());
-let skuRows = [];
+
+// ---------- Lọc hệ thống chung (mọi trang)
+// Gom tên hệ thống của các nguồn về một nhóm: Co.opMart, Co.op Food, Co.op Finelife -> Co.op; Lotte Mart -> Lotte ...
+const nhomHt = (h) => {
+  const c = String(h || '').toLowerCase();
+  if (c.includes('co.op') || c.includes('coop')) return 'Co.op';
+  if (c.includes('lotte')) return 'Lotte';
+  if (c.includes('big c') || c.startsWith('go')) return 'GO! / Big C';
+  if (c.includes('emart')) return 'Emart';
+  if (c.includes('winmart')) return 'WinMart';
+  return String(h || '');
+};
+const NHOM_DAU = ['Co.op', 'GO! / Big C', 'Lotte', 'Emart'];
+const gEl = document.getElementById('g-ht');
+let gHt = ''; try { gHt = localStorage.getItem('bcLocHeThong') || ''; } catch (e) {}
+const hopLoc = (h) => !gHt || nhomHt(h) === gHt;
+const LOC_SELLIN = ['tong_quan', 'he_thong', 'brand', 'ngay', 'sku'];   // các phép tính của trang Sell-in
+dash.locVao = (calcId, inputId, data) => (gHt && LOC_SELLIN.includes(calcId) && (inputId === 'sellin' || inputId === 'don_hang') ? data.filter((r) => hopLoc(r.he_thong)) : data);
+gEl.addEventListener('change', () => {
+  gHt = gEl.value; try { localStorage.setItem('bcLocHeThong', gHt); } catch (e) {}
+  document.getElementById('sku-ht').value = ''; dash.setParams({});
+});
+const LOC_TRANG = [['so-ht', 'Sell-out'], ['bl-ht', 'Baseline'], ['wil-ht', 'Baseline Wil'], ['gia-ht', 'Giá bán']];
+function dongBoLoc() {
+  const si = dash.data('sellin');
+  if (si.status === 'ok') {
+    const co = [...new Set(si.data.map((r) => nhomHt(r.he_thong)))];
+    const ds = [...NHOM_DAU.filter((h) => co.includes(h)), ...co.filter((h) => !NHOM_DAU.includes(h)).sort((a, b) => a.localeCompare(b, 'vi'))];
+    if (gHt && !ds.includes(gHt)) ds.push(gHt);
+    if (gEl.options.length !== ds.length + 1) gEl.replaceChildren(new Option('Toàn bộ hệ thống', ''), ...ds.map((h) => new Option(h, h)));
+  }
+  gEl.value = gHt;
+  document.querySelector('#sell-in .sv-title').textContent = gHt ? `Sell-in ${gHt}` : 'Sell-in kênh siêu thị (MT)';
+  const thieu = [];
+  for (const [id, ten] of LOC_TRANG) {
+    const el = document.getElementById(id); if (!el) continue;
+    if (!gHt) { el.disabled = false; continue; }
+    if (!el.options.length) continue;   // trang chưa mở, chưa có danh sách
+    const o = [...el.options].find((x) => x.value && nhomHt(x.value) === gHt);
+    if (!o) { el.disabled = false; thieu.push(ten); continue; }
+    el.disabled = true;
+    if (el.value !== o.value) { el.value = o.value; el.dispatchEvent(new Event('change')); }
+  }
+  document.getElementById('g-ht-note').textContent = !gHt ? '' :
+    `Đang xem riêng ${gHt}. Ô chọn hệ thống trong từng trang đi theo lựa chọn này.` + (thieu.length ? ` Trang ${thieu.join(', ')} chưa có số của ${gHt}.` : '');
+}
+
+// ---------- Bảng SKU: lọc hệ thống, cửa hàng
+let skuRows = [], skuThang = null;
+const skuHt = document.getElementById('sku-ht'), skuCh = document.getElementById('sku-ch'), skuNote = document.getElementById('sku-ch-note');
+skuHt.addEventListener('change', () => { skuCh.value = ''; drawSku(); });
+skuCh.addEventListener('change', () => drawSku());
+// Tên điểm nhận hàng gọn: bỏ phần ghi chú sau dấu " - " và chữ "Hàng đổi cho"
+const tenCh = (s) => String(s || '').split(/\s+-|-\s+/)[0].replace(/^\s*hàng đổi cho\s*/i, '').trim() || '(Không ghi điểm nhận)';
+const thuanR = (r) => (Number(r.doanh_so) || 0) - (Number(r.chiet_khau) || 0) - (Number(r.tra_lai) || 0);
+function gomSku(rows, dvt) {
+  const n = (x) => Number(x) || 0, g = new Map(); let tot = 0;
+  for (const r of rows) {
+    const t = thuanR(r); tot += t;
+    if (!g.has(r.ma_hang)) g.set(r.ma_hang, { thang: skuThang, ma_hang: r.ma_hang, ten_hang: r.ten_hang, brand: r.brand, dvt: r.dvt || dvt.get(r.ma_hang) || '', sl_thuan: 0, thuan: 0, hs: new Set() });
+    const x = g.get(r.ma_hang); x.sl_thuan += n(r.sl_ban) - n(r.sl_tra); x.thuan += t; if (n(r.doanh_so) > 0) x.hs.add(r.he_thong);
+  }
+  return [...g.values()].map(({ hs, ...x }) => ({ ...x, ty_trong: tot ? x.thuan / tot : null, so_he_thong: hs.size }));
+}
 function drawSku() {
+  const si = dash.data('sellin');
+  const raw = si.status === 'ok' && skuThang ? si.data.filter((r) => r.thang === skuThang && hopLoc(r.he_thong)) : [];
+  const tongHt = new Map(); raw.forEach((r) => tongHt.set(r.he_thong, (tongHt.get(r.he_thong) || 0) + thuanR(r)));
+  const hts = [...tongHt.keys()].sort((a, b) => tongHt.get(b) - tongHt.get(a));
+  const htCu = skuHt.value;
+  skuHt.replaceChildren(new Option(gHt ? `Tất cả ${gHt}` : 'Tất cả', ''), ...hts.map((h) => new Option(h, h))); skuHt.value = hts.includes(htCu) ? htCu : '';
+  const ht = skuHt.value; let goc = null, note = '';
+  if (!ht) { skuCh.replaceChildren(new Option('Chọn hệ thống trước', '')); skuCh.disabled = true; goc = skuRows; }
+  else {
+    const dvt = new Map(raw.map((r) => [r.ma_hang, r.dvt]));
+    const ch = dash.data('sellin_ch');
+    if (ch.status !== 'ok') {
+      dash.can('sellin_ch');
+      skuCh.replaceChildren(new Option(ch.status === 'error' ? 'Chưa tải được số theo cửa hàng' : 'Đang tải danh sách cửa hàng…', '')); skuCh.disabled = true;
+    } else {
+      const chRows = ch.data.filter((r) => String(r.ngay).slice(0, 7) === skuThang && r.he_thong === ht);
+      const chs = [...new Set(chRows.map((r) => tenCh(r.diem_nhan)))].sort((a, b) => a.localeCompare(b, 'vi')), chCu = skuCh.value;
+      skuCh.replaceChildren(new Option(chs.length ? `Tất cả (${chs.length} điểm)` : 'Tháng này chưa có số theo cửa hàng', ''), ...chs.map((c) => new Option(c, c)));
+      skuCh.disabled = !chs.length; skuCh.value = chs.includes(chCu) ? chCu : '';
+      if (skuCh.value) { goc = gomSku(chRows.filter((r) => tenCh(r.diem_nhan) === skuCh.value), dvt); note = `Đang xem ${skuCh.value} (${ht}). Tỷ trọng tính trên tổng của điểm nhận hàng này.`; }
+    }
+    if (!goc) { goc = gomSku(raw.filter((r) => r.he_thong === ht), dvt); note = `Đang xem ${ht}. Tỷ trọng tính trên tổng của hệ thống này.`; }
+  }
+  skuNote.hidden = !note; skuNote.textContent = note;
   const q = document.getElementById('sv-q').value.trim().toLowerCase();
-  const rows = skuRows.filter((r) => !q || (r.ten_hang + ' ' + r.brand + ' ' + r.ma_hang).toLowerCase().includes(q))
+  const rows = goc.filter((r) => !q || (r.ten_hang + ' ' + r.brand + ' ' + r.ma_hang).toLowerCase().includes(q))
     .sort((a, b) => { const x = a[skuSort.k], y = b[skuSort.k]; return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * skuSort.dir; });
   document.querySelectorAll('#t-sku th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === skuSort.k) th.setAttribute('aria-sort', skuSort.dir > 0 ? 'ascending' : 'descending'); });
   const tb = document.querySelector('#t-sku tbody');
@@ -939,7 +1051,7 @@ function drawSellIn() {
         return t;
       }));
     }
-    if (sk.status === 'ok' && mm) { skuRows = sk.data.filter((x) => x.thang === mm); drawSku(); }
+    if (sk.status === 'ok' && mm) { skuThang = mm; skuRows = sk.data.filter((x) => x.thang === mm); drawSku(); }
   }
 }
 
@@ -1378,6 +1490,7 @@ function showPage(id) {
   document.querySelectorAll('.sv-tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.page === id)));
   dash.setLink(id);
   if (id === 'sell-in') drawSellIn(); else if (id === 'sell-out') drawSO(); else if (id === 'baseline') { drawWil(); drawBaseline(); } else if (id === 'gia') drawGia();
+  dongBoLoc();
 }
 document.querySelectorAll('.sv-tab').forEach((t) => t.addEventListener('click', () => showPage(t.dataset.page)));
 
@@ -1387,6 +1500,7 @@ dash.onData(() => {
   drawWil();
   drawBaseline();
   drawGia();
+  dongBoLoc();
 });
 {
   const h = location.hash.slice(1), map = { emart: 'sell-out', lotte: 'sell-out' };
