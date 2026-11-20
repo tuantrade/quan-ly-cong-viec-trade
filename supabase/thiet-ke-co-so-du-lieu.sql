@@ -236,7 +236,8 @@ begin
   duoc := la_ql or (public.khoa_ten(new.nguoi_duyet) <> ''
                     and public.khoa_ten(ten_toi) = public.khoa_ten(new.nguoi_duyet));
   if tg_op = 'UPDATE' then
-    if new.nguoi_duyet is distinct from old.nguoi_duyet and public.khoa_ten(old.nguoi_duyet) <> '' and not la_ql then
+    if new.nguoi_duyet is distinct from old.nguoi_duyet and public.khoa_ten(old.nguoi_duyet) <> '' and not la_ql
+       and coalesce(current_setting('app.doi_ten', true), '') <> '1' then   -- trừ khi đang đổi tên thành viên
       raise exception 'Chỉ quản lý mới đổi hoặc bỏ người duyệt của bước đã có người duyệt';
     end if;
     if old.trang_thai = 'xong' and new.trang_thai <> 'xong' and public.khoa_ten(old.nguoi_duyet) <> ''
@@ -994,3 +995,40 @@ revoke all on function public.tep_da_nap(text) from public;
 grant execute on function public.tep_da_nap(text) to anon, authenticated;
 
 -- Xong. Kiểm tra: select ten from public.quy_trinh order by thu_tu;
+
+-- ---------------------------------------------------------------------
+-- ĐỔI TÊN THÀNH VIÊN: quản lý đổi được tên mọi người, mỗi người tự đổi tên mình.
+-- Tên được dùng làm "người làm" / "người duyệt" trong các bước, nên đổi luôn ở đó (so tên không phân biệt hoa thường, khoảng trắng).
+-- Trong lúc đổi, bỏ qua chặn "chỉ quản lý mới đổi người duyệt" (cờ app.doi_ten).
+-- ---------------------------------------------------------------------
+create or replace function public.doi_ten_thanh_vien(p_email text, p_ten text) returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  em  text := lower(trim(coalesce(p_email, '')));
+  moi text := regexp_replace(trim(coalesce(p_ten, '')), '\s+', ' ', 'g');
+  cu  text; n integer := 0; m integer;
+begin
+  if not (public.la_quan_ly() or em = public.email_hien_tai()) then
+    raise exception 'Chỉ quản lý hoặc chính người đó mới đổi được tên';
+  end if;
+  if length(moi) = 0 then raise exception 'Tên không được để trống'; end if;
+  select ho_ten into cu from public.thanh_vien where email = em;
+  if cu is null then raise exception 'Không tìm thấy thành viên %', em; end if;
+  if exists (select 1 from public.thanh_vien where email <> em and public.khoa_ten(ho_ten) = public.khoa_ten(moi)) then
+    raise exception 'Đã có thành viên khác tên "%"', moi;
+  end if;
+  update public.thanh_vien set ho_ten = moi where email = em;
+  perform set_config('app.doi_ten', '1', true);
+  update public.buoc_cong_viec set nguoi_lam = moi where public.khoa_ten(nguoi_lam) = public.khoa_ten(cu) and nguoi_lam <> moi;
+  get diagnostics m = row_count; n := n + m;
+  update public.buoc_cong_viec set nguoi_duyet = moi where public.khoa_ten(nguoi_duyet) = public.khoa_ten(cu) and nguoi_duyet <> moi;
+  get diagnostics m = row_count; n := n + m;
+  update public.quy_trinh_buoc set nguoi_lam = moi where public.khoa_ten(nguoi_lam) = public.khoa_ten(cu) and nguoi_lam <> moi;
+  get diagnostics m = row_count; n := n + m;
+  update public.quy_trinh_buoc set nguoi_duyet = moi where public.khoa_ten(nguoi_duyet) = public.khoa_ten(cu) and nguoi_duyet <> moi;
+  get diagnostics m = row_count; n := n + m;
+  perform set_config('app.doi_ten', '', true);
+  return n;   -- số chỗ (bước, bước mẫu) đã đổi theo tên mới
+end $$;
+revoke all on function public.doi_ten_thanh_vien(text, text) from public;
+grant execute on function public.doi_ten_thanh_vien(text, text) to authenticated;

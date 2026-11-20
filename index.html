@@ -179,6 +179,8 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 .ok-msg{color:var(--ok);font-size:13px;margin:0}
 .addrow{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
 .addrow input,.addrow select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.o-ten{padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;min-width:12rem}
+.who a.ten-toi{color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted)}
 .addrow input{flex:1;min-width:160px}
 /* ---- Họa tiết theo mùa (Noel, Tết): tự bật theo ngày, không chắn thao tác ---- */
 .mua-lop{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
@@ -396,7 +398,7 @@ function setChrome(){
   document.querySelectorAll('#nav a[data-v="thanh-vien"], #thanhBen a[data-v="thanh-vien"]').forEach(a=>a.hidden=laKhach());
   if(window.thanhBen) thanhBen.hien(show);
   const who=document.getElementById('who'); who.hidden=!session;
-  if(session) who.innerHTML=`<span>${esc(me()?.ho_ten||myEmail())}</span>${laKhach()?'<span class="chip" title="Khách chỉ xem, không sửa được dữ liệu">Khách · chỉ xem</span>':''}<button class="btn sm" data-act="dang-xuat" type="button">Đăng xuất</button>`;
+  if(session) who.innerHTML=`${laKhach()?`<span>${esc(me()?.ho_ten||myEmail())}</span>`:`<a class="ten-toi" href="#thanh-vien" title="Bấm để đổi tên">${esc(me()?.ho_ten||myEmail())}</a>`}${laKhach()?'<span class="chip" title="Khách chỉ xem, không sửa được dữ liệu">Khách · chỉ xem</span>':''}<button class="btn sm" data-act="dang-xuat" type="button">Đăng xuất</button>`;
   document.querySelectorAll('#nav a').forEach(a=>a.setAttribute('aria-current', a.dataset.v===view?'page':'false'));
 }
 let rendering=false;
@@ -898,9 +900,9 @@ function renderTpls(){
 const TEN_VAI_TRO = {quan_ly:'Quản lý', thanh_vien:'Thành viên', khach:'Khách (chỉ xem)'};
 function renderMembers(){
   const ql=isManager();
-  return `<section class="card"><div class="card-h"><h2>Thành viên được dùng app</h2><p>${ql?'Bạn là quản lý: có thể thêm, đổi vai trò, xóa thành viên':'Chỉ quản lý mới thêm hoặc xóa được thành viên'}</p></div>
+  return `<section class="card"><div class="card-h"><h2>Thành viên được dùng app</h2><p>${ql?'Bạn là quản lý: có thể thêm, đổi tên, đổi vai trò, xóa thành viên':'Chỉ quản lý mới thêm hoặc xóa được thành viên. Bạn tự sửa được tên của mình'}. Đổi tên thì các bước đang giao cho tên cũ tự chuyển sang tên mới.</p></div>
   <div class="scroll"><table><thead><tr><th>Họ tên</th><th>Email đăng nhập</th><th>Vai trò</th>${ql?'<th></th>':''}</tr></thead><tbody>${
-    members.map(m=>`<tr><td>${esc(m.ho_ten)}</td><td>${esc(m.email)}</td><td>${ql?`<select data-role-email="${esc(m.email)}" aria-label="Vai trò của ${esc(m.ho_ten)}"><option value="thanh_vien" ${m.vai_tro==='thanh_vien'?'selected':''}>Thành viên</option><option value="quan_ly" ${m.vai_tro==='quan_ly'?'selected':''}>Quản lý</option><option value="khach" ${m.vai_tro==='khach'?'selected':''}>Khách (chỉ xem)</option></select>`:TEN_VAI_TRO[m.vai_tro]||m.vai_tro}</td>${ql?`<td style="text-align:right"><button class="btn sm danger" data-del-member="${esc(m.email)}" type="button">Xóa</button></td>`:''}</tr>`).join('')
+    members.map(m=>`<tr><td>${(ql||m.email===myEmail())?`<input class="o-ten" data-ten-email="${esc(m.email)}" value="${esc(m.ho_ten)}" aria-label="Họ tên của ${esc(m.email)}" title="Sửa tên rồi bấm Enter hoặc bấm ra ngoài để lưu">`:esc(m.ho_ten)}</td><td>${esc(m.email)}</td><td>${ql?`<select data-role-email="${esc(m.email)}" aria-label="Vai trò của ${esc(m.ho_ten)}"><option value="thanh_vien" ${m.vai_tro==='thanh_vien'?'selected':''}>Thành viên</option><option value="quan_ly" ${m.vai_tro==='quan_ly'?'selected':''}>Quản lý</option><option value="khach" ${m.vai_tro==='khach'?'selected':''}>Khách (chỉ xem)</option></select>`:TEN_VAI_TRO[m.vai_tro]||m.vai_tro}</td>${ql?`<td style="text-align:right"><button class="btn sm danger" data-del-member="${esc(m.email)}" type="button">Xóa</button></td>`:''}</tr>`).join('')
   }</tbody></table></div>
   ${ql?`<div class="addrow"><input id="mTen" placeholder="Họ tên" aria-label="Họ tên thành viên mới"><input id="mEmail" type="email" placeholder="Email đăng nhập" aria-label="Email thành viên mới"><select id="mRole" aria-label="Vai trò"><option value="thanh_vien">Thành viên</option><option value="quan_ly">Quản lý</option><option value="khach">Khách (chỉ xem)</option></select><button class="btn pri" data-act="them-tv" type="button">Thêm thành viên</button></div>
   <p class="hint" style="padding:0 16px 14px">Sau khi được thêm, người đó mở link app, chọn “Tạo tài khoản” bằng đúng email này.<br><b>Khách (chỉ xem)</b>: xem được tổng quan, hoạt động, lịch việc, quy trình mẫu; không sửa, thêm, xóa được gì và không thấy danh sách thành viên. Khách không có trong danh sách chọn người làm.</p>`:''}
@@ -1230,6 +1232,11 @@ main.addEventListener('change', e=>{
   const el=e.target;
   if(laKhach() && (el.dataset.f || el.dataset.roleEmail)) return render();
   if(el.dataset.f && el.dataset.i!=null && selectedId) return updateStep(selectedId,+el.dataset.i,el.dataset.f,el.value);
+  if(el.dataset.tenEmail){ const em=el.dataset.tenEmail, v=el.value.trim().replace(/\s+/g,' '), cu=(members.find(m=>m.email===em)||{}).ho_ten;
+    if(!v){ toast('Tên không được để trống'); return render(); }
+    if(v===cu) return;
+    return run('tv'+em, async()=>{ const n=must(await sb.rpc('doi_ten_thanh_vien',{p_email:em, p_ten:v})); toast(`Đã đổi tên thành ${v}`+(n?` · ${n} bước công việc đổi theo`:'')); });
+  }
   if(el.dataset.roleEmail){ const em=el.dataset.roleEmail; return run('tv'+em,()=>sb.from('thanh_vien').update({vai_tro:el.value}).eq('email',em)); }
   if(el.id==='pMode'){ period.mode=el.value; period.off=0; if(el.value==='tuy-chon' && !period.tu){ const d=new Date(); period.tu=ymd(new Date(d.getFullYear(),d.getMonth(),1)); period.den=todayStr(); } return render(); }
   if(el.id==='pTu'){ period.tu=el.value; return render(); }
