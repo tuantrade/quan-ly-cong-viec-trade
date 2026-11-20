@@ -1032,3 +1032,43 @@ begin
 end $$;
 revoke all on function public.doi_ten_thanh_vien(text, text) from public;
 grant execute on function public.doi_ten_thanh_vien(text, text) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- CẢNH BÁO SỤT GIẢM (trang Tổng quan): mỗi hệ thống × brand
+--   sell_in : doanh thu thuần từ đầu tháng có số mới nhất đến ngày cuối có số, so với cùng các ngày của tháng trước
+--   sell_out: bình quân 1 ngày (sản lượng ÷ số ngày) của kỳ mới nhất, so với bình quân của 3 kỳ trước đó
+--   (chỉ tính kỳ đã kết thúc; kỳ mới nhất phải là kỳ mới nhất của cả hệ thống; brand không có số kỳ đó thì bỏ qua)
+--   thay_doi = nay ÷ truoc − 1. App tự lọc mức giảm để báo.
+-- ---------------------------------------------------------------------
+create or replace view public.canh_bao_ban_nhap with (security_invoker = true) as
+with mi as (select max(ngay) as d from public.nguon_sellin),
+k as (select date_trunc('month', d)::date as dau, d as cuoi, (date_trunc('month', d) - interval '1 month')::date as dau_t from mi),
+k2 as (select dau, cuoi, dau_t, least(dau_t + (cuoi - dau), dau - 1) as cuoi_t from k),
+si as (
+  select coalesce(nullif(public.chuoi_app(s.he_thong), ''), s.he_thong) as chuoi, s.brand as nhan_hang,
+         sum(case when s.ngay between k2.dau and k2.cuoi then s.doanh_so - s.chiet_khau - s.tra_lai else 0 end) as nay,
+         sum(case when s.ngay between k2.dau_t and k2.cuoi_t then s.doanh_so - s.chiet_khau - s.tra_lai else 0 end) as truoc,
+         min(k2.dau) as tu_ngay, min(k2.cuoi) as den_ngay, min(k2.dau_t) as tu_truoc, min(k2.cuoi_t) as den_truoc
+  from public.nguon_sellin s cross join k2
+  where s.ngay >= k2.dau_t and s.brand <> 'Không theo brand'
+  group by 1, 2),
+so as (
+  select chuoi, nhan_hang, tu_ngay, den_ngay, so_luong::numeric / (den_ngay - tu_ngay + 1) as bq,
+         row_number() over (partition by chuoi, nhan_hang order by tu_ngay desc) as stt,
+         max(tu_ngay) over (partition by chuoi) as moi_nhat
+  from public.sell_out_ky_nhan
+  where nhan_hang <> '' and den_ngay <= (now() at time zone 'Asia/Ho_Chi_Minh')::date),   -- bỏ kỳ chưa hết (VD tuần Emart có ngày ở tương lai)
+so2 as (
+  select a.chuoi, a.nhan_hang, a.tu_ngay, a.den_ngay, a.bq as nay,
+         avg(b.bq) as truoc, min(b.tu_ngay) as tu_truoc, max(b.den_ngay) as den_truoc
+  from so a left join so b on b.chuoi = a.chuoi and b.nhan_hang = a.nhan_hang and b.stt between 2 and 4
+  where a.stt = 1 and a.tu_ngay = a.moi_nhat
+  group by 1, 2, 3, 4, 5)
+select 'sell_in'::text as loai, chuoi, nhan_hang, tu_ngay, den_ngay, tu_truoc, den_truoc, nay, truoc,
+       case when truoc > 0 then nay / truoc - 1 end as thay_doi
+from si
+union all
+select 'sell_out', chuoi, nhan_hang, tu_ngay, den_ngay, tu_truoc, den_truoc, nay, truoc,
+       case when truoc > 0 then nay / truoc - 1 end
+from so2;
+grant select on public.canh_bao_ban_nhap to authenticated;
