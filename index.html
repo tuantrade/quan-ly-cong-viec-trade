@@ -513,8 +513,13 @@ function mocSapToi(t, n){
   const den=addDays(t,n), ds=[];
   lich27.forEach(x=>{ const hd=hdCua27(x);
     [['han_dang_ky','Hạn đăng ký'],['gh_bat_dau','Bắt đầu giao hàng'],['ntd_bat_dau','Bắt đầu chạy']].forEach(([c,loai])=>{ const d=ngay10(x[c]);
-      if(d && d>=t && d<=den) ds.push({ngay:d, loai, ht:x.he_thong||'', nd:[...new Set([x.ma_ky, x.chu_de].filter(Boolean))].join(' · '), tu:ngay10(x.ntd_bat_dau), den:ngay10(x.ntd_ket_thuc), hd, tao27:x.ma_dong}); }); });
-  lichPost.forEach(x=>{ if(x.ngay_bat_dau>=t && x.ngay_bat_dau<=den) ds.push({ngay:x.ngay_bat_dau, loai:'Bắt đầu chạy', ht:x.chuoi||'', nd:[x.nhan_hang, dongDau(x.noi_dung)].filter(Boolean).join(' · '), tu:x.ngay_bat_dau, den:x.ngay_ket_thuc, hd:hdCuaLp(x), lp:x.id}); });
+      if(d && d>=t && d<=den) ds.push({ngay:d, loai, ht:x.he_thong||'', nd:[...new Set([x.ma_ky, x.chu_de].filter(Boolean))].join(' · '), tu:ngay10(x.ntd_bat_dau), den:ngay10(x.ntd_ket_thuc), hd, tao27:x.ma_dong}); });
+    const po=poCua(x.he_thong, ngay10(x.ntd_bat_dau), ngay10(x.ntd_ket_thuc));
+    if(po && po.bd>=t && po.bd<=den) ds.push({ngay:po.bd, loai:'Bắt đầu PO giảm giá', ht:x.he_thong||'', nd:[...new Set([x.ma_ky, x.chu_de].filter(Boolean))].join(' · '), tu:ngay10(x.ntd_bat_dau), den:ngay10(x.ntd_ket_thuc), hd, tao27:x.ma_dong}); });
+  lichPost.forEach(x=>{ const nd=[x.nhan_hang, dongDau(x.noi_dung)].filter(Boolean).join(' · '), hd=hdCuaLp(x);
+    if(x.ngay_bat_dau>=t && x.ngay_bat_dau<=den) ds.push({ngay:x.ngay_bat_dau, loai:'Bắt đầu chạy', ht:x.chuoi||'', nd, tu:x.ngay_bat_dau, den:x.ngay_ket_thuc, hd, lp:x.id});
+    const po=poCua(x.chuoi, x.ngay_bat_dau, x.ngay_ket_thuc);
+    if(po && po.bd>=t && po.bd<=den) ds.push({ngay:po.bd, loai:'Bắt đầu PO giảm giá', ht:x.chuoi||'', nd, tu:x.ngay_bat_dau, den:x.ngay_ket_thuc, hd, lp:x.id}); });
   return ds.sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.ht.localeCompare(b.ht,'vi'));
 }
 function renderToi(){
@@ -536,9 +541,9 @@ function renderToi(){
   }
   h+=`</section>`;
   const moc=mocSapToi(t,30);
-  h+=`<section class="card"><div class="card-h"><div><h2>Mốc Lịch post 30 ngày tới</h2><p>Hạn đăng ký, ngày bắt đầu giao hàng và ngày bắt đầu chạy của từng kỳ (Lịch post và Lịch post 2027) · cột cuối cho biết đã có hoạt động trong app chưa</p></div><a class="btn sm" href="lich-post-2027.html">Lịch post 2027 ↗</a></div>${
+  h+=`<section class="card"><div class="card-h"><div><h2>Mốc Lịch post 30 ngày tới</h2><p>Hạn đăng ký, ngày bắt đầu PO giảm giá, ngày bắt đầu giao hàng và ngày bắt đầu chạy của từng kỳ (Lịch post và Lịch post 2027) · cột cuối cho biết đã có hoạt động trong app chưa</p></div><a class="btn sm" href="lich-post-2027.html">Lịch post 2027 ↗</a></div>${
     moc.length ? `<div class="scroll"><table><thead><tr><th>Ngày</th><th>Còn</th><th>Mốc</th><th>Hệ thống</th><th>Kỳ / nội dung</th><th>Hoạt động trong app</th></tr></thead><tbody>${
-      moc.slice(0,20).map(m=>{ const con=diff(t,m.ngay); return `<tr><td class="num">${fd(m.ngay)}</td><td class="num ${con<=3?'late':''}">${con===0?'Hôm nay':con+' ngày'}</td><td><span class="pill ${m.loai==='Hạn đăng ký'?(con<=7?'bad':'warn'):m.loai==='Bắt đầu giao hàng'?'info':'neutral'}">${m.loai}</span></td><td>${esc(m.ht)}</td><td>${m.lp!=null?`<button type="button" class="link" data-lp="${m.lp}">${esc(m.nd)}</button>`:esc(m.nd)}<div class="sub">Chạy ${fd(m.tu)} – ${fd(m.den)}${m.tao27?' · Lịch post 2027':''}</div></td><td>${
+      moc.slice(0,20).map(m=>{ const con=diff(t,m.ngay); return `<tr><td class="num">${fd(m.ngay)}</td><td class="num ${con<=3?'late':''}">${con===0?'Hôm nay':con+' ngày'}</td><td><span class="pill ${m.loai==='Hạn đăng ký'?(con<=7?'bad':'warn'):m.loai==='Bắt đầu giao hàng'?'info':m.loai==='Bắt đầu PO giảm giá'?'ok':'neutral'}">${m.loai}</span></td><td>${esc(m.ht)}</td><td>${m.lp!=null?`<button type="button" class="link" data-lp="${m.lp}">${esc(m.nd)}</button>`:esc(m.nd)}<div class="sub">Chạy ${fd(m.tu)} – ${fd(m.den)}${m.tao27?' · Lịch post 2027':''}</div></td><td>${
         m.hd.length?m.hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):m.tao27?`<button class="btn sm" data-tao27="${esc(m.tao27)}" type="button">Tạo CTKM</button>`:`<button class="btn sm" data-tao-lp="${m.lp}" type="button">Tạo CTKM</button>`}</td></tr>`; }).join('')
     }</tbody></table></div>${moc.length>20?`<p class="hint" style="padding:8px 16px 12px">Còn ${moc.length-20} mốc nữa trong 30 ngày tới, xem đủ ở trang Lịch post và Lịch post 2027.</p>`:''}` : `<div class="empty">Không có mốc nào trong 30 ngày tới.</div>`
   }</section>`;
@@ -581,7 +586,7 @@ function renderDetail(a){
   <section class="card">
     <div class="detail-h">
       <div class="row"><div style="display:grid;gap:6px"><h2>${esc(a.ten)}</h2>
-        <div class="chips"><span class="chip">${esc(a.quyTrinhTen||'Không theo mẫu')}</span><span class="chip">Nhãn: ${esc(a.nhan||'—')}</span><span class="chip">Kênh: ${esc(a.kenh||'—')}</span><span class="chip num">Chạy: ${fd(a.bd)} – ${fd(a.kt)}</span></div></div>
+        <div class="chips"><span class="chip">${esc(a.quyTrinhTen||'Không theo mẫu')}</span><span class="chip">Nhãn: ${esc(a.nhan||'—')}</span><span class="chip">Kênh: ${esc(a.kenh||'—')}</span><span class="chip num">Chạy: ${fd(a.bd)} – ${fd(a.kt)}</span>${chipPo(a.kenh,a.bd,a.kt)}</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="sua-hd" type="button">Sửa thông tin</button><button class="btn danger" data-act="xoa-hd" type="button">Xóa hoạt động</button></div>
       </div>
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">${pill(s.tt)}<div style="flex:1;max-width:360px">${prog(s.pct)}</div><span class="sub">${s.xong}/${s.tong} bước xong · ${s.tre} bước trễ</span></div>
@@ -735,6 +740,19 @@ function renderGia(){
   return h;
 }
 /* Bảng số bán quanh đợt CTKM trong màn chi tiết hoạt động */
+/* Thời gian PO giảm giá (siêu thị đặt hàng với giá khuyến mãi) theo hệ thống. Lấy từ sheet "CẬP NHẬT CTKM KÊNH MT 2026":
+   PO bắt đầu trước ngày bắt đầu giảm giá cho người tiêu dùng `truoc` ngày, kết thúc trước ngày kết thúc `ketThucSom` ngày. */
+const PO_HT = [
+  {khoa:'coop', ten:'Co.op', truoc:14, ketThucSom:0}, {khoa:'lotte', ten:'Lotte', truoc:15, ketThucSom:0},
+  {khoa:'emart', ten:'Emart', truoc:10, ketThucSom:0}, {khoa:'winmart', ten:'WinMart', truoc:17, ketThucSom:0},
+  {khoa:'bigc', ten:'GO!/Big C', truoc:17, ketThucSom:7}, {khoa:'go', ten:'GO!/Big C', truoc:17, ketThucSom:7}];
+function poCua(heThong, bd, kt){
+  const c=boDau(heThong); if(!c || !bd) return null;
+  const q=PO_HT.find(r=>r.khoa==='go' ? c.startsWith('go') : c.includes(r.khoa)); if(!q) return null;
+  return {bd:addDays(bd,-q.truoc), kt:addDays(kt||bd,-q.ketThucSom), q};
+}
+const moTaPo = q => `${q.ten}: PO giảm giá bắt đầu ${q.truoc} ngày trước ngày chạy, ${q.ketThucSom?`kết thúc ${q.ketThucSom} ngày trước ngày kết thúc`:'kết thúc cùng ngày kết thúc'}`;
+const chipPo = (ht,bd,kt) => { const p=poCua(ht,bd,kt); return p?`<span class="chip num" title="${esc(moTaPo(p.q))}">PO giảm giá: ${fd(p.bd)} – ${fd(p.kt)}</span>`:''; };
 function renderSoHd(a){
   if(!a.kenh || !a.bd || !a.kt) return '';
   const key=[a.kenh,a.nhan,a.bd,a.kt,soNguon.map(n=>n.luc).join()].join('|'), c=soHd[a.id];
@@ -760,18 +778,32 @@ function renderSoHd(a){
   const coTon=ky.some(k=>k.ton!=null);
   const rows=ky.map(k=>{ const gd=giaiDoan(k.tu,k.den), si=sellInTrong(c.si,k.tu,k.den);
     return `<tr class="${gd.startsWith('Trong')?'trong-ctkm':''}"><td class="num">${fd(k.tu).slice(0,5)} – ${fd(k.den)}<div class="sub">${k.so_ngay} ngày</div></td><td>${gd}</td>${coBanRa?`<td class="n">${soVN(k.sl)}</td><td class="n">${so1(k.sl/k.so_ngay)}</td><td class="n">${soVN(k.ds)}</td><td class="n">${soVN(k.ch)}</td>${coTon?`<td class="n">${soVN(k.ton)}</td>`:''}`:''}<td class="n">${si?soVN(si.sl):'—'}</td></tr>`; }).join('');
-  // Tóm tắt theo giai đoạn: cộng các kỳ (chỉ khi các kỳ không chồng ngày nhau, để không cộng trùng)
-  const xep=ky.slice().sort((p,q)=>p.tu.localeCompare(q.tu)), chong=xep.some((k,i)=>i&&k.tu<=xep[i-1].den);
+  // (1) Bán ra theo ngày chạy trên Lịch post: cộng các kỳ (chỉ khi các kỳ không chồng ngày nhau, để không cộng trùng)
+  const xep=ky.slice().sort((p,q)=>p.tu.localeCompare(q.tu)), chong=coBanRa && xep.some((k,i)=>i&&k.tu<=xep[i-1].den);
   let tomTat='';
-  if(!chong){
-    const gd={}; ky.forEach(k=>{ const g=giaiDoan(k.tu,k.den).split(' (')[0], si=sellInTrong(c.si,k.tu,k.den);
-      const o=gd[g]||(gd[g]={n:0,ngay:0,sl:0,ds:0,si:0,coSi:false}); o.n++; o.ngay+=k.so_ngay; if(coBanRa){ o.sl+=k.sl; o.ds+=k.ds; } if(si){ o.si+=si.sl; o.coSi=true; } });
+  if(coBanRa && !chong){
+    const gd={}; ky.forEach(k=>{ const g=giaiDoan(k.tu,k.den).split(' (')[0];
+      const o=gd[g]||(gd[g]={n:0,ngay:0,sl:0,ds:0}); o.n++; o.ngay+=k.so_ngay; o.sl+=k.sl; o.ds+=k.ds; });
     const ds=['Trước CTKM','Trong CTKM','Sau CTKM'].filter(g=>gd[g]);
-    tomTat=`<div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Tóm tắt theo giai đoạn</h2><p>Cộng các kỳ ở bảng dưới. Kỳ chỉ trùng một phần với đợt CTKM được tính vào “Trong CTKM”.</p></div></div>
-    <div class="scroll"><table class="so-pivot"><thead><tr><th>Giai đoạn</th><th class="n">Số kỳ</th><th class="n">Số ngày</th>${coBanRa?'<th class="n">Bán ra (SL)</th><th class="n">Bán ra / ngày</th><th class="n">Doanh số bán ra</th>':''}<th class="n">Sell-in (SL)</th><th class="n">Sell-in / ngày</th></tr></thead><tbody>${
-      ds.map(g=>{ const o=gd[g]; return `<tr class="${g==='Trong CTKM'?'trong-ctkm':''}"><td>${g}</td><td class="n">${o.n}</td><td class="n">${o.ngay}</td>${coBanRa?`<td class="n">${soVN(o.sl)}</td><td class="n">${so1(o.sl/o.ngay)}</td><td class="n">${soVN(o.ds)}</td>`:''}<td class="n">${o.coSi?soVN(o.si):'—'}</td><td class="n">${o.coSi?so1(o.si/o.ngay):'—'}</td></tr>`; }).join('')
-    }</tbody></table></div><div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Từng kỳ</h2></div></div>`;
+    tomTat+=`<div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Bán ra theo ngày chạy (${fd(a.bd)} – ${fd(a.kt)})</h2><p>Cộng các kỳ ở bảng “Từng kỳ”. Kỳ chỉ trùng một phần với đợt CTKM được tính vào “Trong CTKM”.</p></div></div>
+    <div class="scroll"><table class="so-pivot"><thead><tr><th>Giai đoạn</th><th class="n">Số kỳ</th><th class="n">Số ngày</th><th class="n">Bán ra (SL)</th><th class="n">Bán ra / ngày</th><th class="n">Doanh số bán ra</th></tr></thead><tbody>${
+      ds.map(g=>{ const o=gd[g]; return `<tr class="${g==='Trong CTKM'?'trong-ctkm':''}"><td>${g}</td><td class="n">${o.n}</td><td class="n">${o.ngay}</td><td class="n">${soVN(o.sl)}</td><td class="n">${so1(o.sl/o.ngay)}</td><td class="n">${soVN(o.ds)}</td></tr>`; }).join('')
+    }</tbody></table></div>`;
   }
+  // (2) Sell-in theo thời gian PO giảm giá của hệ thống (siêu thị nhập hàng giá khuyến mãi), cộng theo ngày
+  const po=poCua(a.kenh,a.bd,a.kt), mocSi=po?{bd:po.bd,kt:po.kt}:{bd:a.bd,kt:a.kt};
+  const ngayCuoiSi=c.si.reduce((m,x)=>{ const n=ngay10(x.ngay); return n>m?n:m; },''), homQua=addDays(todayStr(),-1);
+  const capDen = d => [d, cuoi, homQua, ngayCuoiSi||homQua].sort()[0];   // không tính những ngày chưa có số
+  if(c.si.length){
+    const tenGd = po ? ['Trước PO giảm giá','Trong PO giảm giá','Sau PO giảm giá'] : ['Trước CTKM','Trong CTKM','Sau CTKM'];
+    const kh=[[tenGd[0],dau,addDays(mocSi.bd,-1)],[tenGd[1],mocSi.bd,mocSi.kt],[tenGd[2],addDays(mocSi.kt,1),cuoi]]
+      .map(([g,tu,den])=>{ den=capDen(den); if(den<tu) return null; const si=sellInTrong(c.si,tu,den); return {g,tu,den,ngay:diff(tu,den)+1,sl:si?si.sl:0,ds:si?si.ds:0}; }).filter(Boolean);
+    tomTat+=`<div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Sell-in theo ${po?`thời gian PO giảm giá (${fd(po.bd)} – ${fd(po.kt)})`:'ngày chạy (chưa có quy tắc PO cho hệ thống này)'}</h2><p>${po?esc(moTaPo(po.q))+'. ':''}Sell-in = giao vào trừ trả lại, cộng theo ngày chứng từ${ngayCuoiSi?`; số sell-in có đến ${fd(ngayCuoiSi)}`:''}. Chỉ tính đến ngày cuối cùng có số.</p></div></div>
+    <div class="scroll"><table class="so-pivot"><thead><tr><th>Giai đoạn</th><th>Từ – đến</th><th class="n">Số ngày</th><th class="n">Sell-in (SL)</th><th class="n">Sell-in / ngày</th><th class="n">Doanh số sell-in</th></tr></thead><tbody>${
+      kh.map(o=>`<tr class="${o.g.startsWith('Trong')?'trong-ctkm':''}"><td>${o.g}</td><td class="num">${fd(o.tu).slice(0,5)} – ${fd(o.den)}</td><td class="n">${o.ngay}</td><td class="n">${soVN(o.sl)}</td><td class="n">${so1(o.sl/o.ngay)}</td><td class="n">${soVN(o.ds)}</td></tr>`).join('')
+    }</tbody></table></div>`;
+  }
+  if(tomTat) tomTat+=`<div class="card-h" style="border-top:1px solid var(--line)"><div><h2>Từng kỳ</h2></div></div>`;
   return `<section class="card">${tieuDe}${coBanRa?'':`<p class="hint" style="padding:0 16px">Dashboard chưa có số bán ra của ${esc(a.kenh)}, tạm hiện sell-in theo tuần (thứ Hai – Chủ nhật).</p>`}${tomTat}${chong?'<p class="hint" style="padding:0 16px">Các kỳ số bán ra chồng ngày nhau nên không cộng gộp theo giai đoạn.</p>':''}<div class="scroll"><table class="so-pivot"><thead><tr><th>Kỳ</th><th>Giai đoạn</th>${coBanRa?`<th class="n">Bán ra (SL)</th><th class="n">Bán ra / ngày</th><th class="n">Doanh số bán ra</th><th class="n">Cửa hàng có bán</th>${coTon?'<th class="n">Tồn cuối kỳ</th>':''}`:''}<th class="n">Sell-in (SL)</th></tr></thead><tbody>${rows}</tbody></table></div>
   <p class="hint" style="padding:8px 16px 12px">Bán ra / ngày = số lượng bán ra chia số ngày của kỳ (vì các kỳ dài ngắn khác nhau). Sell-in = giao vào trừ trả lại trong cùng khoảng ngày. “—” = không có số.</p></section>`;
 }
@@ -891,7 +923,7 @@ function renderModalNow(){
     const kLp=x?khopKenh(x.chuoi):null, nLp=x?khopNhan(x.nhan_hang):null;
     const soLp=kLp ? renderSoHd({id:'lp'+x.id, kenh:kLp.ten, nhan:nLp?nLp.ten:'', bd:x.ngay_bat_dau, kt:x.ngay_ket_thuc}) : '';
     inner = x ? `<div class="dialog ${kLp?'':'small'}" role="dialog" aria-modal="true" aria-labelledby="ttLp"><header><h2 id="ttLp">${esc(x.chuoi)} · ${esc(x.nhan_hang||'—')}</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header>
-      <div class="body"><div class="chips"><span class="chip num">${fd(x.ngay_bat_dau)} – ${fd(x.ngay_ket_thuc)} (${diff(x.ngay_bat_dau,x.ngay_ket_thuc)+1} ngày)</span><span class="chip">${LOAI_LP[x.loai]}</span>${x.sieu_thi?`<span class="chip">${esc(x.sieu_thi)}</span>`:''}</div>
+      <div class="body"><div class="chips"><span class="chip num">${fd(x.ngay_bat_dau)} – ${fd(x.ngay_ket_thuc)} (${diff(x.ngay_bat_dau,x.ngay_ket_thuc)+1} ngày)</span>${chipPo(x.chuoi,x.ngay_bat_dau,x.ngay_ket_thuc)}<span class="chip">${LOAI_LP[x.loai]}</span>${x.sieu_thi?`<span class="chip">${esc(x.sieu_thi)}</span>`:''}</div>
       <p class="lp-nd">${esc(x.noi_dung)}</p>
       <p class="hint" style="margin:0">Trong sheet: hàng ${x.dong}, cột ${x.cot}${x.nhom?' · '+esc(x.nhom):''}</p>
       <div><b>Hoạt động trong app:</b> ${hd.length?hd.map(a=>`<button type="button" class="link" data-m="mo-hd" data-id="${esc(a.id)}">${esc(a.ten)}</button>`).join(', '):'<span class="muted">chưa có</span>'}</div>${soLp}</div>

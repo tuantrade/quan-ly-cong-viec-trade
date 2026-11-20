@@ -100,6 +100,20 @@ Quyền chỉ xem được chặn ngay trong cơ sở dữ liệu, nên khách k
 ## Cập nhật cơ sở dữ liệu khi có bản mới
 Khi file `supabase/thiet-ke-co-so-du-lieu.sql` thay đổi (ví dụ thêm vai trò Khách), mở Supabase → **SQL Editor** → **New query**, dán **toàn bộ** file rồi bấm **Run**. File chạy lại nhiều lần vẫn an toàn: không xóa và không tạo trùng dữ liệu. Không cần sửa dòng `EMAIL_CUA_BAN@gmail.com` nữa, vì quản lý đã có sẵn thì dòng đó được bỏ qua.
 
+## Thời gian PO giảm giá theo hệ thống
+Lấy từ sheet *CẬP NHẬT CTKM KÊNH MT 2026* (cột “Thời gian giảm PO” so với “Time giảm giá NTD”):
+
+| Hệ thống | PO giảm giá bắt đầu | PO giảm giá kết thúc |
+|---|---|---|
+| Co.op | 14 ngày trước ngày chạy | cùng ngày kết thúc |
+| Lotte | 15 ngày trước ngày chạy | cùng ngày kết thúc |
+| Emart | 10 ngày trước ngày chạy | cùng ngày kết thúc |
+| GO!/Big C | 17 ngày trước ngày chạy | 7 ngày trước ngày kết thúc |
+| WinMart | 17 ngày trước ngày chạy | cùng ngày kết thúc |
+
+- App dùng quy tắc này để: hiện ô **PO giảm giá** ở hoạt động và Lịch post; thêm mốc **Bắt đầu PO giảm giá** vào bảng mốc 30 ngày tới; tính **sell-in theo thời gian PO** (trước / trong / sau) trong bảng số bán. **Bán ra** vẫn tính theo ngày chạy.
+- Kỳ đặc biệt có thể lệch quy tắc (ví dụ Lotte 2701 dịp Tết PO sớm 20 ngày). Đổi số ngày: sửa bảng  trong .
+
 ## Trang Tổng quan: Việc của tôi và mốc Lịch post
 - Khung **Việc của tôi** ở đầu trang: việc của người đang đăng nhập bị trễ, hạn hôm nay, đến hạn trong 7 ngày, và bước đang chờ mình duyệt; bấm thẳng **Đánh dấu xong / Duyệt** tại đây. Kèm số ngày còn lại đến Mùng 1 Tết Đinh Mùi (06/02/2027).
 - Bảng **Mốc Lịch post 30 ngày tới**: hạn đăng ký, ngày bắt đầu giao hàng, ngày bắt đầu chạy của từng kỳ (lấy từ Lịch post và Lịch post 2027). Kỳ chưa có hoạt động thì có nút **Tạo CTKM** (app điền sẵn hệ thống, tên kỳ, ngày chạy). Kỳ Lịch post 2027 được coi là đã có hoạt động khi hoạt động cùng hệ thống có tên chứa mã kỳ, hoặc trùng đúng ngày chạy.
