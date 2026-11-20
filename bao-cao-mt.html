@@ -189,7 +189,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .sv-table td{padding:var(--cds-pad-xs) var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);text-align:right;white-space:nowrap}
 .sv-table .l{text-align:left}
 .sv-table td.l{white-space:normal;min-width:12rem}
-#t-wil td:last-child{min-width:28rem}   /* cột Ghi chú dài: cho rộng ra để dòng không bị kéo cao */
+#t-wil td:last-child{min-width:0;max-width:26rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}   /* Ghi chú dài: 1 dòng, rê chuột xem đủ */
 .sv-search{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-bg);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);max-width:20rem;width:100%}
 .sv-foot{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);display:flex;flex-direction:column;gap:var(--cds-gap-xs);margin:0;padding-left:1.1rem}
 .sv-tabs{display:flex;flex-wrap:wrap;gap:var(--cds-gap-xs);border-bottom:1px solid var(--color-border-line)}
@@ -1493,7 +1493,7 @@ function drawWil() {
     (r) => [[r.he_thong, 'l'], [r.diem ? r.diem + (r.loai_diem && !r.diem.includes(r.loai_diem) ? '' : '') : 'Cả hệ thống', 'l'], [r.san_pham, 'l'], [r.nguon, 'l'],
       [r.baseline == null ? 'Chưa đủ dữ liệu' : wilNum(r.baseline)], [r.lo == null ? '–' : wilNum(r.lo) + '–' + wilNum(r.hi)], [r.do_tin_cay, 'l ' + (cls[r.do_tin_cay] || '')],
       [r.bq_ca_ctkm == null ? '–' : wilNum(r.bq_ca_ctkm)], [r.phan_ctkm == null ? '–' : pct(r.phan_ctkm)], [r.dai_han == null ? '–' : wilNum(r.dai_han)], [r.ghi_chu || '', 'l']]);
-  document.querySelectorAll('#t-wil tbody tr').forEach((tr) => { if (tr.children[4]) tr.children[4].style.fontWeight = '600'; });
+  document.querySelectorAll('#t-wil tbody tr').forEach((tr) => { if (tr.children[4]) tr.children[4].style.fontWeight = '600'; const g = tr.lastElementChild; if (g) g.title = g.textContent; });   // rê chuột vào Ghi chú để xem đủ
 }
 
 // ================= GIÁ BÁN =================
