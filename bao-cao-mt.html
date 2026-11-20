@@ -453,16 +453,14 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
           <select id="wil-ht" data-source="wil_bang"><option value="">Tất cả</option></select>
         </label>
         <label class="sv-filter" for="wil-ch">Siêu thị / điểm nhận hàng
-          <select id="wil-ch" disabled><option value="">Chọn hệ thống trước</option></select>
+          <input class="sv-search" id="wil-ch" type="search" list="wil-ch-ds" autocomplete="off" placeholder="Gõ tên, ví dụ: cong quynh, go vap" aria-label="Lọc theo tên siêu thị hoặc điểm nhận hàng">
+          <datalist id="wil-ch-ds"></datalist>
         </label>
         <label class="sv-filter" for="wil-sp">Sản phẩm
           <select id="wil-sp" data-source="wil_bang"><option value="">Tất cả</option></select>
         </label>
         <label class="sv-filter" for="wil-tin">Độ tin cậy
           <select id="wil-tin" data-source="wil_bang"><option value="">Tất cả</option><option value="Cao">Cao</option><option value="Trung bình">Trung bình</option><option value="Thấp">Thấp</option><option value="Chưa đủ dữ liệu">Chưa đủ dữ liệu</option></select>
-        </label>
-        <label class="sv-filter" for="wil-q">Tìm siêu thị
-          <input class="sv-search" id="wil-q" type="search" placeholder="Ví dụ: Cống Quỳnh, Gò Vấp" aria-label="Tìm siêu thị baseline Wil">
         </label>
       </div>
       <p class="sv-note" id="wil-tom-tat" data-source="wil_bang">—</p>
@@ -1439,9 +1437,8 @@ const WIL_ORDER = ['Trà bí đao hạt chia', 'Trà kim quất mật ong', 'Tr�
 const wilNum = (v) => (v == null ? '–' : vi(v, Math.abs(v) < 20 ? 1 : 0));
 const wilEls = ['wil-cap', 'wil-ht', 'wil-sp', 'wil-tin'].map((id) => document.getElementById(id));
 wilEls.forEach((el) => el.addEventListener('change', () => drawWil()));
-document.getElementById('wil-q').addEventListener('input', () => drawWil());
-// Chọn một siêu thị: tự chuyển Cấp sang "Từng siêu thị" (đổi hệ thống thì danh sách siêu thị tự làm lại)
-document.getElementById('wil-ch').addEventListener('change', (e) => { if (e.target.value) wilEls[0].value = 'Siêu thị'; drawWil(); });
+// Gõ tên siêu thị: lọc gần đúng (không dấu, đủ các chữ đã gõ, không cần đúng thứ tự); tự chuyển Cấp sang "Từng siêu thị"
+document.getElementById('wil-ch').addEventListener('input', (e) => { if (e.target.value.trim()) wilEls[0].value = 'Siêu thị'; drawWil(); });
 let wilSort = { k: 'baseline', dir: -1 };
 document.querySelectorAll('#t-wil th button').forEach((b) => b.addEventListener('click', () => {
   const k = b.dataset.k; wilSort = { k, dir: wilSort.k === k ? -wilSort.dir : (['he_thong', 'diem', 'san_pham', 'nguon', 'do_tin_cay'].includes(k) ? 1 : -1) }; drawWil();
@@ -1479,12 +1476,12 @@ function drawWil() {
   const fill = (el, vals) => { const cur = el.value; el.replaceChildren(new Option('Tất cả', ''), ...vals.map((v) => new Option(v, v))); el.value = vals.includes(cur) ? cur : ''; };
   fill(eHt, [...new Set(base.map((r) => r.he_thong))].sort((a, b) => a.localeCompare(b, 'vi')));
   fill(eSp, WIL_ORDER.filter((s) => base.some((r) => r.san_pham === s)));
-  const eCh = document.getElementById('wil-ch'), chCu = eCh.value;
-  const chs = eHt.value ? [...new Set(d.data.filter((r) => r.cap === 'Siêu thị' && r.he_thong === eHt.value).map((r) => r.diem))].sort((a, b) => a.localeCompare(b, 'vi')) : [];
-  eCh.replaceChildren(new Option(!eHt.value ? 'Chọn hệ thống trước' : chs.length ? `Tất cả (${chs.length} điểm)` : 'Không có số theo siêu thị', ''), ...chs.map((c) => new Option(c, c)));
-  eCh.value = chs.includes(chCu) ? chCu : ''; eCh.disabled = !chs.length;
-  const q = document.getElementById('wil-q').value.trim().toLowerCase();
-  const rs = base.filter((r) => (!eHt.value || r.he_thong === eHt.value) && (!eCh.value || r.diem === eCh.value) && (!eSp.value || r.san_pham === eSp.value) && (!eTin.value || r.do_tin_cay === eTin.value) && (!q || (r.diem + ' ' + r.he_thong).toLowerCase().includes(q)));
+  const eCh = document.getElementById('wil-ch');
+  const goiY = [...new Set(d.data.filter((r) => r.cap === 'Siêu thị' && (!eHt.value || r.he_thong === eHt.value)).map((r) => r.diem))].sort((a, b) => a.localeCompare(b, 'vi'));
+  document.getElementById('wil-ch-ds').replaceChildren(...goiY.map((c) => new Option(c)));
+  const chu = tenKhongDau(eCh.value).split(/\s+/).filter(Boolean);
+  const khopCh = (r) => { if (!chu.length) return true; const t = tenKhongDau(r.diem + ' ' + r.he_thong); return chu.every((w) => t.includes(w)); };
+  const rs = base.filter((r) => (!eHt.value || r.he_thong === eHt.value) && khopCh(r) && (!eSp.value || r.san_pham === eSp.value) && (!eTin.value || r.do_tin_cay === eTin.value));
   const sum = rs.reduce((a, r) => a + (r.baseline || 0), 0), n = (v) => rs.filter((r) => r.do_tin_cay === v).length;
   document.getElementById('wil-tom-tat').textContent = `Đang xem ${vi(rs.length)} dòng, tổng baseline ${vi(sum)} hộp/30 ngày. Độ tin cậy: Cao ${vi(n('Cao'))}, Trung bình ${vi(n('Trung bình'))}, Thấp ${vi(n('Thấp'))}, chưa đủ dữ liệu ${vi(n('Chưa đủ dữ liệu'))}. Bấm tiêu đề cột để sắp xếp.`;
   const val = (r, k) => (r[k] == null ? (wilSort.dir > 0 ? Infinity : -Infinity) : r[k]);
