@@ -753,7 +753,53 @@ function poCua(heThong, bd, kt){
 }
 const moTaPo = q => `${q.ten}: PO giảm giá bắt đầu ${q.truoc} ngày trước ngày chạy, ${q.ketThucSom?`kết thúc ${q.ketThucSom} ngày trước ngày kết thúc`:'kết thúc cùng ngày kết thúc'}`;
 const chipPo = (ht,bd,kt) => { const p=poCua(ht,bd,kt); return p?`<span class="chip num" title="${esc(moTaPo(p.q))}">PO giảm giá: ${fd(p.bd)} – ${fd(p.kt)}</span>`:''; };
-function renderSoHd(a){
+/* Lotte, GO: số bán ra chỉ có ở cửa hàng có CTV (file kiểm tồn) và hàng giao thẳng từng cửa hàng,
+   nên so sell-in với kiểm tồn trên CÙNG các cửa hàng CTV (không suy ra cho cả hệ thống). */
+const laHtCtv = ht => { const c=boDau(ht); return c.includes('lotte') || c.includes('bigc') || c.startsWith('go'); };
+const khoaCh = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/gi,'d').toLowerCase()
+  .replace(/sieu thi|lotte mart|lotte|go!\s*\/\s*big\s*c|go!|big\s*c/g,' ').replace(/[^a-z0-9]/g,'');
+let kiemTon=null, ctvHd={};
+function renderCtv(a){
+  if(!a.kenh || !a.bd || !a.kt || !laHtCtv(a.kenh)) return '';
+  const po=poCua(a.kenh,a.bd,a.kt)||{bd:a.bd,kt:a.kt,q:null}, dau=addDays(po.bd,-28), cuoi=addDays(a.kt,28);
+  const key=[a.kenh,a.nhan,a.bd,a.kt].join('|'), c=ctvHd[a.id];
+  const xong=()=>{ schedule(); if(modal?.type==='lp') rerenderKeepScroll(); };
+  if(kiemTon===null){ kiemTon='dang';
+    sb.from('bo_so_tinh_san').select('du_lieu,nguon_cap_nhat').eq('bo_so','kiem_ton_ctv').maybeSingle()
+      .then(r=>{ kiemTon = r.error ? [] : (Array.isArray(r.data?.du_lieu)?r.data.du_lieu:[]); }).catch(()=>{ kiemTon=[]; }).finally(xong); }
+  if(!c || c.key!==key){ ctvHd[a.id]={key, dang:true};
+    layHet(()=>{ let q=sb.from('sell_in_cua_hang').select('*').eq('chuoi',a.kenh).gte('ngay',dau).lte('ngay',cuoi); return a.nhan?q.eq('nhan_hang',a.nhan):q; })
+      .then(si=>{ ctvHd[a.id]={key, si}; }).catch(e=>{ console.warn('Chưa đọc được sell-in theo cửa hàng', e); ctvHd[a.id]={key, si:[]}; }).finally(xong); }
+  const h2=`<div class="card-h"><div><h2>Ở các cửa hàng có CTV</h2><p>${esc(a.kenh)}${a.nhan?' · '+esc(a.nhan):''} · số bán ra của hệ thống này chỉ có ở cửa hàng có CTV kiểm tồn, nên sell-in cũng chỉ cộng ở đúng các cửa hàng đó (hàng giao thẳng từng cửa hàng). Không suy ra cho cả hệ thống.</p></div></div>`;
+  const cc=ctvHd[a.id];
+  if(kiemTon==='dang' || !cc || cc.dang) return `<section class="card">${h2}<div class="empty">Đang tải…</div></section>`;
+  const htKt = x => laHtCtv(x.he_thong) && (boDau(x.he_thong).includes('lotte') === boDau(a.kenh).includes('lotte'));
+  const kt=(kiemTon||[]).filter(x=>htKt(x) && (!a.nhan || x.brand===a.nhan));
+  const ch=new Map();   // khóa cửa hàng -> số
+  const lay = k => ch.get(k) || ch.set(k,{ten:'',ctv:false,ton_dau:0,nhap:0,ban:0,ton_cuoi:0,coKt:false,tu:'',den:'',si:[0,0,0]}).get(k);
+  kt.forEach(x=>{ const o=lay(khoaCh(x.cua_hang)); o.ten=x.cua_hang; o.ctv=true;
+    if(x.ban!=null){ o.coKt=true; o.ton_dau+=+x.ton_dau||0; o.nhap+=+x.nhap||0; o.ban+=+x.ban||0; o.ton_cuoi+=+x.ton_cuoi||0;
+      const d1=ngay10(x.ngay_dau), d2=ngay10(x.ngay_cuoi); if(d1&&(!o.tu||d1<o.tu)) o.tu=d1; if(d2&&d2>o.den) o.den=d2; } });
+  const homQua=addDays(todayStr(),-1), giaiDoan=n=> n<po.bd?0 : n<=po.kt?1 : 2;
+  let ngoai={si:[0,0,0], diem:new Set()};
+  (cc.si||[]).forEach(x=>{ const n=ngay10(x.ngay); if(n>homQua) return; const sl=(+x.so_luong||0)-(+x.tra_lai_sl||0), k=khoaCh(x.diem_nhan), o=ch.get(k);
+    if(o && o.ctv) o.si[giaiDoan(n)]+=sl; else { ngoai.si[giaiDoan(n)]+=sl; ngoai.diem.add(k); } });
+  const ds=[...ch.values()].filter(o=>o.ctv).sort((p,q)=>p.ten.localeCompare(q.ten,'vi'));
+  if(!ds.length) return `<section class="card">${h2}<div class="empty">Chưa có số kiểm tồn của CTV cho ${esc(a.kenh)}${a.nhan?' – '+esc(a.nhan):''}.</div></section>`;
+  const trungDot=o=>{ if(!o.tu||!o.den) return '—'; const g=diff(o.tu>a.bd?o.tu:a.bd, o.den<a.kt?o.den:a.kt)+1; return g>0?`${g}/${diff(o.tu,o.den)+1} ngày`:'không trùng'; };
+  const tong=ds.reduce((m,o)=>{ m.si=m.si.map((v,i)=>v+o.si[i]); if(o.coKt){ m.ton_dau+=o.ton_dau; m.nhap+=o.nhap; m.ban+=o.ban; m.ton_cuoi+=o.ton_cuoi; } return m; },{si:[0,0,0],ton_dau:0,nhap:0,ban:0,ton_cuoi:0});
+  const coSi=(cc.si||[]).length>0;
+  const dong=(ten,o,cls='')=>`<tr class="${cls}"><td>${ten}</td>${o.si.map(v=>`<td class="n">${coSi?soVN(v):'—'}</td>`).join('')}<td class="num">${o.tu?fd(o.tu).slice(0,5)+' – '+fd(o.den):'—'}</td><td class="n">${o.coKt&&!o.tong?trungDot(o):'—'}</td><td class="n">${o.coKt?soVN(o.ton_dau):'—'}</td><td class="n">${o.coKt?soVN(o.nhap):'—'}</td><td class="n">${o.coKt?soVN(o.ban):'—'}</td><td class="n">${!o.coKt?'—':o.tong?so1(o.bnd):o.tu?so1(o.ban/(diff(o.tu,o.den)||1)):'—'}</td><td class="n">${o.coKt?soVN(o.ton_cuoi):'—'}</td></tr>`;
+  const ktTu=ds.reduce((m,o)=>o.tu&&(!m||o.tu<m)?o.tu:m,''), ktDen=ds.reduce((m,o)=>o.den>m?o.den:m,'');
+  return `<section class="card">${h2}
+  <div class="scroll"><table class="so-pivot"><thead><tr><th rowspan="2">Cửa hàng có CTV</th><th class="n" colspan="3">Sell-in (SL) theo thời gian PO giảm giá ${fd(po.bd).slice(0,5)} – ${fd(po.kt).slice(0,5)}</th><th colspan="7">Kiểm tồn của CTV</th></tr>
+  <tr><th class="n">Trước PO</th><th class="n">Trong PO</th><th class="n">Sau PO</th><th>Kỳ đếm</th><th class="n">Trùng đợt chạy</th><th class="n">Tồn đầu</th><th class="n">Nhập (CTV ghi)</th><th class="n">Bán</th><th class="n">Bán / ngày</th><th class="n">Tồn cuối</th></tr></thead>
+  <tbody>${ds.map(o=>dong(esc(o.ten),o)).join('')}${ds.length>1?dong('<b>Cộng các cửa hàng CTV</b>',{...tong,coKt:ds.some(o=>o.coKt),tu:ktTu,den:ktDen,tong:true,bnd:ds.reduce((m,o)=>m+(o.coKt&&o.tu?o.ban/(diff(o.tu,o.den)||1):0),0)},'tong'):''}
+  ${coSi&&ngoai.diem.size?`<tr><td class="muted">Cửa hàng không có CTV (${ngoai.diem.size} điểm nhận)</td>${ngoai.si.map(v=>`<td class="n muted">${soVN(v)}</td>`).join('')}<td colspan="7" class="muted">không có số bán ra</td></tr>`:''}</tbody></table></div>
+  <p class="hint" style="padding:8px 16px 12px">Sell-in = giao vào trừ trả lại theo điểm nhận hàng trong Sổ chi tiết bán hàng, tính trong khoảng 4 tuần trước PO đến 4 tuần sau đợt và chỉ đến hôm qua.${coSi?'':' <b>Chưa có sell-in theo cửa hàng</b>: số này được nạp lại tự động từ các file Sổ chi tiết bán hàng trong vòng 1 giờ sau khi cập nhật.'} Kiểm tồn hiện có ${ktTu?`một lần đếm (${fd(ktTu)} – ${fd(ktDen)})`:'chưa có lần đếm nào'}; muốn so trước / trong / sau đợt cần thêm các file kiểm tồn của CTV vào thư mục “3. Kiểm tồn CTV”.</p></section>`;
+}
+function renderSoHd(a){ return renderSoHdChinh(a) + renderCtv(a); }
+function renderSoHdChinh(a){
   if(!a.kenh || !a.bd || !a.kt) return '';
   const key=[a.kenh,a.nhan,a.bd,a.kt,soNguon.map(n=>n.luc).join()].join('|'), c=soHd[a.id];
   const dau=addDays(a.bd,-35), cuoi=addDays(a.kt,35);

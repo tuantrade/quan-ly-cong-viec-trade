@@ -662,6 +662,14 @@ create table if not exists public.nguon_don_hang (
   diem_nhan text not null default '', so_chung_tu text not null default '', tep text not null default ''
 );
 create index if not exists nguon_don_hang_ngay_idx on public.nguon_don_hang (ngay);
+-- Sell-in theo từng điểm nhận hàng (cửa hàng) của Lotte và GO (giao thẳng từng cửa hàng): để so với kiểm tồn của CTV ở đúng cửa hàng đó
+create table if not exists public.nguon_sellin_ch (
+  id bigint generated always as identity primary key,
+  ngay date not null, he_thong text not null default '', diem_nhan text not null default '', brand text not null default '',
+  ma_hang text not null default '', ten_hang text not null default '',
+  sl_ban numeric not null default 0, sl_tra numeric not null default 0, doanh_so numeric not null default 0, tep text not null default ''
+);
+create index if not exists nguon_sellin_ch_ngay_idx on public.nguon_sellin_ch (ngay);
 -- Co.op: kỳ × SKU Co.op × mã cửa hàng (bỏ dòng toàn số 0)
 create table if not exists public.nguon_coop_ban (
   id bigint generated always as identity primary key,
@@ -712,7 +720,7 @@ create table if not exists public.trang_thai_nguon (
 do $$
 declare bang text;
 begin
-  foreach bang in array array['nguon_sellin','nguon_don_hang','nguon_coop_ban','nguon_coop_ch','nguon_coop_sku','nguon_emart','danh_muc_san_pham','nhat_ky_nap','trang_thai_nguon','bo_so_tinh_san'] loop
+  foreach bang in array array['nguon_sellin','nguon_sellin_ch','nguon_don_hang','nguon_coop_ban','nguon_coop_ch','nguon_coop_sku','nguon_emart','danh_muc_san_pham','nhat_ky_nap','trang_thai_nguon','bo_so_tinh_san'] loop
     execute format('alter table public.%I enable row level security', bang);
     execute format('grant select on public.%I to authenticated', bang);
     execute format('drop policy if exists "thanh_vien_xem" on public.%I', bang);
@@ -811,6 +819,12 @@ create or replace view public.sell_in_ngay with (security_invoker = true) as
 select chuoi, nhan_hang, ngay, sum(so_luong) as so_luong, sum(tra_lai_sl) as tra_lai_sl, sum(doanh_so) as doanh_so
 from public.sell_in group by chuoi, nhan_hang, ngay;
 
+-- Sell-in theo cửa hàng (Lotte, GO), gộp theo ngày × điểm nhận × nhãn
+create or replace view public.sell_in_cua_hang with (security_invoker = true) as
+select public.chuoi_app(he_thong) as chuoi, diem_nhan, case when brand = 'Không theo brand' then '' else brand end as nhan_hang, ngay,
+       sum(sl_ban) as so_luong, sum(sl_tra) as tra_lai_sl, sum(doanh_so) as doanh_so
+from public.nguon_sellin_ch group by 1, 2, 3, 4;
+
 create or replace view public.dong_bo_so_ban with (security_invoker = true) as
 select nguon, ten, mo_ta, so_dong, nguon_cap_nhat, luc from public.trang_thai_nguon;
 
@@ -832,7 +846,7 @@ select 'emart', e.san_pham_goc, e.brand from public.nguon_emart e
 union
 select 'gia:' || g.he_thong, g.ten_bang_gia, g.nhan_hang from public.gia_ban g
   where not exists (select 1 from public.danh_muc_san_pham d where d.nguon = 'gia:' || g.he_thong and d.ten_goc = public.khoa_ten(g.ten_bang_gia));
-grant select on public.sell_in, public.sell_out, public.sell_out_ky_sku, public.sell_out_ky_nhan, public.sell_in_ngay,
+grant select on public.sell_in, public.sell_out, public.sell_out_ky_sku, public.sell_out_ky_nhan, public.sell_in_ngay, public.sell_in_cua_hang,
   public.dong_bo_so_ban, public.ds_coop_sku, public.ds_emart_tuan, public.ten_chua_co_danh_muc to authenticated;
 
 
@@ -868,6 +882,13 @@ begin
            coalesce(x.doanh_so, 0), coalesce(x.chiet_khau, 0), coalesce(x.tra_lai, 0), tep
     from jsonb_to_recordset(du_lieu) as x(ngay date, thang text, he_thong text, brand text, ma_hang text, ten_hang text, dvt text,
          sl_ban numeric, sl_tra numeric, sl_doi numeric, doanh_so numeric, chiet_khau numeric, tra_lai numeric)
+    where x.ngay is not null;
+  elsif loai = 'sellin_ch' then
+    if lam_moi then delete from public.nguon_sellin_ch where ngay between tu and den; end if;
+    insert into public.nguon_sellin_ch (ngay, he_thong, diem_nhan, brand, ma_hang, ten_hang, sl_ban, sl_tra, doanh_so, tep)
+    select x.ngay, coalesce(x.he_thong, ''), coalesce(x.diem_nhan, ''), coalesce(x.brand, ''), coalesce(x.ma_hang, ''), coalesce(x.ten_hang, ''),
+           coalesce(x.sl_ban, 0), coalesce(x.sl_tra, 0), coalesce(x.doanh_so, 0), tep
+    from jsonb_to_recordset(du_lieu) as x(ngay date, he_thong text, diem_nhan text, brand text, ma_hang text, ten_hang text, sl_ban numeric, sl_tra numeric, doanh_so numeric)
     where x.ngay is not null;
   elsif loai = 'don_hang' then
     if lam_moi then delete from public.nguon_don_hang where ngay between tu and den; end if;

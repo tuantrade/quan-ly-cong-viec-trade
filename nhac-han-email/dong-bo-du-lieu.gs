@@ -16,6 +16,8 @@
  *   THU_MUC_DU_LIEU (hàm taoThuMucDuLieu tự điền), EMART_SHEET_ID, GIA_SHEET_ID.
  */
 
+// Đổi phiên bản đọc của một loại file thì các file đã đọc sẽ được đọc lại 1 lần (VD: v2 = sổ bán hàng có thêm số theo cửa hàng Lotte, GO)
+var PHIEN_BAN_DOC = { so_ban_hang: '#v2' };
 var THU_MUC_CON = { '1. Sổ chi tiết bán hàng': 'so_ban_hang', '2. Co.op bán ra – tồn': 'coop', '3. Kiểm tồn CTV': 'kiem_ton' };
 
 /** Chạy 1 lần: tạo thư mục DATA TRADE MT và 3 thư mục con trong Drive của bạn. */
@@ -50,7 +52,7 @@ function dongBoDuLieu() {
         var it = goc.getFoldersByName(tenCon); if (!it.hasNext()) return;
         var tepIt = it.next().getFiles();
         while (tepIt.hasNext()) {
-          var tep = tepIt.next(), ma = tep.getId() + '@' + tep.getLastUpdated().toISOString();
+          var tep = tepIt.next(), ma = tep.getId() + '@' + tep.getLastUpdated().toISOString() + (PHIEN_BAN_DOC[THU_MUC_CON[tenCon]] || '');
           if (daDoc[ma] || /^_tam_/.test(tep.getName())) continue;
           try { napTep_(g, THU_MUC_CON[tenCon], tep, ma); }
           catch (e) { ghiLoi_(g, THU_MUC_CON[tenCon], tep, ma, e.message); }
@@ -112,6 +114,7 @@ function napTep_(g, loai, tep, ma) {
     var n = goiTheoLo_(g, 'sellin', s.sellin, { tu: s.tu, den: s.den, tep: ma, ten_tep: tep.getName(), ten: 'Sell-in (giao vào)',
       mo_ta: 'Sổ chi tiết bán hàng theo ngày × hệ thống × mã hàng; tiền chưa gồm thuế GTGT', nguon_cap_nhat: new Date().toISOString() });
     goiTheoLo_(g, 'don_hang', s.don_hang, { tu: s.tu, den: s.den });
+    goiTheoLo_(g, 'sellin_ch', s.sellin_ch || [], { tu: s.tu, den: s.den });
     console.log('Đã nạp sổ bán hàng ' + s.tu + ' → ' + s.den + ': ' + n + ' dòng (' + tep.getName() + ')');
   } else if (loai === 'coop') {
     var c = docFileCoop(v);

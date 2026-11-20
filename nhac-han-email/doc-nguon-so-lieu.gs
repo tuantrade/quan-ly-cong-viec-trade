@@ -68,6 +68,7 @@ function heThongSo_(nhom, tenKhach) {
     for (var i = 0; i < SYS_TEN.length; i++) if (n.indexOf(SYS_TEN[i][0]) >= 0) return SYS_TEN[i][1];
   return SYS_NHOM[g] || null;
 }
+var HT_THEO_CUA_HANG = ['Lotte Mart', 'GO! / Big C'];
 function docSoBanHang(values) {
   var loi = [], tu = '', den = '';
   for (var r = 0; r < Math.min(6, values.length) && !tu; r++) {
@@ -87,7 +88,7 @@ function docSoBanHang(values) {
   if (!tu) { // không có dòng kỳ: lấy theo ngày chứng từ nhỏ nhất / lớn nhất
     for (var r3 = h + 1; r3 < values.length; r3++) { var d0 = ngay_(values[r3][c.ngay]); if (d0) { if (!tu || d0 < tu) tu = d0; if (!den || d0 > den) den = d0; } }
   }
-  var gom = {}, don = {}, boQua = {}, thieuHT = {}, thieuBR = {};
+  var gom = {}, gomCh = {}, don = {}, boQua = {}, thieuHT = {}, thieuBR = {};
   for (var i = h + 1; i < values.length; i++) {
     var v = values[i], ma = chu_(v[c.ma]); if (!ma) continue;
     var ten = chu_(v[c.ten]), br = brandTheoTen_(ten), dsv = so_(v[c.ds]), tlv = so_(v[c.tl]);
@@ -101,12 +102,18 @@ function docSoBanHang(values) {
       sl_ban: 0, sl_tra: 0, sl_doi: 0, doanh_so: 0, chiet_khau: 0, tra_lai: 0 });
     if (laDoi) o.sl_doi += sl; else o.sl_ban += sl;
     o.sl_tra += so_(v[c.sl_tra]); o.doanh_so += dsv; o.chiet_khau += so_(v[c.ck]); o.tra_lai += tlv;
+    if (HT_THEO_CUA_HANG.indexOf(ht) >= 0 && !laDoi) {   // Lotte, GO giao thẳng từng cửa hàng: giữ thêm số theo điểm nhận hàng
+      var dn = chu_(v[c.dien_giai]), kc = [ngay, ht, dn, br, ma].join('|');
+      var oc = gomCh[kc] || (gomCh[kc] = { ngay: ngay, he_thong: ht, diem_nhan: dn, brand: br, ma_hang: ma, ten_hang: ten, sl_ban: 0, sl_tra: 0, doanh_so: 0 });
+      oc.sl_ban += sl; oc.sl_tra += so_(v[c.sl_tra]); oc.doanh_so += dsv;
+    }
     if (!laBT && !laDoi) { var kd = ngay + '|' + ht + '|' + soCt; if (!don[kd]) don[kd] = { ngay: ngay, thang: ngay.slice(0, 7), he_thong: ht, diem_nhan: chu_(v[c.dien_giai]), so_chung_tu: soCt }; }
   }
   Object.keys(thieuHT).forEach(function (x) { loi.push('CHƯA BIẾT HỆ THỐNG: ' + x); });
   Object.keys(thieuBR).forEach(function (x) { loi.push('CHƯA BIẾT BRAND (có doanh số): ' + x); });
   var sellin = Object.keys(gom).map(function (k) { var o = gom[k]; ['doanh_so', 'chiet_khau', 'tra_lai'].forEach(function (f) { o[f] = Math.round(o[f]); }); return o; });
-  return { tu: tu, den: den, sellin: sellin, don_hang: Object.keys(don).map(function (k) { return don[k]; }), bo_qua: boQua, loi: loi };
+  var sellinCh = Object.keys(gomCh).map(function (k) { var o = gomCh[k]; o.doanh_so = Math.round(o.doanh_so); return o; });
+  return { tu: tu, den: den, sellin: sellin, sellin_ch: sellinCh, don_hang: Object.keys(don).map(function (k) { return don[k]; }), bo_qua: boQua, loi: loi };
 }
 
 // ---------- 2. FILE CO.OP (bán ra – tồn kho) ----------
