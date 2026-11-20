@@ -206,7 +206,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 .cb-dong summary{display:grid;grid-template-columns:auto minmax(9rem,1.3fr) minmax(10rem,1.6fr) 4rem minmax(7rem,1.4fr);gap:10px;align-items:center;padding:8px 12px;cursor:pointer;list-style:none}
 .cb-dong summary::-webkit-details-marker{display:none}.cb-dong[open] summary{border-bottom:1px solid var(--line)}
 .cb-pt{font-weight:700;color:var(--bad);text-align:right}.cb-ct{padding:10px 12px}.cb-ct p{margin:0 0 8px}
-.cb-bang td,.cb-bang th{padding:6px 10px}.cb-bang .n{text-align:right;white-space:nowrap}.cb-am{color:var(--bad)}
+.cb-bang td,.cb-bang th{padding:6px 10px}.cb-bang .cb-ma{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted)}.cb-bang .n{text-align:right;white-space:nowrap}.cb-am{color:var(--bad)}
 @media (max-width:700px){.cb-dong summary{grid-template-columns:auto 1fr auto}.cb-dong summary .cb-so,.cb-dong summary .cb-cl{grid-column:2/-1}}
 .toi-dem{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 16px 12px}
 .toi-dem .pill{font-size:13px;padding:4px 11px}
@@ -579,8 +579,8 @@ function renderCanhBao(){
   const bangMa=(rows,laTien)=>{
     const giam=rows.map(x=>({...x, cl:(+x.nay||0)-(+x.truoc||0)})).filter(x=>x.cl<0).sort((a,b)=>a.cl-b.cl).slice(0,6);
     if(!giam.length) return '<p class="muted">Không có mã nào giảm, phần giảm đến từ mã khác hoặc từ trả hàng.</p>';
-    return `<div class="scroll"><table class="cb-bang"><thead><tr><th>Mã giảm nhiều nhất</th>${laTien?'<th class="n">SL kỳ này</th><th class="n">SL kỳ trước</th><th class="n">DT thuần kỳ này</th><th class="n">DT thuần kỳ trước</th>':'<th class="n">Bán/ngày kỳ này</th><th class="n">Bán/ngày trước</th>'}<th class="n">Chênh lệch</th></tr></thead><tbody>${
-      giam.map(x=>`<tr><td>${esc(x.ten||x.ma)}${(+x.nay||0)<=0?' <span class="pill bad">Không có hàng kỳ này</span>':''}</td>${laTien?`<td class="n">${so0(x.sl_nay)}</td><td class="n">${so0(x.sl_truoc)}</td><td class="n">${tien(+x.nay||0)}</td><td class="n">${tien(+x.truoc||0)}</td><td class="n cb-am">${tien(x.cl)}</td>`:`<td class="n">${so1(x.nay)}</td><td class="n">${so1(x.truoc)}</td><td class="n cb-am">${so1(x.cl)}</td>`}</tr>`).join('')}</tbody></table></div>`;
+    return `<div class="scroll"><table class="cb-bang"><thead><tr><th>Mã hàng</th><th>Tên sản phẩm (giảm nhiều nhất trước)</th>${laTien?'<th class="n">SL kỳ này</th><th class="n">SL kỳ trước</th><th class="n">DT thuần kỳ này</th><th class="n">DT thuần kỳ trước</th>':'<th class="n">Bán/ngày kỳ này</th><th class="n">Bán/ngày trước</th>'}<th class="n">Chênh lệch</th></tr></thead><tbody>${
+      giam.map(x=>`<tr><td class="cb-ma">${x.ma&&x.ma!==x.ten?esc(x.ma):'–'}</td><td>${esc(x.ten||x.ma)}${(+x.nay||0)<=0?' <span class="pill bad">Không có hàng kỳ này</span>':''}</td>${laTien?`<td class="n">${so0(x.sl_nay)}</td><td class="n">${so0(x.sl_truoc)}</td><td class="n">${tien(+x.nay||0)}</td><td class="n">${tien(+x.truoc||0)}</td><td class="n cb-am">${tien(x.cl)}</td>`:`<td class="n">${so1(x.nay)}</td><td class="n">${so1(x.truoc)}</td><td class="n cb-am">${so1(x.cl)}</td>`}</tr>`).join('')}</tbody></table></div>`;
   };
   const dongSi=r=>{
     const [md,cls]=mucDo(+r.thay_doi), don=canhBaoCt.find(x=>x.loai==='don' && x.chuoi===r.chuoi);
