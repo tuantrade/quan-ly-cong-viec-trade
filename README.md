@@ -112,6 +112,7 @@ Lấy từ sheet *CẬP NHẬT CTKM KÊNH MT 2026* (cột “Thời gian giảm 
 | WinMart | 17 ngày trước ngày chạy | cùng ngày kết thúc |
 
 - App dùng quy tắc này để: hiện ô **PO giảm giá** ở hoạt động và Lịch post; thêm mốc **Bắt đầu PO giảm giá** vào bảng mốc 30 ngày tới; tính **sell-in theo thời gian PO** (trước / trong / sau) trong bảng số bán. **Bán ra** vẫn tính theo ngày chạy.
+- **Lotte và GO, cửa hàng có CTV:** số bán ra của hai hệ thống này chỉ có ở cửa hàng có CTV kiểm tồn, và hàng giao thẳng từng cửa hàng. Vì vậy bảng số bán có thêm phần **Ở các cửa hàng có CTV**: sell-in theo từng cửa hàng CTV (trước / trong / sau thời gian PO giảm giá) đặt cạnh số kiểm tồn của CTV (tồn đầu, nhập, bán, tồn cuối) ở đúng cửa hàng đó. Không suy ra cho cả hệ thống. Sell-in theo cửa hàng lấy từ cột “Diễn giải chung” (điểm nhận hàng) trong Sổ chi tiết bán hàng, bảng `nguon_sellin_ch`, view `sell_in_cua_hang`.
 - Kỳ đặc biệt có thể lệch quy tắc (ví dụ Lotte 2701 dịp Tết PO sớm 20 ngày). Đổi số ngày: sửa bảng `PO_HT` trong `index.html`.
 
 ## Trang Tổng quan: Việc của tôi và mốc Lịch post
