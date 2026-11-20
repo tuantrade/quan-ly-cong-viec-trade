@@ -17,7 +17,7 @@
  */
 
 // Đổi phiên bản đọc của một loại file thì các file đã đọc sẽ được đọc lại 1 lần (VD: v2 = sổ bán hàng có thêm số theo cửa hàng Lotte, GO)
-var PHIEN_BAN_DOC = { so_ban_hang: '#v2' };
+var PHIEN_BAN_DOC = { so_ban_hang: '#v2', coop: '#v2' };
 var THU_MUC_CON = { '1. Sổ chi tiết bán hàng': 'so_ban_hang', '2. Co.op bán ra – tồn': 'coop', '3. Kiểm tồn CTV': 'kiem_ton' };
 
 /** Chạy 1 lần: tạo thư mục DATA TRADE MT và 3 thư mục con trong Drive của bạn. */
@@ -117,7 +117,7 @@ function napTep_(g, loai, tep, ma) {
     goiTheoLo_(g, 'sellin_ch', s.sellin_ch || [], { tu: s.tu, den: s.den });
     console.log('Đã nạp sổ bán hàng ' + s.tu + ' → ' + s.den + ': ' + n + ' dòng (' + tep.getName() + ')');
   } else if (loai === 'coop') {
-    var c = docFileCoop(v);
+    var c = docFileCoop(v, tep.getName());
     if (c.loi.length && !c.coop_ban.length) throw new Error(c.loi.join(' | '));
     goi_(g, 'coop_sku', c.coop_sku, {}); goi_(g, 'coop_ch', c.coop_ch, {});
     var m = goiTheoLo_(g, 'coop_ban', c.coop_ban, { ky: c.ky, tep: ma, ten_tep: tep.getName(), ten: 'Co.op bán ra',

@@ -118,13 +118,17 @@ function docSoBanHang(values) {
 
 // ---------- 2. FILE CO.OP (bán ra – tồn kho) ----------
 var LOAI_CH_COOP = { CM: 'Co.opMart', CF: 'Co.op Food', Xtra: 'Co.op Xtra', FL: 'Finelife' };
-function docFileCoop(values) {
+function docFileCoop(values, tenTep) {
   var loi = [], tu = '', den = '';
   for (var r = 0; r < 3 && !tu; r++) {
     var m = chu_(values[r] && values[r][0]).match(/từ ngày (\d\d\/\d\d\/\d{4}) đến ngày (\d\d\/\d\d\/\d{4})/i);
     if (m) { tu = ngay_(m[1]); den = ngay_(m[2]); }
   }
-  if (!tu) return { loi: ['Không thấy dòng “Doanh số bán từ ngày … đến ngày …” ở đầu file'], coop_ban: [] };
+  if (!tu) { // file không có dòng kỳ (VD Coop_ban-ra-ton_2026-08.xlsx): lấy tháng trong tên file, tính cả tháng
+    var mt = String(tenTep || '').match(/(20\d\d)[-_.](\d\d)(?!\d)/);
+    if (mt) { tu = mt[1] + '-' + mt[2] + '-01'; den = cuoiThang_(tu.slice(0, 7)); }
+  }
+  if (!tu) return { loi: ['Không thấy dòng “Doanh số bán từ ngày … đến ngày …” ở đầu file, tên file cũng không có tháng (VD 2026-08)'], coop_ban: [] };
   var h = -1; for (var r2 = 0; r2 < 6 && h < 0; r2++) if (timCot_(values[r2] || [], /^SKU$/i) >= 0 && timCot_(values[r2], /^MaST$/i) >= 0) h = r2;
   if (h < 0) return { loi: ['Không thấy dòng tiêu đề có cột SKU, MaST'], coop_ban: [] };
   var H = values[h], c = { sku: timCot_(H, /^SKU$/i), ten: timCot_(H, /^TenHang$/i), mast: timCot_(H, /^MaST$/i), tenst: timCot_(H, /^TenST$/i),
