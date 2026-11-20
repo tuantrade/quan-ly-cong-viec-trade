@@ -190,6 +190,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .sv-table .l{text-align:left}
 .sv-table td.l{white-space:normal;min-width:12rem}
 #t-wil td:last-child{min-width:0;max-width:26rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}   /* Ghi chú dài: 1 dòng, rê chuột xem đủ */
+#t-wil th[data-field="do_tin_cay"], #t-wil td:nth-child(7){display:none}   /* ẩn cột Độ tin cậy theo yêu cầu (vẫn lọc được bằng ô Độ tin cậy) */
 .sv-search{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-bg);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);max-width:20rem;width:100%}
 .sv-foot{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);display:flex;flex-direction:column;gap:var(--cds-gap-xs);margin:0;padding-left:1.1rem}
 .sv-tabs{display:flex;flex-wrap:wrap;gap:var(--cds-gap-xs);border-bottom:1px solid var(--color-border-line)}
