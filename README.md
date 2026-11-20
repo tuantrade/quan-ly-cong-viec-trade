@@ -112,7 +112,7 @@ Lấy từ sheet *CẬP NHẬT CTKM KÊNH MT 2026* (cột “Thời gian giảm 
 | WinMart | 17 ngày trước ngày chạy | cùng ngày kết thúc |
 
 - App dùng quy tắc này để: hiện ô **PO giảm giá** ở hoạt động và Lịch post; thêm mốc **Bắt đầu PO giảm giá** vào bảng mốc 30 ngày tới; tính **sell-in theo thời gian PO** (trước / trong / sau) trong bảng số bán. **Bán ra** vẫn tính theo ngày chạy.
-- Kỳ đặc biệt có thể lệch quy tắc (ví dụ Lotte 2701 dịp Tết PO sớm 20 ngày). Đổi số ngày: sửa bảng  trong .
+- Kỳ đặc biệt có thể lệch quy tắc (ví dụ Lotte 2701 dịp Tết PO sớm 20 ngày). Đổi số ngày: sửa bảng `PO_HT` trong `index.html`.
 
 ## Trang Tổng quan: Việc của tôi và mốc Lịch post
 - Khung **Việc của tôi** ở đầu trang: việc của người đang đăng nhập bị trễ, hạn hôm nay, đến hạn trong 7 ngày, và bước đang chờ mình duyệt; bấm thẳng **Đánh dấu xong / Duyệt** tại đây. Kèm số ngày còn lại đến Mùng 1 Tết Đinh Mùi (06/02/2027).
