@@ -227,7 +227,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 
   <section class="sv-kpis" id="chi-so">
     <div class="sv-card"><span class="sv-kpi-label">Doanh thu thuần</span><span class="sv-kpi-val dash-skeleton" id="k-thuan" data-source="tong_quan" data-field="thuan">—</span><span class="sv-kpi-sub" id="k-thuan-sub">—</span></div>
-    <div class="sv-card"><span class="sv-kpi-label">Doanh số bán (trước chiết khấu, trả lại)</span><span class="sv-kpi-val dash-skeleton" id="k-ds" data-source="tong_quan" data-field="doanh_so">—</span><span class="sv-kpi-sub" id="k-ds-sub">—</span></div>
+    <div class="sv-card"><span class="sv-kpi-label">Doanh số bán (đã trừ hàng trả lại, chưa trừ chiết khấu)</span><span class="sv-kpi-val dash-skeleton" id="k-ds" data-source="tong_quan" data-field="doanh_so">—</span><span class="sv-kpi-sub" id="k-ds-sub">—</span></div>
     <div class="sv-card"><span class="sv-kpi-label">Hàng trả lại</span><span class="sv-kpi-val dash-skeleton" id="k-tra" data-source="tong_quan" data-field="tra_lai">—</span><span class="sv-kpi-sub" id="k-tra-sub">—</span></div>
     <div class="sv-card"><span class="sv-kpi-label">Số đơn hàng</span><span class="sv-kpi-val dash-skeleton" id="k-don" data-source="tong_quan" data-field="so_don">—</span><span class="sv-kpi-sub">Chứng từ bán có doanh số</span></div>
     <div class="sv-card"><span class="sv-kpi-label">Số điểm nhận hàng</span><span class="sv-kpi-val dash-skeleton" id="k-diem" data-source="tong_quan" data-field="so_diem">—</span><span class="sv-kpi-sub">Siêu thị, cửa hàng hoặc kho có đơn</span></div>
@@ -1003,7 +1003,7 @@ function drawSellIn() {
   const w = 'thang=' + enc(m);
   drawMonths(document.getElementById('c-thang'), tq.data, m);
   mark(setText('k-thuan', ty(r.thuan)), 'tong_quan', 'thuan', w);
-  mark(setText('k-ds', ty(r.doanh_so)), 'tong_quan', 'doanh_so', w);
+  mark(setText('k-ds', ty(r.doanh_so - r.tra_lai)), 'tong_quan', 'doanh_so', w);
   mark(setText('k-tra', ty(r.tra_lai)), 'tong_quan', 'tra_lai', w);
   mark(setText('k-don', vi(r.so_don)), 'tong_quan', 'so_don', w);
   mark(setText('k-diem', vi(r.so_diem)), 'tong_quan', 'so_diem', w);

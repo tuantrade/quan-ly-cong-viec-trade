@@ -818,13 +818,14 @@ select chuoi, nhan_hang, ky, tu_ngay, den_ngay,
 from public.sell_out group by chuoi, nhan_hang, ky, tu_ngay, den_ngay;
 
 create or replace view public.sell_in_ngay with (security_invoker = true) as
-select chuoi, nhan_hang, ngay, sum(so_luong) as so_luong, sum(tra_lai_sl) as tra_lai_sl, sum(doanh_so) as doanh_so
+-- doanh_so: đã trừ giá trị hàng trả lại (chưa trừ chiết khấu)
+select chuoi, nhan_hang, ngay, sum(so_luong) as so_luong, sum(tra_lai_sl) as tra_lai_sl, sum(doanh_so - tra_lai) as doanh_so
 from public.sell_in group by chuoi, nhan_hang, ngay;
 
 -- Sell-in theo cửa hàng (Lotte, GO), gộp theo ngày × điểm nhận × nhãn
 create or replace view public.sell_in_cua_hang with (security_invoker = true) as
 select public.chuoi_app(he_thong) as chuoi, diem_nhan, case when brand = 'Không theo brand' then '' else brand end as nhan_hang, ngay,
-       sum(sl_ban) as so_luong, sum(sl_tra) as tra_lai_sl, sum(doanh_so) as doanh_so
+       sum(sl_ban) as so_luong, sum(sl_tra) as tra_lai_sl, sum(doanh_so - tra_lai) as doanh_so   -- đã trừ hàng trả lại
 from public.nguon_sellin_ch group by 1, 2, 3, 4;
 
 create or replace view public.dong_bo_so_ban with (security_invoker = true) as
