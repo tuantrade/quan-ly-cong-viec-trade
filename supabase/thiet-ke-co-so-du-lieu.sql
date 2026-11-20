@@ -1072,3 +1072,46 @@ select 'sell_out', chuoi, nhan_hang, tu_ngay, den_ngay, tu_truoc, den_truoc, nay
        case when truoc > 0 then nay / truoc - 1 end
 from so2;
 grant select on public.canh_bao_ban_nhap to authenticated;
+
+-- Chi tiết cho cảnh báo sụt giảm: cùng cách chia kỳ như canh_bao_ban_nhap
+--   loai 'sell_in'  : từng mã hàng (doanh thu thuần, số lượng thuần)
+--   loai 'sell_out' : từng mã (bình quân 1 ngày kỳ mới nhất / bình quân 3 kỳ trước)
+--   loai 'don'      : số đơn và số điểm nhận hàng sell-in của cả hệ thống (nhan_hang rỗng)
+create or replace view public.canh_bao_chi_tiet with (security_invoker = true) as
+with mi as (select max(ngay) as d from public.nguon_sellin),
+k as (select date_trunc('month', d)::date as dau, d as cuoi, (date_trunc('month', d) - interval '1 month')::date as dau_t from mi),
+k2 as (select dau, cuoi, dau_t, least(dau_t + (cuoi - dau), dau - 1) as cuoi_t from k),
+si as (
+  select coalesce(nullif(public.chuoi_app(s.he_thong), ''), s.he_thong) as chuoi, s.brand as nhan_hang, s.ma_hang as ma, max(s.ten_hang) as ten,
+         sum(case when s.ngay between k2.dau and k2.cuoi then s.doanh_so - s.chiet_khau - s.tra_lai else 0 end) as nay,
+         sum(case when s.ngay between k2.dau_t and k2.cuoi_t then s.doanh_so - s.chiet_khau - s.tra_lai else 0 end) as truoc,
+         sum(case when s.ngay between k2.dau and k2.cuoi then s.sl_ban - s.sl_tra else 0 end) as sl_nay,
+         sum(case when s.ngay between k2.dau_t and k2.cuoi_t then s.sl_ban - s.sl_tra else 0 end) as sl_truoc
+  from public.nguon_sellin s cross join k2
+  where s.ngay >= k2.dau_t and s.brand <> 'Không theo brand'
+  group by 1, 2, 3),
+don as (
+  select coalesce(nullif(public.chuoi_app(d.he_thong), ''), d.he_thong) as chuoi,
+         count(distinct d.so_chung_tu) filter (where d.ngay between k2.dau and k2.cuoi) as nay,
+         count(distinct d.so_chung_tu) filter (where d.ngay between k2.dau_t and k2.cuoi_t) as truoc,
+         count(distinct d.he_thong || '|' || d.diem_nhan) filter (where d.ngay between k2.dau and k2.cuoi) as sl_nay,
+         count(distinct d.he_thong || '|' || d.diem_nhan) filter (where d.ngay between k2.dau_t and k2.cuoi_t) as sl_truoc
+  from public.nguon_don_hang d cross join k2
+  where d.ngay >= k2.dau_t
+  group by 1),
+so as (
+  select chuoi, nhan_hang, ma_sku, ten_sku, tu_ngay, so_luong::numeric / (den_ngay - tu_ngay + 1) as bq,
+         dense_rank() over (partition by chuoi order by tu_ngay desc) as stt
+  from public.sell_out_ky_sku
+  where nhan_hang <> '' and den_ngay <= (now() at time zone 'Asia/Ho_Chi_Minh')::date),
+so2 as (
+  select chuoi, nhan_hang, ma_sku as ma, max(ten_sku) as ten,
+         coalesce(sum(bq) filter (where stt = 1), 0) as nay,
+         coalesce(sum(bq) filter (where stt between 2 and 4), 0) / nullif(least(max(stt_max) - 1, 3), 0) as truoc   -- mã không bán ở kỳ nào thì kỳ đó tính 0
+  from (select so.*, max(stt) over (partition by chuoi) as stt_max from so) so group by 1, 2, 3)
+select 'sell_in'::text as loai, chuoi, nhan_hang, ma, ten, nay, truoc, sl_nay, sl_truoc from si
+union all
+select 'don', chuoi, '', '', '', nay, truoc, sl_nay, sl_truoc from don
+union all
+select 'sell_out', chuoi, nhan_hang, ma, ten, nay, truoc, null, null from so2;
+grant select on public.canh_bao_chi_tiet to authenticated;

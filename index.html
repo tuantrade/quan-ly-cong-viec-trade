@@ -201,7 +201,13 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 .toi{border-color:var(--accent)}
 .cb-luoi{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:12px 24px;padding:0 16px 14px}
 .cb-khoi h3{font-size:14px;margin:0 0 6px}.cb-khoi h3 a{color:inherit}
-.cb-khoi ul{margin:0;padding-left:18px;display:grid;gap:4px}.cb-khoi .muted{color:var(--muted);font-size:13px}
+.cb-khoi{padding:0 16px 14px}.cb-khoi>p.muted{margin:0 0 8px}.cb .muted{color:var(--muted);font-size:13px}
+.cb-dong{border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--surface)}
+.cb-dong summary{display:grid;grid-template-columns:auto minmax(9rem,1.3fr) minmax(10rem,1.6fr) 4rem minmax(7rem,1.4fr);gap:10px;align-items:center;padding:8px 12px;cursor:pointer;list-style:none}
+.cb-dong summary::-webkit-details-marker{display:none}.cb-dong[open] summary{border-bottom:1px solid var(--line)}
+.cb-pt{font-weight:700;color:var(--bad);text-align:right}.cb-ct{padding:10px 12px}.cb-ct p{margin:0 0 8px}
+.cb-bang td,.cb-bang th{padding:6px 10px}.cb-bang .n{text-align:right;white-space:nowrap}.cb-am{color:var(--bad)}
+@media (max-width:700px){.cb-dong summary{grid-template-columns:auto 1fr auto}.cb-dong summary .cb-so,.cb-dong summary .cb-cl{grid-column:2/-1}}
 .toi-dem{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 16px 12px}
 .toi-dem .pill{font-size:13px;padding:4px 11px}
 .toi-dem .link{margin-left:auto;font-size:13px}
@@ -250,7 +256,7 @@ const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh'
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
 let giaBan = [], giaLoc = {ht:'', nhan:''};
 let soNguon = [], soHd = {};
-let canhBao = [];   // cảnh báo sụt giảm sức nhập (sell-in) / sức bán (sell-out), từ view canh_bao_ban_nhap
+let canhBao = [], canhBaoCt = [];   // cảnh báo sụt giảm sức nhập (sell-in) / sức bán (sell-out), từ view canh_bao_ban_nhap
 let lich27 = [];   // Lịch post 2027 (4 hệ thống MT), đọc từ bo_so_tinh_san
 let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tu:'', soThang:'3'};
 let loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
@@ -361,7 +367,8 @@ async function loadAll(){
   try{ const r=await sb.from('dong_bo_so_ban').select('*'); if(r.error) throw r.error;
     const moi=JSON.stringify(r.data||[]); if(moi!==JSON.stringify(soNguon)){ soHd={}; } soNguon=r.data||[]; }
   catch(e){ console.warn('Chưa đọc được số bán', e); soNguon=[]; }
-  try{ const r=await sb.from('canh_bao_ban_nhap').select('*'); if(r.error) throw r.error; canhBao=r.data||[]; }
+  try{ const r=await sb.from('canh_bao_ban_nhap').select('*'); if(r.error) throw r.error; canhBao=r.data||[];
+    const c=await sb.from('canh_bao_chi_tiet').select('*'); canhBaoCt=c.error?[]:(c.data||[]); }
   catch(e){ console.warn('Chưa đọc được cảnh báo sụt giảm', e); canhBao=[]; }
   try{ // bảng giá: thành viên đọc bảng đầy đủ; khách chỉ đọc bảng công khai (không có giá vốn, lãi gộp)
     let r = laKhach() ? {error:{}} : await sb.from('gia_ban').select('*');
@@ -552,22 +559,46 @@ function mocSapToi(t, n){
     if(po && po.bd>=t && po.bd<=den) ds.push({ngay:po.bd, loai:'Bắt đầu PO giảm giá', ht:x.chuoi||'', nd, tu:x.ngay_bat_dau, den:x.ngay_ket_thuc, hd, lp:x.id}); });
   return ds.sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.ht.localeCompare(b.ht,'vi'));
 }
-/* Cảnh báo sụt giảm: chỉ báo khi giảm từ CB_GIAM trở lên và kỳ so sánh đủ lớn (tránh báo nhiễu ở chỗ bán quá ít) */
+/* Cảnh báo sụt giảm: chỉ báo khi giảm từ CB_GIAM trở lên và kỳ so sánh đủ lớn (tránh báo nhiễu ở chỗ bán quá ít).
+   Mức độ: Nặng (giảm từ 50%), Vừa (30–50%), Nhẹ (20–30%). Bấm từng dòng để xem số đơn và các mã giảm nhiều nhất (view canh_bao_chi_tiet). */
 const CB_GIAM=-0.2, CB_SI_TOI_THIEU=5e6, CB_SO_TOI_THIEU=5;
 function renderCanhBao(){
   if(!canhBao.length) return '';
   const ngan=d=>{ const x=String(d||'').slice(0,10); return x? +x.slice(8)+'/'+ +x.slice(5,7):''; };
-  const kyTxt=r=>r.tu_truoc?`${ngan(r.tu_ngay)}–${ngan(r.den_ngay)} so với ${r.loai==='sell_in'?'':'bình quân '}${ngan(r.tu_truoc)}–${ngan(r.den_truoc)}`:'';
   const tien=v=>Math.abs(v)>=1e6?(v/1e6).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tr':Math.round(v).toLocaleString('vi-VN')+'đ';
-  const so1=v=>(+v).toLocaleString('vi-VN',{maximumFractionDigits:1});
+  const so1=v=>v==null?'–':(+v).toLocaleString('vi-VN',{maximumFractionDigits:1});
+  const so0=v=>v==null?'–':Math.round(+v).toLocaleString('vi-VN');
+  const pt=v=>(v>0?'+':'')+Math.round(v*100)+'%';
+  const mucDo=v=>v<=-0.5?['Nặng','bad']:v<=-0.3?['Vừa','warn']:['Nhẹ','neutral'];
   const ds=(loai,min)=>canhBao.filter(r=>r.loai===loai && r.thay_doi!=null && +r.thay_doi<=CB_GIAM && +r.truoc>=min).sort((a,b)=>a.thay_doi-b.thay_doi);
   const si=ds('sell_in',CB_SI_TOI_THIEU), so=ds('sell_out',CB_SO_TOI_THIEU);
-  const dong=(r,gt)=>`<li><b>${esc(r.chuoi)} · ${esc(r.nhan_hang)}</b> <span class="pill bad">${Math.round(r.thay_doi*100)}%</span> <span class="muted">${gt} · ${kyTxt(r)}</span></li>`;
-  const khoi=(ten,link,rows,gt,trong)=>`<div class="cb-khoi"><h3><a href="${link}">${ten}</a></h3>${rows.length?`<ul>${rows.map(r=>dong(r,gt(r))).join('')}</ul>`:`<p class="muted">${trong}</p>`}</div>`;
-  const r0=canhBao.find(r=>r.loai==='sell_in');
-  return `<section class="card cb"><div class="card-h"><h2>Cảnh báo sụt giảm</h2><p>Hệ thống × brand giảm từ ${Math.round(-CB_GIAM*100)}% trở lên. Sức nhập: doanh thu thuần sell-in từ đầu tháng so với cùng các ngày tháng trước (bỏ qua chỗ tháng trước dưới ${tien(CB_SI_TOI_THIEU)}). Sức bán: bình quân 1 ngày của kỳ bán ra mới nhất đã kết thúc so với bình quân 3 kỳ trước (bỏ qua chỗ dưới ${CB_SO_TOI_THIEU} sản phẩm/ngày).</p></div>
-  <div class="cb-luoi">${khoi('Sức nhập (sell-in)','#bc-sell-in',si,r=>`${tien(+r.nay)} (trước ${tien(+r.truoc)})`,'Không hệ thống nào giảm'+(r0?` (${kyTxt(r0)})`:''))}
-  ${khoi('Sức bán (sell-out)','#bc-sell-out',so,r=>`${so1(r.nay)} sp/ngày (trước ${so1(r.truoc)})`,'Không hệ thống nào giảm (Co.op, Emart)')}</div></section>`;
+  const r0=canhBao.find(r=>r.loai==='sell_in'), r1=canhBao.find(r=>r.loai==='sell_out');
+  const ky=r=>r?`${ngan(r.tu_ngay)}–${ngan(r.den_ngay)}`:'', kyT=r=>r&&r.tu_truoc?`${ngan(r.tu_truoc)}–${ngan(r.den_truoc)}`:'';
+  const ct=(loai,r)=>canhBaoCt.filter(x=>x.loai===loai && x.chuoi===r.chuoi && x.nhan_hang===r.nhan_hang);
+  const bangMa=(rows,laTien)=>{
+    const giam=rows.map(x=>({...x, cl:(+x.nay||0)-(+x.truoc||0)})).filter(x=>x.cl<0).sort((a,b)=>a.cl-b.cl).slice(0,6);
+    if(!giam.length) return '<p class="muted">Không có mã nào giảm, phần giảm đến từ mã khác hoặc từ trả hàng.</p>';
+    return `<div class="scroll"><table class="cb-bang"><thead><tr><th>Mã giảm nhiều nhất</th>${laTien?'<th class="n">SL kỳ này</th><th class="n">SL kỳ trước</th><th class="n">DT thuần kỳ này</th><th class="n">DT thuần kỳ trước</th>':'<th class="n">Bán/ngày kỳ này</th><th class="n">Bán/ngày trước</th>'}<th class="n">Chênh lệch</th></tr></thead><tbody>${
+      giam.map(x=>`<tr><td>${esc(x.ten||x.ma)}${(+x.nay||0)<=0?' <span class="pill bad">Không có hàng kỳ này</span>':''}</td>${laTien?`<td class="n">${so0(x.sl_nay)}</td><td class="n">${so0(x.sl_truoc)}</td><td class="n">${tien(+x.nay||0)}</td><td class="n">${tien(+x.truoc||0)}</td><td class="n cb-am">${tien(x.cl)}</td>`:`<td class="n">${so1(x.nay)}</td><td class="n">${so1(x.truoc)}</td><td class="n cb-am">${so1(x.cl)}</td>`}</tr>`).join('')}</tbody></table></div>`;
+  };
+  const dongSi=r=>{
+    const [md,cls]=mucDo(+r.thay_doi), don=canhBaoCt.find(x=>x.loai==='don' && x.chuoi===r.chuoi);
+    const donTxt=don?`Số đơn của cả ${esc(r.chuoi)} (mọi brand): <b>${so0(don.nay)}</b> đơn, tháng trước cùng kỳ ${so0(don.truoc)} đơn · điểm nhận hàng có đơn: ${so0(don.sl_nay)} (trước ${so0(don.sl_truoc)}).`:'';
+    return `<details class="cb-dong"><summary><span class="pill ${cls}">${md}</span><b>${esc(r.chuoi)} · ${esc(r.nhan_hang)}</b><span class="cb-so">${tien(+r.nay)} <span class="muted">so với ${tien(+r.truoc)}</span></span><span class="cb-pt">${pt(+r.thay_doi)}</span><span class="muted cb-cl">${tien(+r.nay-+r.truoc)}</span></summary>
+      <div class="cb-ct">${donTxt?`<p>${donTxt}</p>`:''}${bangMa(ct('sell_in',r),true)}<p><a href="#bc-sell-in">Xem Sell-in trong báo cáo →</a></p></div></details>`;
+  };
+  const dongSo=r=>{
+    const [md,cls]=mucDo(+r.thay_doi);
+    return `<details class="cb-dong"><summary><span class="pill ${cls}">${md}</span><b>${esc(r.chuoi)} · ${esc(r.nhan_hang)}</b><span class="cb-so">${so1(r.nay)} sp/ngày <span class="muted">so với ${so1(r.truoc)}</span></span><span class="cb-pt">${pt(+r.thay_doi)}</span><span class="muted cb-cl">${ky(r)} so với bq ${kyT(r)}</span></summary>
+      <div class="cb-ct">${bangMa(ct('sell_out',r),false)}<p><a href="#bc-sell-out">Xem Sell-out trong báo cáo →</a></p></div></details>`;
+  };
+  const dem=rows=>{ const n=k=>rows.filter(r=>mucDo(+r.thay_doi)[0]===k).length; return rows.length?`${rows.length} chỗ giảm: ${n('Nặng')} nặng, ${n('Vừa')} vừa, ${n('Nhẹ')} nhẹ`:'Không chỗ nào giảm từ 20%'; };
+  const tongSi=si.reduce((a,r)=>a+(+r.nay-+r.truoc),0);
+  return `<section class="card cb"><div class="card-h"><h2>Cảnh báo sụt giảm</h2><p>Hệ thống × brand giảm từ ${Math.round(-CB_GIAM*100)}% trở lên. Mức độ: <span class="pill bad">Nặng</span> giảm từ 50% · <span class="pill warn">Vừa</span> 30–50% · <span class="pill neutral">Nhẹ</span> 20–30%. Bấm từng dòng để xem số đơn và mã nào giảm.</p></div>
+  <div class="cb-khoi"><h3>Sức nhập (sell-in) · ${ky(r0)} so với ${kyT(r0)}</h3><p class="muted">Doanh thu thuần TVP giao vào (đã trừ chiết khấu, hàng trả lại), từ đầu tháng đến ngày cuối có số, so với cùng các ngày tháng trước. Bỏ qua chỗ tháng trước dưới ${tien(CB_SI_TOI_THIEU)}. ${dem(si)}${si.length?`, tổng hụt ${tien(-tongSi)}`:''}.</p>
+    ${si.map(dongSi).join('')}</div>
+  <div class="cb-khoi"><h3>Sức bán (sell-out)</h3><p class="muted">Bình quân sản phẩm bán ra 1 ngày tại quầy của kỳ mới nhất đã kết thúc, so với bình quân 3 kỳ trước. Hiện có số Co.op, Emart. Bỏ qua chỗ dưới ${CB_SO_TOI_THIEU} sản phẩm/ngày. ${dem(so)}.</p>
+    ${so.map(dongSo).join('')}</div></section>`;
 }
 function renderToi(){
   const t=todayStr(), in7=addDays(t,7), ten=laKhach()?'':(me()?.ho_ten||''), conTet=diff(t,TET_2027);
