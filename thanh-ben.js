@@ -4,6 +4,16 @@
  * Màn hình rộng: thanh cố định bên trái. Điện thoại: nút "☰" mở thanh trượt ra.
  * App (index.html) tự bật/tắt thanh theo đăng nhập (lớp co-thanh-ben trên body); các trang báo cáo luôn hiện. */
 (function () {
+  // Trang báo cáo đang mở trong khung của app: không vẽ thanh riêng, ẩn hàng tab và đầu trang trùng với app
+  var trongApp = false; try { trongApp = window.self !== window.top; } catch (e) { trongApp = true; }
+  if (trongApp) {
+    var s0 = document.createElement('style');
+    var nen = ''; try { nen = window.top.getComputedStyle(window.top.document.body).backgroundColor; } catch (e) {}   // cùng màu nền với app (nền trong suốt bị trình duyệt tô sáng khi khác chế độ màu)
+    s0.textContent = (nen ? 'html,body{background:' + nen + '!important}' : '') + '.sv-tabs{display:none!important}.bc-top img,.bc-top a[href="./#tong-quan"],#bc-ai{display:none!important}.bc-top{border:0!important;background:transparent!important;padding:2px 4px!important}';
+    document.head.appendChild(s0);
+    document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a[href^="./"]'); if (a) { e.preventDefault(); window.top.location.href = a.href; } });   // link về app: mở ở cửa sổ ngoài
+    return;
+  }
   var duong = location.pathname.split('/').pop() || 'index.html';
   var TRANG = /bao-cao-mt\.html$/.test(duong) ? 'bao-cao' : /lich-post-2027\.html$/.test(duong) ? 'lich-2027' : 'app';
   var MAC_DINH = { app: 'tong-quan', 'bao-cao': 'sell-in', 'lich-2027': '' };
@@ -67,8 +77,13 @@
     NHOM.map(function (g, i) {
       return (i ? '<div class="tb-ke"></div>' : '') + '<div class="tb-nhom">' + g.ten + '</div>' +
         g.muc.map(function (m) {
-          var href = (m.trang === TRANG && m.v) ? '#' + m.v : m.href;   // mục cùng trang: chỉ đổi phần #, không tải lại trang
-          return '<a class="tb-muc" href="' + href + '" data-trang="' + m.trang + '" data-muc="' + m.v + '"' + (m.trang === 'app' ? ' data-v="' + m.v + '"' : '') + '>' + m.ten + '</a>';
+          // Mục báo cáo: mở trong app (#bc-...), trừ khi đang ở chính trang bao-cao-mt.html mở riêng
+          var t = m.trang, v = m.v, href;
+          if (t === 'bao-cao' && TRANG !== 'bao-cao') { t = 'app'; v = 'bc-' + m.v; }
+          if (t === TRANG && v) href = '#' + v;            // mục cùng trang: chỉ đổi phần #, không tải lại trang
+          else if (t === 'app') href = './#' + v;
+          else href = m.href;
+          return '<a class="tb-muc" href="' + href + '" data-trang="' + t + '" data-muc="' + v + '"' + (t === 'app' ? ' data-v="' + v + '"' : '') + '>' + m.ten + '</a>';
         }).join('');
     }).join('') + '</nav>';
   document.body.insertAdjacentHTML('afterbegin', html);
