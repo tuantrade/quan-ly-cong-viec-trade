@@ -341,6 +341,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
         <label class="sv-filter" for="so-br">Brand
           <select id="so-br" data-source="so_ky"></select>
         </label>
+        <label class="sv-filter" for="so-kv">Khu vực
+          <select id="so-kv"><option value="">Tất cả</option><option value="HCM">HCM</option><option value="Tỉnh">Tỉnh</option></select>
+        </label>
       </div>
     </header>
 
@@ -816,7 +819,11 @@ const gEl = document.getElementById('g-ht');
 let gHt = ''; try { gHt = localStorage.getItem('bcLocHeThong') || ''; } catch (e) {}
 const hopLoc = (h) => !gHt || nhomHt(h) === gHt;
 const LOC_SELLIN = ['tong_quan', 'he_thong', 'brand', 'ngay', 'sku'];   // các phép tính của trang Sell-in
-dash.locVao = (calcId, inputId, data) => (gHt && LOC_SELLIN.includes(calcId) && (inputId === 'sellin' || inputId === 'don_hang') ? data.filter((r) => hopLoc(r.he_thong)) : data);
+let soKv = '';   // lọc khu vực trang Sell-out: '' | 'HCM' | 'Tỉnh'
+dash.locVao = (calcId, inputId, data) => {
+  if (soKv && inputId === 'so_rows' && ['so_ky', 'so_ch', 'so_sp'].includes(calcId)) return data.filter((r) => r.khu_vuc === soKv);
+  return gHt && LOC_SELLIN.includes(calcId) && (inputId === 'sellin' || inputId === 'don_hang') ? data.filter((r) => hopLoc(r.he_thong)) : data;
+};
 gEl.addEventListener('change', () => {
   gHt = gEl.value; try { localStorage.setItem('bcLocHeThong', gHt); } catch (e) {}
   document.getElementById('sku-ht').value = ''; dash.setParams({});
@@ -1077,7 +1084,7 @@ dash.calc('so_rows', {
     const out = [];
     for (const r of coop_ban) {
       const s = sku.get(r.sku) || {}, [tu, den] = r.ky.split('_'), sp = s.san_pham || r.sku, p = gia.get('Co.op|' + sp);
-      out.push({ he_thong: 'Co.op', ky: r.ky, tu, den, so_ngay: ngay(tu, den), cua_hang: ((ch.get(r.ch) || {}).ten_ch || r.ch).replace(/\s-\s(BD|BN|LMX|MT|VT)$/, ''),
+      out.push({ he_thong: 'Co.op', ky: r.ky, tu, den, so_ngay: ngay(tu, den), cua_hang: ((ch.get(r.ch) || {}).ten_ch || r.ch).replace(/\s-\s(BD|BN|LMX|MT|VT)$/, ''), khu_vuc: khuVuc('Co.op', (ch.get(r.ch) || {}).ten_ch || r.ch, (ch.get(r.ch) || {}).vung),
         brand: s.brand || 'Không rõ', san_pham: sp, sl: Number(r.sl_ban) || 0, ds: p ? (Number(r.sl_ban) || 0) * p : null, ton: Number(r.sl_ton) || 0, nhap: null });
     }
     const wk = new Map();
@@ -1085,7 +1092,7 @@ dash.calc('so_rows', {
     const em = new Map();
     for (const r of emart_tuan) {
       const m = r.tuan.slice(0, 7), k = m + '|' + r.diem_ban + '|' + r.san_pham;
-      if (!em.has(k)) em.set(k, { he_thong: 'Emart', ky: m, tu: r.tu, den: r.den, so_ngay: [...wk.get(m).values()].reduce((a, b) => a + b, 0), cua_hang: r.diem_ban, brand: r.brand, san_pham: r.san_pham, sl: 0, ds: 0, ton: null, nhap: null });
+      if (!em.has(k)) em.set(k, { he_thong: 'Emart', ky: m, tu: r.tu, den: r.den, so_ngay: [...wk.get(m).values()].reduce((a, b) => a + b, 0), cua_hang: r.diem_ban, khu_vuc: 'HCM', brand: r.brand, san_pham: r.san_pham, sl: 0, ds: 0, ton: null, nhap: null });
       const x = em.get(k); x.sl += Number(r.sl) || 0; x.ds += Number(r.doanh_so) || 0; if (r.tu < x.tu) x.tu = r.tu; if (r.den > x.den) x.den = r.den;
     }
     const emTu = new Map(), emDen = new Map();
@@ -1094,13 +1101,31 @@ dash.calc('so_rows', {
     for (const r of kiem_ton_ctv) {
       if (r.ban == null || !r.so_ngay) continue;
       const p = gia.get(r.he_thong + '|' + r.san_pham);
-      out.push({ he_thong: r.he_thong, ky: 'kiem-ton', tu: r.ngay_dau, den: r.ngay_cuoi, so_ngay: r.so_ngay, cua_hang: r.cua_hang, brand: r.brand, san_pham: r.san_pham,
+      out.push({ he_thong: r.he_thong, ky: 'kiem-ton', tu: r.ngay_dau, den: r.ngay_cuoi, so_ngay: r.so_ngay, cua_hang: r.cua_hang, khu_vuc: khuVuc(r.he_thong, r.cua_hang, ''), brand: r.brand, san_pham: r.san_pham,
         sl: r.ban, ds: p ? r.ban * p : null, ton: r.ton_cuoi, nhap: r.nhap });
     }
     return out;
   },
 });
 const SO_HT = ['Co.op', 'Emart', 'GO! / Big C', 'Lotte Mart'];
+/* Khu vực HCM / Tỉnh của siêu thị, xếp theo tên. Bình Dương (Lotte Bình Dương, GO Dĩ An, CF BD …) tính là HCM theo yêu cầu; Bà Rịa – Vũng Tàu tính là Tỉnh.
+   Co.op: vùng BN (miền Bắc) và MT (miền Tây) đều là Tỉnh; các vùng khác xét theo tên. Emart: cả 3 siêu thị ở HCM. Tên không có địa danh tỉnh nào thì là HCM. */
+const KV_TINH = ['phan thiet', 'p\\.thiet', 'qui nhon', 'quy nhon', 'tuy hoa', 'phu yen', 'pleiku', 'bien hoa', 'dong xoai', 'binh phuoc', 'da nang', 'rach mieu',
+  'vung tau', 'tam ky', 'hue', 'buon ma thuot', 'nha trang', 'quang ngai', 'phan rang', 'dong ha', 'quang tri', 'bao loc', 'cam ranh', 'dak nong', 'la gi',
+  'quang binh', 'ba ria', 'buon ho', 'chu se', 'kon tum', 'phan ri', 'dong phu', 'son tra', 'cu m.?gar', 'an nhon', 'binh dinh', 'duc pho', 'ha tinh', 'ha noi',
+  'vinh phuc', 'hai phong', 'thanh hoa', 'bac giang', 'viet tri', 'victoria', 'goldsilk', 'goldensilk', 'long bien', 'ha dong', 'vu yen', 'mien bac', 'my tho',
+  'hau giang', 'tay ninh', 'trang bang', 'ben tre', 'ben luc', 'tan an', 'long an', 'go cong', 'cai lay', 'go dau', 'phuoc dong', 'can giuoc', 'tan bien',
+  'duong minh chau', 'cai be', 'tan kim', 'long hau', 'ba lang', 'thoai son', 'thu thua', 'can tho', 'da lat', 'hai duong', 'west lake', 'tan chau', 'vinh$',
+  'xtra long binh', '^cm tan thanh$', '^c[fm] (py|vl|kh|bl|hp|th|hn|bh|ct)'];   // CF PY = Phú Yên, VL Vĩnh Long, KH Khánh Hòa, BL Bạc Liêu, HP Hải Phòng, TH Thanh Hóa, HN Hà Nội, BH Biên Hòa, CT Cần Thơ
+const KV_RE = new RegExp('(^|[^a-z])(' + KV_TINH.join('|') + ')([^a-z]|$)');
+const KV_HCM = /xa lo ha noi|hiep binh phuoc/;   // tên đường ở HCM trùng tên tỉnh
+const tenKhongDau = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase();
+const khuVuc = (ht, ten, vung) => {
+  if (ht === 'Emart') return 'HCM';
+  if (vung === 'BN' || vung === 'MT') return 'Tỉnh';
+  const t = tenKhongDau(ten).replace(/^\s*\d+\s*-\s*(\d+\s*-\s*)?/, '').replace(/\s-\s(bd|bn|lmx|mt|vt)$/, '').replace(/^(go! \/ big c|lotte( mart)?)\s*/, '').trim();
+  return !KV_HCM.test(t) && KV_RE.test(t) ? 'Tỉnh' : 'HCM';
+};
 const SO_COOP = new Set(['Co.opMart', 'Co.op Food', 'Co.op Finelife']);
 dash.calc('so_ky', {
   inputs: ['so_rows', 'sellin'],
@@ -1184,6 +1209,7 @@ let soKyChon = null;
 soEls.ht.addEventListener('change', () => { soKyChon = null; drawSO(); });
 soEls.ky.addEventListener('change', () => { soKyChon = soEls.ky.value; drawSO(); });
 soEls.br.addEventListener('change', () => drawSO());
+document.getElementById('so-kv').addEventListener('change', (e) => { soKv = e.target.value; dash.setParams({}); });
 document.getElementById('so-legend').replaceChildren(...BRANDS.map((b, i) => line(b, null, dash.colors[i])));
 const soSort = { ch: { k: 'sl', dir: -1 }, sp: { k: 'sl', dir: -1 } };
 const soSortBind = (tid, key, txt) => document.querySelectorAll(`#${tid} th button`).forEach((b) => b.addEventListener('click', () => {
@@ -1234,6 +1260,12 @@ function drawSO() {
     return;
   }
   const hts = SO_HT.filter((h) => d.data.some((x) => x.he_thong === h));
+  if (!hts.length) {   // VD lọc khu vực mà không hệ thống nào có số
+    document.getElementById('so-lede').textContent = soKv ? `Chưa có số bán ra ở khu vực ${soKv}.` : 'Chưa có số bán ra.';
+    ['so-sl', 'so-ngay', 'so-ds', 'so-vao', 'so-ton'].forEach((id) => setText(id, '—'));
+    document.getElementById('c-so').replaceChildren(); ['#t-so-ch', '#t-so-sp'].forEach((t) => document.querySelector(t + ' tbody').replaceChildren());
+    return;
+  }
   const htCu = soEls.ht.value || dash.params().so_ht;
   soEls.ht.replaceChildren(...hts.map((h) => new Option(h === 'Lotte Mart' ? 'Lotte' : h, h))); soEls.ht.value = hts.includes(htCu) ? htCu : hts[0];
   const ht = soEls.ht.value;
@@ -1245,20 +1277,21 @@ function drawSO() {
   const br = soEls.br.value;
   const r = d.data.find((x) => x.he_thong === ht && x.ky === ky && x.brand === br) || { sl: 0, sl_ngay: 0, ds: 0, thieu_gia: 0, so_ch: 0, so_ngay: 0, tu: all[0].tu, den: all[0].den, ky };
   const nm = ht === 'Lotte Mart' ? 'Lotte' : ht;
-  document.getElementById('so-title').textContent = `Sell-out ${nm}: bán ra tại siêu thị`;
+  document.getElementById('so-title').textContent = `Sell-out ${nm}${soKv ? ' · ' + soKv : ''}: bán ra tại siêu thị`;
+  const vaoTach = !soKv || !['Co.op', 'Emart'].includes(ht);   // sổ bán hàng TVP chỉ có tổng cả hệ thống, chưa tách được theo khu vực
   setText('so-sl', vi(r.sl));
   document.getElementById('so-sl-sub').textContent = `${soKyLabel(r)} · ${vi(r.so_ch)} siêu thị có bán`;
   setText('so-ngay', vi(r.sl_ngay, r.sl_ngay < 20 ? 1 : 0));
   document.getElementById('so-ngay-sub').replaceChildren(...(r.tang == null ? [ky === 'kiem-ton' ? 'Mới có một kỳ đếm, chưa có kỳ trước' : 'Chưa có kỳ trước để so sánh'] : (() => { const s = document.createElement('span'); s.className = r.tang >= 0 ? 'sv-up' : 'sv-down'; s.textContent = sgn(r.tang); return [s, ' so với kỳ trước']; })()));
   setText('so-ds', ty(r.ds));
   document.getElementById('so-ds-sub').textContent = (ht === 'Emart' ? 'Theo cột doanh số trong sheet Emart (giá sau khuyến mãi)' : 'Sản lượng × giá bán lẻ bảng giá') + (r.thieu_gia ? `; ${vi(r.thieu_gia)} dòng chưa có giá nên chưa tính` : '');
-  setText('so-vao', r.vao == null ? 'Chưa có dữ liệu' : vi(r.vao));
-  document.getElementById('so-vao-sub').textContent = r.vao == null ? '' : `${r.vao_nguon === 'TVP giao vào' ? 'TVP giao vào (sổ bán hàng)' : 'Hàng nhập tại các siêu thị được đếm'} · bán ra ÷ hàng vào: ${r.ban_vao == null ? '–' : vi(r.ban_vao, 2)}`;
+  setText('so-vao', !vaoTach ? '—' : r.vao == null ? 'Chưa có dữ liệu' : vi(r.vao));
+  document.getElementById('so-vao-sub').textContent = !vaoTach ? 'Số TVP giao vào chưa tách được theo khu vực' : r.vao == null ? '' : `${r.vao_nguon === 'TVP giao vào' ? 'TVP giao vào (sổ bán hàng)' : 'Hàng nhập tại các siêu thị được đếm'} · bán ra ÷ hàng vào: ${r.ban_vao == null ? '–' : vi(r.ban_vao, 2)}`;
   setText('so-ton', r.ton == null ? 'Chưa có dữ liệu' : vi(r.ton));
   document.getElementById('so-ton-sub').textContent = r.ton == null ? 'Hệ thống này chưa có số tồn' : `Bằng ${r.ngay_ton == null ? '–' : vi(r.ngay_ton, 1)} ngày bán (theo bình quân kỳ này)`;
   const lede = document.getElementById('so-lede'); lede.replaceChildren();
   const b1 = document.createElement('b'); b1.textContent = vi(r.sl) + ' sản phẩm'; b1.dataset.source = 'so_ky';
-  lede.append(`${soKyLabel(r)}, ${nm} bán ra `, b1, `${br ? ' ' + br : ''} tại ${vi(r.so_ch)} siêu thị, bình quân ${vi(r.sl_ngay, r.sl_ngay < 20 ? 1 : 0)} sản phẩm/ngày${r.tang == null ? '.' : ` (${sgn(r.tang)} so với kỳ trước).`}`);
+  lede.append(`${soKyLabel(r)}, ${nm}${soKv ? ' khu vực ' + soKv : ''} bán ra `, b1, `${br ? ' ' + br : ''} tại ${vi(r.so_ch)} siêu thị, bình quân ${vi(r.sl_ngay, r.sl_ngay < 20 ? 1 : 0)} sản phẩm/ngày${r.tang == null ? '.' : ` (${sgn(r.tang)} so với kỳ trước).`}`);
   const list = all.map((a) => ({ all: a, brands: Object.fromEntries(BRANDS.map((b) => [b, d.data.find((x) => x.he_thong === ht && x.ky === a.ky && x.brand === b)])) }));
   drawSOChart(document.getElementById('c-so'), list, ht, br, ky);
   if (dc.status === 'ok') {
