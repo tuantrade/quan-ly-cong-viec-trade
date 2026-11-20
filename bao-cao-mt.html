@@ -353,8 +353,8 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     </section>
 
     <section class="sv-card" id="so-theo-ky">
-      <h2 class="sv-h">Bình quân 1 ngày theo kỳ, chia brand</h2>
-      <p class="sv-note">Sản lượng bán ra bình quân 1 ngày, để so được kỳ đủ tháng với kỳ chưa hết tháng. Bấm vào cột để xem kỳ đó. Cột đậm là kỳ đang xem.</p>
+      <h2 class="sv-h">Doanh số tại quầy bình quân 1 ngày theo kỳ, chia brand</h2>
+      <p class="sv-note">Doanh số tại quầy (theo giá bán lẻ) bình quân 1 ngày, để so được kỳ đủ tháng với kỳ chưa hết tháng. Dòng chưa có giá bán lẻ không tính vào. Bấm vào cột để xem kỳ đó. Cột đậm là kỳ đang xem.</p>
       <div class="sv-legend" id="so-legend"></div>
       <div class="sv-chart dash-skeleton" id="c-so" data-source="so_ky"></div>
     </section>
@@ -373,7 +373,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
             <th data-field="ma_bay"><button type="button" data-k="ma_bay">Má Bảy</button></th>
             <th data-field="sl"><button type="button" data-k="sl">Tổng sản lượng</button></th>
             <th data-field="sl_ngay"><button type="button" data-k="sl_ngay">BQ 1 ngày</button></th>
-            <th data-field="ds"><button type="button" data-k="ds">Doanh số tại quầy (nghìn đ)</button></th>
+            <th data-field="ds"><button type="button" data-k="ds">Doanh số tại quầy</button></th>
             <th data-field="ton"><button type="button" data-k="ton">Tồn cuối kỳ</button></th>
             <th data-field="tang"><button type="button" data-k="tang">BQ 1 ngày so với kỳ trước</button></th>
           </tr></thead>
@@ -393,7 +393,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
             <th class="l" data-field="san_pham"><button type="button" data-k="san_pham">Sản phẩm</button></th>
             <th data-field="sl"><button type="button" data-k="sl">Sản lượng</button></th>
             <th data-field="sl_ngay"><button type="button" data-k="sl_ngay">BQ 1 ngày</button></th>
-            <th data-field="ds"><button type="button" data-k="ds">Doanh số tại quầy (nghìn đ)</button></th>
+            <th data-field="ds"><button type="button" data-k="ds">Doanh số tại quầy</button></th>
             <th data-field="so_ch"><button type="button" data-k="so_ch">Số siêu thị có bán</button></th>
             <th data-field="ton"><button type="button" data-k="ton">Tồn cuối kỳ</button></th>
             <th data-field="ngay_ton"><button type="button" data-k="ngay_ton">Số ngày tồn kho</button></th>
@@ -407,7 +407,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 
     <ul class="sv-foot" id="so-cach-tinh">
       <li>Cùng một cách trình bày cho mọi hệ thống. Nguồn số bán ra: Co.op: file bán ra – tồn kho theo cửa hàng Co.op gửi, theo tháng (tháng đang chạy theo kỳ của file). Emart: Google Sheet "[EMART] SELL OUT THÁNG" (sheet SELL OUT, T10, T11), cộng các tuần thành tháng. Lotte và GO! / Big C: file cộng tác viên đếm tồn, bán ra = tồn đầu + hàng nhập − tồn cuối, mỗi siêu thị một kỳ đếm riêng.</li>
-      <li>Bình quân 1 ngày = sản lượng ÷ số ngày của kỳ, tính cho từng siêu thị rồi cộng lại (các siêu thị kiểm tồn có số ngày đếm khác nhau). "So với kỳ trước" so bình quân 1 ngày với kỳ liền trước của cùng hệ thống.</li>
+      <li>Bình quân 1 ngày = sản lượng ÷ số ngày của kỳ, tính cho từng siêu thị rồi cộng lại (các siêu thị kiểm tồn có số ngày đếm khác nhau). Biểu đồ theo kỳ tính bằng tiền theo cùng cách: doanh số tại quầy ÷ số ngày của kỳ. "So với kỳ trước" so bình quân 1 ngày với kỳ liền trước của cùng hệ thống.</li>
       <li>Doanh số tại quầy: Emart lấy đúng cột Doanh số trong sheet (giá bán lẻ sau khuyến mãi). Co.op, Lotte, GO! / Big C = sản lượng × giá bán lẻ trong bảng giá siêu thị (tab 4), tức giá niêm yết: ngày siêu thị giảm giá thì doanh số thật thấp hơn. Mã chưa có giá dùng được thì chưa tính và có ghi số dòng thiếu.</li>
       <li>Hàng vào siêu thị cùng kỳ: Co.op và Emart = số TVP giao vào (sổ bán hàng, bán − trả lại, cùng ngày với kỳ; Co.op gồm Co.opMart, Co.op Food, Co.op Finelife). Lotte, GO! / Big C = hàng nhập trong file kiểm tồn của các siêu thị được đếm. Bán ra ÷ hàng vào dưới 1 nghĩa là hàng vào nhiều hơn hàng bán ra.</li>
       <li>Tồn cuối kỳ: Co.op theo file Co.op; Lotte, GO! / Big C theo số đếm cuối kỳ; Emart chưa có số tồn. Số ngày tồn kho = tồn cuối ÷ bình quân bán 1 ngày.</li>
@@ -1109,10 +1109,10 @@ dash.calc('so_ky', {
     const g = new Map();
     for (const r of so_rows) for (const b of ['', r.brand]) {
       const k = r.he_thong + '|' + r.ky + '|' + b;
-      if (!g.has(k)) g.set(k, { he_thong: r.he_thong, ky: r.ky, brand: b, tu: r.tu, den: r.den, so_ngay: 0, sl: 0, sl_ngay: 0, ds: 0, thieu_gia: 0, ton: null, nhap: null, ch: new Set() });
+      if (!g.has(k)) g.set(k, { he_thong: r.he_thong, ky: r.ky, brand: b, tu: r.tu, den: r.den, so_ngay: 0, sl: 0, sl_ngay: 0, ds: 0, ds_ngay: 0, thieu_gia: 0, ton: null, nhap: null, ch: new Set() });
       const x = g.get(k); if (r.tu < x.tu) x.tu = r.tu; if (r.den > x.den) x.den = r.den; x.so_ngay = Math.max(x.so_ngay, r.so_ngay);
       x.sl += r.sl; x.sl_ngay += r.so_ngay ? r.sl / r.so_ngay : 0;
-      if (r.ds != null) x.ds += r.ds; else if (r.sl > 0) x.thieu_gia += 1;
+      if (r.ds != null) { x.ds += r.ds; x.ds_ngay += r.so_ngay ? r.ds / r.so_ngay : 0; } else if (r.sl > 0) x.thieu_gia += 1;
       if (r.ton != null) x.ton = (x.ton || 0) + r.ton; if (r.nhap != null) x.nhap = (x.nhap || 0) + r.nhap; if (r.sl > 0) x.ch.add(r.cua_hang);
     }
     const rows = [...g.values()].map(({ ch, ...x }) => {
@@ -1168,7 +1168,8 @@ dash.calc('so_sp', {
   },
 });
 
-const soNghin = (v) => (v == null ? '–' : vi(v / 1000));
+const tien = (v) => (Math.abs(v) >= 1e6 ? vi(v / 1e6, 1) + ' tr' : vi(Math.round(v)) + 'đ');   // nhãn biểu đồ: 634.270đ, 1,2 tr
+const vnd = (v) => (v == null ? '–' : vi(Math.round(v)) + 'đ');   // số tiền đầy đủ, VD 12.582.000đ
 const soNum = (v, d = 0) => (v == null ? '–' : vi(v, d));
 const soKyLabel = (x) => {
   if (x.ky === 'kiem-ton') return `Kỳ kiểm tồn ${dmy(x.tu)} – ${dmy(x.den)}`;
@@ -1200,25 +1201,25 @@ function drawSOChart(el, list, ht, br, kySel) {
   el.replaceChildren(); el.classList.remove('dash-skeleton');
   const W = Math.max(el.clientWidth, 280), H = 240, top = 18, bottom = 34;
   const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
-  const yS = d3.scaleLinear([0, d3.max(list, (x) => x.all.sl_ngay) || 1], [H - bottom, top]).nice();
-  const ticks = yS.ticks(4), left = measure(svg, ticks.map((d) => vi(d))) + 10;
+  const yS = d3.scaleLinear([0, d3.max(list, (x) => x.all.ds_ngay) || 1], [H - bottom, top]).nice();
+  const ticks = yS.ticks(4), left = measure(svg, ticks.map((d) => (d === 0 ? '0' : tien(d)))) + 10;
   const x = d3.scaleBand(list.map((k) => k.all.ky), [left, W - 4]).padding(0.28);
   svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', left).attr('x2', W - 4).attr('y1', (d) => yS(d)).attr('y2', (d) => yS(d)).attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
-  svg.append('g').selectAll('text').data(ticks).join('text').attr('x', left - 6).attr('y', (d) => yS(d)).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text((d) => vi(d));
+  svg.append('g').selectAll('text').data(ticks).join('text').attr('x', left - 6).attr('y', (d) => yS(d)).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text((d) => (d === 0 ? '0' : tien(d)));
   const tip = document.createElement('div'); tip.className = 'sv-tip'; tip.hidden = true; el.append(tip);
   for (const k of list) {
     const dim = k.all.ky !== kySel; let y0 = 0;
     BRANDS.forEach((b, i) => {
       if (br && b !== br) return;
-      const r = k.brands[b]; const v = r ? r.sl_ngay : 0; if (!v) return;
+      const r = k.brands[b]; const v = r ? r.ds_ngay : 0; if (!v) return;
       svg.append('rect').attr('x', x(k.all.ky)).attr('width', x.bandwidth()).attr('y', yS(y0 + v)).attr('height', Math.max(yS(y0) - yS(y0 + v), 0.5)).attr('fill', dash.colors[i]).attr('opacity', dim ? 0.45 : 1)
         .style('cursor', 'pointer').on('click', () => { soKyChon = k.all.ky; drawSO(); })
-        .on('mousemove', (ev) => tipShow(el, tip, ev, [line(soKyLabel(k.all), 't'), ...BRANDS.filter((bb) => !br || bb === br).map((bb) => line(`${bb}: ${soNum(k.brands[bb] ? k.brands[bb].sl_ngay : 0, 1)}/ngày`, null, dash.colors[BRANDS.indexOf(bb)]))]))
+        .on('mousemove', (ev) => tipShow(el, tip, ev, [line(soKyLabel(k.all), 't'), ...BRANDS.filter((bb) => !br || bb === br).map((bb) => line(`${bb}: ${vnd(k.brands[bb] ? k.brands[bb].ds_ngay : 0)}/ngày`, null, dash.colors[BRANDS.indexOf(bb)]))]))
         .on('mouseleave', () => { tip.hidden = true; });
       y0 += v;
     });
-    const tot = br ? (k.brands[br] ? k.brands[br].sl_ngay : 0) : k.all.sl_ngay;
-    svg.append('text').attr('x', x(k.all.ky) + x.bandwidth() / 2).attr('y', yS(tot) - 5).attr('text-anchor', 'middle').attr('fill', dim ? 'var(--color-fg-muted)' : 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').text(soNum(tot, tot < 20 ? 1 : 0));
+    const tot = br ? (k.brands[br] ? k.brands[br].ds_ngay : 0) : k.all.ds_ngay;
+    svg.append('text').attr('x', x(k.all.ky) + x.bandwidth() / 2).attr('y', yS(tot) - 5).attr('text-anchor', 'middle').attr('fill', dim ? 'var(--color-fg-muted)' : 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').text(tien(tot));
     svg.append('text').attr('x', x(k.all.ky) + x.bandwidth() / 2).attr('y', H - bottom + 16).attr('text-anchor', 'middle').attr('fill', dim ? 'var(--color-fg-muted)' : 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').text(soShort(k.all));
   }
   svg.append('text').attr('x', left).attr('y', H - 4).attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('* = kỳ chưa đủ tháng');
@@ -1263,13 +1264,13 @@ function drawSO() {
     const q = document.getElementById('so-ch-q').value.trim().toLowerCase();
     const rows = dc.data.filter((x) => x.he_thong === ht && x.ky === ky && (!q || x.cua_hang.toLowerCase().includes(q)));
     fillTable('#t-so-ch', soSorted(rows, soSort.ch, 't-so-ch'), (x) => [x.he_thong, x.ky, x.cua_hang].map(enc).join(','),
-      (x) => [[x.cua_hang, 'l'], [vi(x.wil)], [vi(x.gungon)], [vi(x.guyumi)], [vi(x.ma_bay)], [vi(x.sl)], [soNum(x.sl_ngay, 1)], [soNghin(x.ds)], [x.ton == null ? 'Chưa có dữ liệu' : vi(x.ton)], soTang(x.tang)]);
+      (x) => [[x.cua_hang, 'l'], [vi(x.wil)], [vi(x.gungon)], [vi(x.guyumi)], [vi(x.ma_bay)], [vi(x.sl)], [soNum(x.sl_ngay, 1)], [vnd(x.ds)], [x.ton == null ? 'Chưa có dữ liệu' : vi(x.ton)], soTang(x.tang)]);
   } else if (dc.status === 'error') document.querySelector('#t-so-ch tbody').replaceChildren();
   if (dp.status === 'ok') {
     const q = document.getElementById('so-sp-q').value.trim().toLowerCase();
     const rows = dp.data.filter((x) => x.he_thong === ht && x.ky === ky && (!br || x.brand === br) && (!q || (x.san_pham + ' ' + x.brand).toLowerCase().includes(q)));
     fillTable('#t-so-sp', soSorted(rows, soSort.sp, 't-so-sp'), (x) => [x.he_thong, x.ky, x.san_pham].map(enc).join(','),
-      (x) => [[x.brand, 'l'], [x.san_pham, 'l'], [vi(x.sl)], [soNum(x.sl_ngay, 1)], [soNghin(x.ds)], [vi(x.so_ch)], [x.ton == null ? 'Chưa có dữ liệu' : vi(x.ton)],
+      (x) => [[x.brand, 'l'], [x.san_pham, 'l'], [vi(x.sl)], [soNum(x.sl_ngay, 1)], [vnd(x.ds)], [vi(x.so_ch)], [x.ton == null ? 'Chưa có dữ liệu' : vi(x.ton)],
         [x.ngay_ton == null ? '–' : vi(x.ngay_ton, 1)], [x.het == null ? '–' : vi(x.het), x.het ? 'sv-down' : ''], soTang(x.tang)]);
   } else if (dp.status === 'error') document.querySelector('#t-so-sp tbody').replaceChildren();
 }
