@@ -53,6 +53,7 @@ nav{display:flex;gap:4px;flex-wrap:wrap;flex:1}
 nav a{padding:7px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500}
 nav a:hover{background:var(--soft);color:var(--ink)}
 nav a[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+#nav > a{display:none}   /* menu ngang cũ: đã chuyển sang thanh bên trái (thanh-ben.js); giữ khoảng trống để đẩy nút sang phải */
 .btn{border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap}
 .btn:hover{border-color:var(--muted)}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -199,6 +200,7 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
+<script src="thanh-ben.js"></script>
 <header>
   <div class="bar">
     <a class="brand-wrap" href="#tong-quan" style="color:inherit;text-decoration:none"><img class="brand-logo" src="logo-tvp.png" alt="Logo Trí Việt Phát"><svg class="mu-noel" viewBox="0 0 64 48" aria-hidden="true"><path d="M8 38 C14 14 34 2 52 10 C46 16 44 26 46 36 Z" fill="#d6312b"/><path d="M52 10 C58 14 60 22 58 30" stroke="#d6312b" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="58" cy="32" r="6" fill="#fff" stroke="#ddd"/><rect x="4" y="34" width="46" height="11" rx="5.5" fill="#fff" stroke="#ddd"/></svg><div class="brand"><h1>Quản lý công việc Trade MKT</h1><span>Trí Việt Phát · quy trình, giao việc, tiến độ</span></div></a>
@@ -387,7 +389,8 @@ main.addEventListener('focusout', ()=>setTimeout(()=>{ if(pendingRender){ pendin
 function setChrome(){
   const show=authed;
   document.getElementById('nav').hidden=!show; document.getElementById('btnNew').hidden=!show||laKhach();
-  const linkTv=document.querySelector('#nav a[data-v="thanh-vien"]'); if(linkTv) linkTv.hidden=laKhach();
+  document.querySelectorAll('#nav a[data-v="thanh-vien"], #thanhBen a[data-v="thanh-vien"]').forEach(a=>a.hidden=laKhach());
+  if(window.thanhBen) thanhBen.hien(show);
   const who=document.getElementById('who'); who.hidden=!session;
   if(session) who.innerHTML=`<span>${esc(me()?.ho_ten||myEmail())}</span>${laKhach()?'<span class="chip" title="Khách chỉ xem, không sửa được dữ liệu">Khách · chỉ xem</span>':''}<button class="btn sm" data-act="dang-xuat" type="button">Đăng xuất</button>`;
   document.querySelectorAll('#nav a').forEach(a=>a.setAttribute('aria-current', a.dataset.v===view?'page':'false'));
@@ -1230,7 +1233,7 @@ main.addEventListener('input', e=>{ if(e.target.id==='fq'){ filters.q=e.target.v
 function readHash(){ const [h,id]=location.hash.replace('#','').split('/'); if(h==='sell-out'){ location.replace('bao-cao-mt.html#sell-out'); return; } // trang Số bán cũ đã chuyển sang Báo cáo MT
   view=VIEWS.includes(h)?h:'tong-quan'; if(view==='hoat-dong' && id) selectedId=decodeURIComponent(id); } // #hoat-dong/<mã> mở thẳng 1 hoạt động (dùng cho link trong email nhắc hạn)
 window.addEventListener('hashchange', ()=>{ readHash(); if(view!=='hoat-dong') selectedId=null; render(); });
-document.getElementById('nav').addEventListener('click', e=>{ const a=e.target.closest('a'); if(!a) return; if(a.dataset.v==='hoat-dong' && location.hash==='#hoat-dong'){ selectedId=null; render(); } else selectedId=null; });
+['nav','thanhBen'].forEach(id=>document.getElementById(id)?.addEventListener('click', e=>{ const a=e.target.closest('a'); if(!a) return; if(a.dataset.v==='hoat-dong' && location.hash==='#hoat-dong'){ selectedId=null; render(); } else selectedId=null; }));
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && authed) scheduleReload(); });
 
 /* ---------- khởi động ---------- */
