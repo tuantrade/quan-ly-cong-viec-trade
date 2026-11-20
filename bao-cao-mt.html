@@ -82,7 +82,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     calc: function(id, o){ calcs[id] = { inputs:o.inputs||[], fn:o.fn, title:o.title }; },
     loader: function(){},
     onData: function(fn){ nghe.push(fn); try{ fn(); }catch(e){ console.error(e); } },
-    colors: ['#2f7cb8','#e0823d','#3d9a5b','#c9506e','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],
+    colors: ['#3d9a5b','#2f7cb8','#d64545','#e0823d','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],   // theo thứ tự BRANDS: Wil xanh lá, Gungon xanh dương, Guyumi đỏ, Má Bảy cam
     refresh: function(){ taiHet(); },
     can: function(id){ if (!NGUON[id] || daGoi[id]) return; daGoi[id] = 1; layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(henVe); },
     params: function(){ return Object.assign({}, thamSo); },
@@ -647,6 +647,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 
 <script>
 const BRANDS = ['Wil', 'Gungon', 'Guyumi', 'Má Bảy'];
+const MAU_TONG = '#6f8794';   // biểu đồ tổng (theo tháng, theo ngày): màu trung tính, không trùng màu brand
 
 dash.calc('tong_quan', {
   inputs: ['sellin', 'don_hang'],
@@ -953,7 +954,7 @@ function drawMonths(el, rows, sel) {
     const partial = r.ngay_cuoi.slice(8) !== String(new Date(Date.UTC(+k.slice(0, 4), +k.slice(5), 0)).getUTCDate()).padStart(2, '0');
     if (partial) svg.append('text').attr('x', cx).attr('y', H - bottom + 30).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('đến ' + Number(r.ngay_cuoi.slice(8)) + '/' + Number(k.slice(5)));
     svg.append('rect').attr('x', x(k)).attr('width', x.bandwidth()).attr('y', yS(Math.max(r.thuan, 0))).attr('height', Math.max(yS(0) - yS(Math.max(r.thuan, 0)), 0.5)).attr('rx', 4)
-      .attr('fill', k === sel ? dash.colors[0] : 'var(--cds-chart-muted)').style('cursor', 'pointer')
+      .attr('fill', k === sel ? MAU_TONG : 'var(--cds-chart-muted)').style('cursor', 'pointer')
       .on('click', () => dash.setParams({ thang: k }))
       .on('mousemove', (ev) => tipShow(el, tip, ev, [line(thangLabel(k) + (partial ? ` (đến ngày ${Number(r.ngay_cuoi.slice(8))})` : ''), 't'), line('Doanh thu thuần: ' + ty(r.thuan)), line('Doanh số bán: ' + ty(r.doanh_so))]))
       .on('mouseleave', () => { tip.hidden = true; });
@@ -977,7 +978,7 @@ function drawDays(el, rows) {
   const tip = document.createElement('div'); tip.className = 'sv-tip'; tip.hidden = true; el.append(tip);
   svg.append('g').selectAll('rect').data(rows).join('rect')
     .attr('x', (r) => x(r.ngay)).attr('width', x.bandwidth()).attr('y', (r) => yS(Math.max(r.thuan, 0))).attr('height', (r) => Math.max(Math.abs(yS(r.thuan) - yS(0)), 0.5))
-    .attr('rx', 3).attr('fill', dash.colors[0])
+    .attr('rx', 3).attr('fill', MAU_TONG)
     .on('mousemove', (ev, r) => tipShow(el, tip, ev, [line(dmy(r.ngay), 't'), line('Doanh thu thuần: ' + ty(r.thuan))]))
     .on('mouseleave', () => { tip.hidden = true; });
 }

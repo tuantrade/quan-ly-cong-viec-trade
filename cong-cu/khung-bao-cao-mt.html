@@ -82,7 +82,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     calc: function(id, o){ calcs[id] = { inputs:o.inputs||[], fn:o.fn, title:o.title }; },
     loader: function(){},
     onData: function(fn){ nghe.push(fn); try{ fn(); }catch(e){ console.error(e); } },
-    colors: ['#2f7cb8','#e0823d','#3d9a5b','#c9506e','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],
+    colors: ['#3d9a5b','#2f7cb8','#d64545','#e0823d','#8b66c4','#b8952e','#4ba6a8','#7d7d7d'],   // theo thứ tự BRANDS: Wil xanh lá, Gungon xanh dương, Guyumi đỏ, Má Bảy cam
     refresh: function(){ taiHet(); },
     can: function(id){ if (!NGUON[id] || daGoi[id]) return; daGoi[id] = 1; layBang(id).catch(function(e){ console.error(id, e); ds[id] = { status:'error', data:[], message:String(e.message||e) }; }).then(henVe); },
     params: function(){ return Object.assign({}, thamSo); },
