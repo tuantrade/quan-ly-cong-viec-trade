@@ -953,6 +953,8 @@ begin
     on conflict (bo_so) do update set du_lieu = excluded.du_lieu, so_dong = excluded.so_dong,
       ten = case when excluded.ten <> '' then excluded.ten else b.ten end, mo_ta = case when excluded.mo_ta <> '' then excluded.mo_ta else b.mo_ta end,
       nguon_cap_nhat = excluded.nguon_cap_nhat, luc = excluded.luc;
+  elsif loai = 'canh_bao' then   -- script gọi sau khi nạp file mới: tính sẵn cảnh báo sụt giảm
+    perform public.lam_moi_canh_bao();
   else
     raise exception 'Loại không hợp lệ: %', loai;
   end if;
@@ -1115,3 +1117,20 @@ select 'don', chuoi, '', '', '', nay, truoc, sl_nay, sl_truoc from don
 union all
 select 'sell_out', chuoi, nhan_hang, ma, ten, nay, truoc, null, null from so2;
 grant select on public.canh_bao_chi_tiet to authenticated;
+
+-- Cảnh báo tính sẵn (2 view trên chạy 5–10 giây vì phải gộp toàn bộ số Co.op): lưu vào bo_so_tinh_san 'canh_bao'
+-- du_lieu = {ban_nhap: [...canh_bao_ban_nhap], chi_tiet: [...canh_bao_chi_tiet]}. Script tự nạp gọi nap_nguon(loai 'canh_bao') sau mỗi lần có file mới.
+create or replace function public.lam_moi_canh_bao() returns integer
+language plpgsql security definer set search_path = public as $$
+declare bn jsonb; ct jsonb;
+begin
+  select coalesce(jsonb_agg(to_jsonb(v)), '[]'::jsonb) into bn from public.canh_bao_ban_nhap v;
+  select coalesce(jsonb_agg(to_jsonb(v)), '[]'::jsonb) into ct from public.canh_bao_chi_tiet v;
+  insert into public.bo_so_tinh_san (bo_so, du_lieu, so_dong, ten, mo_ta, nguon_cap_nhat, luc)
+  values ('canh_bao', jsonb_build_object('ban_nhap', bn, 'chi_tiet', ct), jsonb_array_length(bn), 'Cảnh báo sụt giảm',
+          'Tính sẵn từ canh_bao_ban_nhap và canh_bao_chi_tiet', 'lam_moi_canh_bao', now())
+  on conflict (bo_so) do update set du_lieu = excluded.du_lieu, so_dong = excluded.so_dong, luc = now();
+  return jsonb_array_length(bn);
+end $$;
+revoke all on function public.lam_moi_canh_bao() from public, anon, authenticated;
+select public.lam_moi_canh_bao();

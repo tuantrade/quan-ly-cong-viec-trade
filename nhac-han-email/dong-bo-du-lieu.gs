@@ -45,7 +45,7 @@ function dongBoDuLieu() {
   try {
     var g = layThongSo_(), p = PropertiesService.getScriptProperties();
     var daDoc = JSON.parse(p.getProperty('DA_DOC') || '{}');
-    var thuMuc = p.getProperty('THU_MUC_DU_LIEU');
+    var thuMuc = p.getProperty('THU_MUC_DU_LIEU'), coMoi = false;   // coMoi: có đọc file/sheet mới -> tính lại cảnh báo
     if (thuMuc) {
       var goc = DriveApp.getFolderById(thuMuc);
       Object.keys(THU_MUC_CON).forEach(function (tenCon) {
@@ -54,6 +54,7 @@ function dongBoDuLieu() {
         while (tepIt.hasNext()) {
           var tep = tepIt.next(), ma = tep.getId() + '@' + tep.getLastUpdated().toISOString() + (PHIEN_BAN_DOC[THU_MUC_CON[tenCon]] || '');
           if (daDoc[ma] || /^_tam_/.test(tep.getName())) continue;
+          coMoi = true;
           try { napTep_(g, THU_MUC_CON[tenCon], tep, ma); }
           catch (e) { ghiLoi_(g, THU_MUC_CON[tenCon], tep, ma, e.message); }
           daDoc[ma] = new Date().toISOString();
@@ -66,12 +67,15 @@ function dongBoDuLieu() {
       var id = thongSo_(x[0]); if (!id) return;
       var f = DriveApp.getFileById(id), ma = id + '@' + f.getLastUpdated().toISOString();
       if (daDoc[ma]) return;
+      coMoi = true;
       try { napSheet_(g, x[1], id, f.getName(), ma, f.getLastUpdated().toISOString()); }
       catch (e) { ghiLoi_(g, x[1], f, ma, e.message); }
       Object.keys(daDoc).forEach(function (k) { if (k.indexOf(id + '@') === 0) delete daDoc[k]; });   // chỉ giữ bản mới nhất của sheet
       daDoc[ma] = new Date().toISOString();
       p.setProperty('DA_DOC', JSON.stringify(daDoc));
     });
+    // Tính sẵn cảnh báo sụt giảm sức nhập / sức bán cho trang Tổng quan (mất khoảng 10 giây)
+    if (coMoi) { try { goi_(g, 'canh_bao', [], {}); console.log('Đã tính lại cảnh báo sụt giảm'); } catch (e) { console.log('Chưa tính được cảnh báo: ' + e.message); } }
   } finally { khoa.releaseLock(); }
 }
 

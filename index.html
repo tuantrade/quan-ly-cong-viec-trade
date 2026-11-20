@@ -256,7 +256,7 @@ const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh'
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
 let giaBan = [], giaLoc = {ht:'', nhan:''};
 let soNguon = [], soHd = {};
-let canhBao = [], canhBaoCt = [];   // cảnh báo sụt giảm sức nhập (sell-in) / sức bán (sell-out), từ view canh_bao_ban_nhap
+let canhBao = [], canhBaoCt = [], canhBaoLuc = null;   // cảnh báo sụt giảm sức nhập (sell-in) / sức bán (sell-out), từ view canh_bao_ban_nhap
 let lich27 = [];   // Lịch post 2027 (4 hệ thống MT), đọc từ bo_so_tinh_san
 let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tu:'', soThang:'3'};
 let loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
@@ -367,8 +367,9 @@ async function loadAll(){
   try{ const r=await sb.from('dong_bo_so_ban').select('*'); if(r.error) throw r.error;
     const moi=JSON.stringify(r.data||[]); if(moi!==JSON.stringify(soNguon)){ soHd={}; } soNguon=r.data||[]; }
   catch(e){ console.warn('Chưa đọc được số bán', e); soNguon=[]; }
-  try{ const r=await sb.from('canh_bao_ban_nhap').select('*'); if(r.error) throw r.error; canhBao=r.data||[];
-    const c=await sb.from('canh_bao_chi_tiet').select('*'); canhBaoCt=c.error?[]:(c.data||[]); }
+  try{ // cảnh báo tính sẵn mỗi lần script nạp file mới (hàm lam_moi_canh_bao), đọc nhanh từ bo_so_tinh_san
+    const r=await sb.from('bo_so_tinh_san').select('du_lieu,luc').eq('bo_so','canh_bao').maybeSingle(); if(r.error) throw r.error;
+    const d=(r.data&&r.data.du_lieu)||{}; canhBao=d.ban_nhap||[]; canhBaoCt=d.chi_tiet||[]; canhBaoLuc=r.data?r.data.luc:null; }
   catch(e){ console.warn('Chưa đọc được cảnh báo sụt giảm', e); canhBao=[]; }
   try{ // bảng giá: thành viên đọc bảng đầy đủ; khách chỉ đọc bảng công khai (không có giá vốn, lãi gộp)
     let r = laKhach() ? {error:{}} : await sb.from('gia_ban').select('*');
@@ -594,7 +595,7 @@ function renderCanhBao(){
   };
   const dem=rows=>{ const n=k=>rows.filter(r=>mucDo(+r.thay_doi)[0]===k).length; return rows.length?`${rows.length} chỗ giảm: ${n('Nặng')} nặng, ${n('Vừa')} vừa, ${n('Nhẹ')} nhẹ`:'Không chỗ nào giảm từ 20%'; };
   const tongSi=si.reduce((a,r)=>a+(+r.nay-+r.truoc),0);
-  return `<section class="card cb"><div class="card-h"><h2>Cảnh báo sụt giảm</h2><p>Hệ thống × brand giảm từ ${Math.round(-CB_GIAM*100)}% trở lên. Mức độ: <span class="pill bad">Nặng</span> giảm từ 50% · <span class="pill warn">Vừa</span> 30–50% · <span class="pill neutral">Nhẹ</span> 20–30%. Bấm từng dòng để xem số đơn và mã nào giảm.</p></div>
+  return `<section class="card cb"><div class="card-h"><h2>Cảnh báo sụt giảm</h2><p>Hệ thống × brand giảm từ ${Math.round(-CB_GIAM*100)}% trở lên. Mức độ: <span class="pill bad">Nặng</span> giảm từ 50% · <span class="pill warn">Vừa</span> 30–50% · <span class="pill neutral">Nhẹ</span> 20–30%. Bấm từng dòng để xem số đơn và mã nào giảm.${canhBaoLuc?` Tính lúc ${new Date(canhBaoLuc).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}, tự tính lại mỗi khi có file số mới.`:''}</p></div>
   <div class="cb-khoi"><h3>Sức nhập (sell-in) · ${ky(r0)} so với ${kyT(r0)}</h3><p class="muted">Doanh thu thuần TVP giao vào (đã trừ chiết khấu, hàng trả lại), từ đầu tháng đến ngày cuối có số, so với cùng các ngày tháng trước. Bỏ qua chỗ tháng trước dưới ${tien(CB_SI_TOI_THIEU)}. ${dem(si)}${si.length?`, tổng hụt ${tien(-tongSi)}`:''}.</p>
     ${si.map(dongSi).join('')}</div>
   <div class="cb-khoi"><h3>Sức bán (sell-out)</h3><p class="muted">Bình quân sản phẩm bán ra 1 ngày tại quầy của kỳ mới nhất đã kết thúc, so với bình quân 3 kỳ trước. Hiện có số Co.op, Emart. Bỏ qua chỗ dưới ${CB_SO_TOI_THIEU} sản phẩm/ngày. ${dem(so)}.</p>
