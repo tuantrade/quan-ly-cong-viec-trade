@@ -756,8 +756,8 @@ const chipPo = (ht,bd,kt) => { const p=poCua(ht,bd,kt); return p?`<span class="c
 /* Lotte, GO: số bán ra chỉ có ở cửa hàng có CTV (file kiểm tồn) và hàng giao thẳng từng cửa hàng,
    nên so sell-in với kiểm tồn trên CÙNG các cửa hàng CTV (không suy ra cho cả hệ thống). */
 const laHtCtv = ht => { const c=boDau(ht); return c.includes('lotte') || c.includes('bigc') || c.startsWith('go'); };
-const khoaCh = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/gi,'d').toLowerCase()
-  .replace(/sieu thi|lotte mart|lotte|go!\s*\/\s*big\s*c|go!|big\s*c/g,' ').replace(/[^a-z0-9]/g,'');
+const khoaCh = s => String(s||'').split(/\s+-|-\s+/)[0].normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/gi,'d').toLowerCase()
+  .replace(/hang doi cho|sieu thi|lotte mart|lotte|go!\s*\/\s*big\s*c|go!|big\s*c/g,' ').replace(/coats\b/g,'coast').replace(/[^a-z0-9]/g,'');
 let kiemTon=null, ctvHd={};
 function renderCtv(a){
   if(!a.kenh || !a.bd || !a.kt || !laHtCtv(a.kenh)) return '';
