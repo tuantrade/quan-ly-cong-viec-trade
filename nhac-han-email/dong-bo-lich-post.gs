@@ -8,7 +8,7 @@
  * Rồi gửi toàn bộ danh sách lên Supabase (thay hết bản cũ), app hiện ở trang "Lịch post".
  *
  * Dùng chung dự án Apps Script với file nhac-han-qua-email.gs (cùng SUPABASE_URL, SUPABASE_KHOA, MA_BI_MAT).
- * Thêm 1 thuộc tính tập lệnh: LICH_POST_SHEET_ID = mã của Google Sheet (đoạn giữa /d/ và /edit trong link).
+ * Mã sheet: LICH_POST_SHEET_ID (thuộc tính tập lệnh hoặc trong cau-hinh-rieng.gs, đoạn giữa /d/ và /edit trong link).
  * Tùy chọn: LICH_POST_TAB = tên tab (mặc định: tab đầu tiên có tên bắt đầu bằng "PLAN").
  */
 
@@ -16,10 +16,10 @@
 function dongBoLichPost() {
   var g = layThongSo_();
   var p = PropertiesService.getScriptProperties();
-  var sheetId = (p.getProperty('LICH_POST_SHEET_ID') || '').trim();
-  if (!sheetId) throw new Error('Chưa điền LICH_POST_SHEET_ID trong Thuộc tính tập lệnh.');
+  var sheetId = thongSo_('LICH_POST_SHEET_ID');
+  if (!sheetId) throw new Error('Chưa điền LICH_POST_SHEET_ID trong Thuộc tính tập lệnh hoặc cau-hinh-rieng.gs.');
   var ss = SpreadsheetApp.openById(sheetId);
-  var tenTab = (p.getProperty('LICH_POST_TAB') || '').trim();
+  var tenTab = thongSo_('LICH_POST_TAB');
   var sh = tenTab ? ss.getSheetByName(tenTab)
     : ss.getSheets().filter(function (s) { return /^plan/i.test(s.getName()); })[0];
   if (!sh) throw new Error('Không tìm thấy tab kế hoạch' + (tenTab ? ' "' + tenTab + '"' : ' (tên bắt đầu bằng PLAN)'));
@@ -38,15 +38,24 @@ function dongBoLichPost() {
   console.log('Đã đồng bộ ' + ds.length + ' chương trình từ "' + sh.getName() + '".');
 }
 
-/** Bật đồng bộ tự động mỗi giờ. */
+/** Hẹn giờ gọi hàm này: chỉ đồng bộ khi sheet kế hoạch có sửa từ lần trước (đỡ thay lịch trong app mỗi giờ khi không có gì mới). */
+function dongBoLichPostNeuDoi() {
+  var p = PropertiesService.getScriptProperties(), id = thongSo_('LICH_POST_SHEET_ID'); if (!id) return;
+  var luc = DriveApp.getFileById(id).getLastUpdated().toISOString();
+  if (p.getProperty('LICH_POST_DA_DOC') === luc) { console.log('Sheet kế hoạch không đổi, bỏ qua.'); return; }
+  dongBoLichPost();
+  p.setProperty('LICH_POST_DA_DOC', luc);
+}
+
+/** Bật đồng bộ tự động mỗi giờ (chỉ khi sheet có sửa). */
 function batHenGioLichPost() {
   tatHenGioLichPost();
-  ScriptApp.newTrigger('dongBoLichPost').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('dongBoLichPostNeuDoi').timeBased().everyHours(1).create();
   console.log('Đã bật: đồng bộ lịch post mỗi giờ.');
 }
 function tatHenGioLichPost() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'dongBoLichPost') ScriptApp.deleteTrigger(t);
+    if (/^dongBoLichPost/.test(t.getHandlerFunction())) ScriptApp.deleteTrigger(t);
   });
 }
 
