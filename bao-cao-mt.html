@@ -1112,10 +1112,13 @@ dash.calc('so_rows', {
       out.push({ he_thong: 'Co.op', ky: r.ky, tu, den, so_ngay: ngay(tu, den), cua_hang: ((ch.get(r.ch) || {}).ten_ch || r.ch).replace(/\s-\s(BD|BN|LMX|MT|VT)$/, ''), khu_vuc: khuVuc('Co.op', (ch.get(r.ch) || {}).ten_ch || r.ch, (ch.get(r.ch) || {}).vung),
         brand: s.brand || 'Không rõ', san_pham: sp, sl: Number(r.sl_ban) || 0, ds: p ? (Number(r.sl_ban) || 0) * p : null, ton: Number(r.sl_ton) || 0, nhap: null });
     }
+    // Tuần chưa có số (cả tuần bán 0, VD tuần ở tương lai sheet để sẵn) thì bỏ, không tính vào số ngày của tháng
+    const slTuan = new Map(); for (const r of emart_tuan) slTuan.set(r.tuan, (slTuan.get(r.tuan) || 0) + (Number(r.sl) || 0));
+    const emCo = emart_tuan.filter((r) => slTuan.get(r.tuan) > 0);
     const wk = new Map();
-    for (const r of emart_tuan) { const m = r.tuan.slice(0, 7); if (!wk.has(m)) wk.set(m, new Map()); wk.get(m).set(r.tuan, Number(r.so_ngay) || 0); }
+    for (const r of emCo) { const m = r.tuan.slice(0, 7); if (!wk.has(m)) wk.set(m, new Map()); wk.get(m).set(r.tuan, Number(r.so_ngay) || 0); }
     const em = new Map();
-    for (const r of emart_tuan) {
+    for (const r of emCo) {
       const m = r.tuan.slice(0, 7), k = m + '|' + r.diem_ban + '|' + r.san_pham;
       if (!em.has(k)) em.set(k, { he_thong: 'Emart', ky: m, tu: r.tu, den: r.den, so_ngay: [...wk.get(m).values()].reduce((a, b) => a + b, 0), cua_hang: r.diem_ban, khu_vuc: 'HCM', brand: r.brand, san_pham: r.san_pham, sl: 0, ds: 0, ton: null, nhap: null });
       const x = em.get(k); x.sl += Number(r.sl) || 0; x.ds += Number(r.doanh_so) || 0; if (r.tu < x.tu) x.tu = r.tu; if (r.den > x.den) x.den = r.den;
