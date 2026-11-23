@@ -203,6 +203,14 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)}
 .ct-chot{border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:10px;padding:10px 12px;display:grid;gap:8px;background:color-mix(in srgb,var(--accent-soft) 35%,transparent)}
 .ct-chot.chua{background:transparent;border-style:dashed;border-color:var(--line);font-size:13px}
 .ct-bang td,.ct-bang th{padding:6px 10px}.ct-bang .n{text-align:right;white-space:nowrap}
+.au-khung{display:grid;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--soft)}
+.au-dau{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.au-dau .hint{margin:0}
+.au-ds{display:grid;gap:8px}
+.au-dong{display:grid;grid-template-columns:26px minmax(130px,1fr) minmax(180px,2fr) 150px 110px 36px;gap:8px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.au-so{align-self:center;justify-self:center;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:13px;display:grid;place-items:center}
+.au-xoa{align-self:end;height:38px}
+.au-them{justify-self:start}
+@media (max-width:760px){ .au-dong{grid-template-columns:26px 1fr 1fr} .au-dong .au-ch{grid-column:2 / 4} .au-xoa{grid-column:3;justify-self:end} }
 .lp-nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 16px 10px}.lp-nav .lp-khoang{margin-left:6px;font-size:13px;color:var(--muted)}.lp-nav .lp-khoang b{color:var(--ink)}
 .g-bar.tt-neutral,.g-legend i.tt-neutral{background:var(--soft);color:var(--muted);border-color:var(--line)}
 .g-bar.tt-warn,.g-legend i.tt-warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
@@ -1389,27 +1397,61 @@ function renderModalNow(){
   modalEl.innerHTML=`<div class="backdrop" data-m="bg">${inner}</div>`;
 }
 function askConfirm(title,msg,yes,fn){ modal={type:'confirm',title,msg,yes,fn}; renderModal(); }
+/* ===== Mẫu Audit: 1 lần tạo nhiều lịch audit (hệ thống, cửa hàng, ngày, giờ) ===== */
+const laMauAudit = tp => !!tp && /audit/i.test(boDau(tp.ten));
+const laBuocDiAudit = b => /diaudit|taidiemban/.test(boDau(b.ten));
+const auMoi = (ht) => ({ht: ht||'', ch:'', ngay:'', gio:'09:00'});
+let dsCuaHang = null;   // Map tên hệ thống -> [tên cửa hàng], lấy từ sell-in theo điểm nhận hàng 4 tháng gần nhất
+function taiDsCuaHang(){
+  if(dsCuaHang) return; dsCuaHang = new Map();
+  layHet(()=>sb.from('sell_in_cua_hang').select('chuoi,diem_nhan').gte('ngay', addDays(todayStr(),-120)))
+    .then(rows=>{ const m=new Map(); rows.forEach(r=>{ const t=String(r.diem_nhan||'').trim(); if(!t) return; if(!m.has(r.chuoi)) m.set(r.chuoi,new Set()); m.get(r.chuoi).add(t); });
+      dsCuaHang=new Map([...m].map(([k,v])=>[k,[...v].sort((a,b)=>a.localeCompare(b,'vi'))])); if(modal?.type==='new' && modal.d.audit) rerenderKeepScroll(); })
+    .catch(e=>console.warn('Chưa đọc được danh sách cửa hàng', e));
+}
+const auKhoang = d => { const ng=(d.au||[]).map(r=>r.ngay).filter(Boolean).sort(); return {bd:ng[0]||'', kt:ng[ng.length-1]||''}; };
+function buocAudit(tp, d){   // bước của mẫu, riêng bước "Đi audit tại điểm bán" tách thành 1 bước cho mỗi lịch
+  const {bd,kt}=auKhoang(d), ra=[]; let chen=false;
+  const dongAu = b => (d.au||[]).slice().sort((x,y)=>(x.ngay+x.gio).localeCompare(y.ngay+y.gio)).map(r=>({...b, ten:`Audit: ${r.ch||'(chưa có cửa hàng)'} · ${nameOf(HT,Number(r.ht))||'—'}${r.gio?' · '+r.gio:''}`, han:r.ngay||'', laAu:true}));
+  (tp?.buoc||[]).forEach(b=>{ if(!chen && laBuocDiAudit(b)){ ra.push(...dongAu(b)); chen=true; } else ra.push({...b, han:addDays(b.moc==='kt'?kt:bd, b.soNgay)}); });
+  if(!chen) ra.push(...dongAu({ten:'', vaiTro:'Trade MKT', moc:'bd', soNgay:0, ketQua:'', nguoiLam:'', nguoiDuyet:''}));
+  return ra;
+}
 function rolesOf(tp){ return [...new Set((tp?.buoc||[]).map(b=>b.vaiTro||'Khác'))]; }
 function renderNewModal(){
   const d=modal.d; const tp=templates.find(x=>x.id===d.tplId);
   const roles=rolesOf(tp);
   const homNay=todayStr(); let daQua=0;
-  const rows=(tp?.buoc||[]).map(b=>{ const han=addDays(b.moc==='kt'?d.kt:d.bd, b.soNgay); const qua=han&&han<homNay; if(qua) daQua++; return `<tr><td>${esc(b.ten)}</td><td>${d.roles[b.vaiTro||'Khác']||b.nguoiLam?esc(d.roles[b.vaiTro||'Khác']||b.nguoiLam):`<span class="muted">${esc(b.vaiTro||'Chưa giao')}</span>`}</td><td>${b.nguoiDuyet?esc(b.nguoiDuyet):'<span class="muted">—</span>'}</td><td class="num ${qua?'late':''}">${han?fd(han):'<span class="muted">Chọn ngày</span>'}${qua?'<div class="sub late">đã qua</div>':''}</td></tr>`; }).join('');
+  const au=laMauAudit(tp); d.audit=au; if(au){ taiDsCuaHang(); if(!d.au||!d.au.length) d.au=[auMoi(d.kenh)]; }
+  const rows=(au?buocAudit(tp,d):(tp?.buoc||[]).map(b=>({...b, han:addDays(b.moc==='kt'?d.kt:d.bd, b.soNgay)}))).map(b=>{ const han=b.han; const qua=han&&han<homNay; if(qua) daQua++; return `<tr><td>${esc(b.ten)}</td><td>${d.roles[b.vaiTro||'Khác']||b.nguoiLam?esc(d.roles[b.vaiTro||'Khác']||b.nguoiLam):`<span class="muted">${esc(b.vaiTro||'Chưa giao')}</span>`}</td><td>${b.nguoiDuyet?esc(b.nguoiDuyet):'<span class="muted">—</span>'}</td><td class="num ${qua?'late':''}">${han?fd(han):'<span class="muted">Chọn ngày</span>'}${qua?'<div class="sub late">đã qua</div>':''}</td></tr>`; }).join('');
   return `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ttNew"><header><h2 id="ttNew">Tạo hoạt động mới</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header>
   <div class="body">
     <div class="form">
       <div class="field full"><label for="nTpl">Theo quy trình mẫu</label><select id="nTpl" data-n="tplId">${templates.map(t=>`<option value="${esc(t.id)}" ${t.id===d.tplId?'selected':''}>${esc(t.ten)}</option>`).join('')}<option value="" ${!d.tplId?'selected':''}>Không theo mẫu (tự thêm bước)</option></select></div>
       <div class="field full"><label for="nTen">Tên hoạt động</label><input id="nTen" data-n="ten" value="${esc(d.ten)}" placeholder="VD: CTKM catalogue Tết – Co.op"></div>
-      <div class="field"><label for="nNhan">Nhãn hàng</label><select id="nNhan" data-n="nhan">${optObj(NH,d.nhan)}</select></div>
+      ${au?'':`<div class="field"><label for="nNhan">Nhãn hàng</label><select id="nNhan" data-n="nhan">${optObj(NH,d.nhan)}</select></div>
       <div class="field"><label for="nKenh">Kênh / hệ thống</label><select id="nKenh" data-n="kenh">${optObj(HT,d.kenh)}</select></div>
       <div class="field"><label for="nBd">Ngày bắt đầu chạy</label><input id="nBd" type="date" data-n="bd" value="${esc(d.bd)}"></div>
-      <div class="field"><label for="nKt">Ngày kết thúc</label><input id="nKt" type="date" data-n="kt" value="${esc(d.kt)}"></div>
+      <div class="field"><label for="nKt">Ngày kết thúc</label><input id="nKt" type="date" data-n="kt" value="${esc(d.kt)}"></div>`}
     </div>
+    ${au?renderLichAudit(d):''}
     ${roles.length&&tp?`<div><p class="hint" style="margin-bottom:8px">Giao người cho từng vai trò (để “Chưa giao” thì dùng người làm mặc định trong quy trình mẫu; có thể sửa riêng từng bước sau):</p><div class="form">${roles.map((r,k)=>`<div class="field"><label for="nr${k}">${esc(r)}</label>${chonNguoi(d.roles[r]||'', `id="nr${k}" data-role="${esc(r)}"`)}</div>`).join('')}</div></div>`:''}
     ${daQua?`<p class="err">${daQua} bước có hạn trước hôm nay nên sẽ hiện là trễ ngay khi tạo. Nếu bước đó đã làm rồi thì sau khi tạo chọn “Xong”, nếu không cần thì chọn “Không áp dụng”.</p>`:''}
     ${tp?`<div class="preview"><div class="scroll"><table><thead><tr><th>Bước sẽ tạo</th><th>Người làm</th><th>Người duyệt</th><th>Hạn</th></tr></thead><tbody>${rows}</tbody></table></div></div>`:''}
   </div>
   <footer><button class="btn" data-m="close" type="button">Hủy</button><button class="btn pri" data-m="create" type="button">Tạo hoạt động</button></footer></div>`;
+}
+function renderLichAudit(d){
+  const ht=HT.map(h=>h.ten);
+  return `<div class="au-khung"><div class="au-dau"><b>Lịch audit</b><span class="hint">Mỗi dòng là 1 lần đi audit. Tên cửa hàng: gõ vài chữ để chọn từ danh sách, hoặc gõ tên mới.</span></div>
+    <div class="au-ds">${d.au.map((r,i)=>{ const dl=(dsCuaHang&&dsCuaHang.get(nameOf(HT,Number(r.ht))))||[];
+      return `<div class="au-dong"><span class="au-so">${i+1}</span>
+        <div class="field"><label for="auHt${i}">Hệ thống</label><select id="auHt${i}" data-au="${i}:ht"><option value="">Chọn…</option>${HT.map(h=>`<option value="${h.id}" ${String(h.id)===String(r.ht)?'selected':''}>${esc(h.ten)}</option>`).join('')}</select></div>
+        <div class="field au-ch"><label for="auCh${i}">Tên cửa hàng</label><input id="auCh${i}" data-au="${i}:ch" list="auDl${i}" value="${esc(r.ch)}" placeholder="${r.ht?(dsCuaHang&&!dsCuaHang.size?'Đang tải danh sách…':'Gõ để tìm cửa hàng'):'Chọn hệ thống trước'}" autocomplete="off"><datalist id="auDl${i}">${dl.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></div>
+        <div class="field"><label for="auNg${i}">Ngày</label><input id="auNg${i}" type="date" data-au="${i}:ngay" value="${esc(r.ngay)}"></div>
+        <div class="field"><label for="auGio${i}">Giờ audit</label><input id="auGio${i}" type="time" data-au="${i}:gio" value="${esc(r.gio)}"></div>
+        <button type="button" class="btn ghost sm au-xoa" data-m="au-xoa" data-i="${i}" aria-label="Xóa dòng ${i+1}" title="Xóa dòng này" ${d.au.length<2?'disabled':''}>✕</button></div>`; }).join('')}</div>
+    <button type="button" class="btn sm au-them" data-m="au-them">＋ Thêm lịch audit</button></div>`;
 }
 function renderEditModal(){
   const d=modal.d;
@@ -1452,6 +1494,7 @@ modalEl.addEventListener('input', e=>{
   const el=e.target; if(!modal) return;
   if(el.dataset.n && (modal.type==='new'||modal.type==='edit') && el.tagName==='INPUT' && el.type!=='date') modal.d[el.dataset.n]=el.value;
   if(el.dataset.role!=null) modal.d.roles[el.dataset.role]=el.value;
+  if(el.dataset.au && modal.type==='new'){ const [i,k]=el.dataset.au.split(':'); if(modal.d.au?.[+i]) modal.d.au[+i][k]=el.value; }
   if(el.dataset.t) modal.d[el.dataset.t]=el.value;
   if(el.dataset.tf) modal.d.buoc[+el.dataset.ti][el.dataset.tf]= el.dataset.tf==='soNgay'? Number(el.value||0) : el.value;
 });
@@ -1463,6 +1506,7 @@ modalEl.addEventListener('change', e=>{
       if(v) ttLp.set(k, {...(cu||{}), khoa:k, trang_thai:v, nguoi:ls.nguoi, luc:ls.luc, lich_su:[...((cu&&cu.lich_su)||[]), ls]}); else ttLp.delete(k);
       toast(v?'Đã đổi trạng thái: '+TT_LP_TEN[v]:'Đã bỏ trạng thái'); render(); if(modal?.type==='lp') rerenderKeepScroll(); }); }
   if(el.id==='eRe'){ modal.d.re=el.checked; return; }
+  if(el.dataset.au && modal.type==='new'){ const [i,k]=el.dataset.au.split(':'); if(modal.d.au?.[+i]){ modal.d.au[+i][k]=el.value; if(k==='ht') modal.d.au[+i].ch=''; } rerenderKeepScroll(); return; }
   if(el.dataset.tf){ modal.d.buoc[+el.dataset.ti][el.dataset.tf]= el.dataset.tf==='soNgay'? Number(el.value||0) : el.value; return; }
   if(el.dataset.role!=null){ modal.d.roles[el.dataset.role]=el.value; if(modal.type==='new') rerenderKeepScroll(); return; }
   if(el.dataset.n){ modal.d[el.dataset.n]=el.value;
@@ -1479,6 +1523,8 @@ modalEl.addEventListener('click', e=>{
   if(m==='close') return closeModal();
   if(m==='yes'){ const fn=modal.fn; closeModal(); fn&&fn(); return; }
   if(m==='create') return createAct();
+  if(m==='au-them'){ const cu=modal.d.au[modal.d.au.length-1]; modal.d.au.push({...auMoi(cu?.ht), ngay:cu?.ngay?addDays(cu.ngay,1):'', gio:cu?.gio||'09:00'}); rerenderKeepScroll(); setTimeout(()=>document.getElementById('auCh'+(modal.d.au.length-1))?.focus(),0); return; }
+  if(m==='au-xoa'){ if(modal.d.au.length>1) modal.d.au.splice(+t.dataset.i,1); rerenderKeepScroll(); return; }
   if(m==='save-edit') return saveEdit();
   if(m==='tadd'){ modal.d.buoc.push({ten:'',vaiTro:'Trade MKT',moc:'bd',soNgay:0,ketQua:'',nguoiLam:'',nguoiDuyet:''}); rerenderKeepScroll(); return; }
   if(m==='tsave') return saveTpl();
@@ -1498,6 +1544,22 @@ function openNew(){
 }
 function createAct(){
   const d=modal.d; if(!d.ten.trim()) return toast('Hãy nhập tên hoạt động.');
+  const tpA=templates.find(x=>x.id===d.tplId);
+  if(laMauAudit(tpA)){
+    const thieu=d.au.findIndex(r=>!r.ht||!String(r.ch).trim()||!r.ngay||!r.gio);
+    if(thieu>=0) return toast(`Dòng ${thieu+1}: hãy chọn đủ hệ thống, tên cửa hàng, ngày và giờ audit.`);
+    const {bd,kt}=auKhoang(d), htDs=[...new Set(d.au.map(r=>r.ht))];
+    const row={ten:d.ten.trim(), quy_trinh_id:tpA.id, quy_trinh_ten:tpA.ten, nhan_hang_id:null, he_thong_id:htDs.length===1?Number(htDs[0]):null, ngay_bat_dau:bd, ngay_ket_thuc:kt};
+    const steps=buocAudit(tpA,d).map((b,i)=>({thu_tu:i+1, ten:b.ten, vai_tro:b.vaiTro||'', nguoi_lam:(d.roles[b.vaiTro||'Khác']||b.nguoiLam||'').trim(), nguoi_duyet:(b.nguoiDuyet||'').trim(),
+      moc:b.laAu?null:MOC_DB[b.moc||'bd'], so_ngay:b.laAu?null:Number(b.soNgay||0), han:b.han||null, ket_qua:b.ketQua||''}));
+    closeModal(); toast('Đang tạo hoạt động…');
+    return run('tao-hd', async()=>{
+      const hd=must(await sb.from('hoat_dong').insert(row).select('id').single());
+      must(await sb.from('buoc_cong_viec').insert(steps.map(s=>({...s, hoat_dong_id:hd.id}))));
+      selectedId=hd.id; view='hoat-dong'; if(location.hash!=='#hoat-dong') location.hash='hoat-dong';
+      toast(`Đã tạo: ${row.ten} (${d.au.length} lịch audit)`);
+    });
+  }
   if(!d.bd||!d.kt) return toast('Hãy chọn ngày bắt đầu và ngày kết thúc.');
   if(d.kt<d.bd) return toast('Ngày kết thúc phải sau ngày bắt đầu.');
   const tp=templates.find(x=>x.id===d.tplId);

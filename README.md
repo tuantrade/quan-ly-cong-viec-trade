@@ -190,6 +190,9 @@ Mỗi sáng (khoảng 7h–8h, trừ Chủ nhật), một script Google gửi th
   rồi lấy mã mới (Bước 1) dán lại vào `MA_BI_MAT`. Người có mã chỉ đọc được danh sách nhắc việc, không sửa được gì.
 - Gmail cá nhân gửi tối đa khoảng 100 thư/ngày; nhóm nhỏ dùng không hết.
 
+## Tạo hoạt động theo mẫu Audit
+Khi chọn quy trình mẫu có chữ “Audit”, cửa sổ **Tạo hoạt động mới** bỏ ô nhãn hàng, kênh, ngày bắt đầu, ngày kết thúc và thay bằng khung **Lịch audit**: mỗi dòng gồm hệ thống, tên cửa hàng (gõ để chọn từ danh sách điểm nhận hàng có sell-in 4 tháng gần nhất, hoặc gõ tên mới), ngày, giờ audit; nút **＋ Thêm lịch audit** để thêm dòng. Tạo 1 lần ra 1 hoạt động: bước “Đi audit tại điểm bán” của mẫu được tách thành 1 bước cho mỗi lịch (tên “Audit: cửa hàng · hệ thống · giờ”, hạn = ngày audit), các bước khác tính hạn theo ngày audit đầu tiên / cuối cùng. Leader giao người ở ô vai trò là mọi bước đi theo người đó.
+
 ## Lịch post (lịch CTKM theo siêu thị)
 
 **Đã chốt CTKM**: file Google Sheet *CẬP NHẬT CTKM KÊNH MT 2026* (mỗi tháng 1 tab T11.2026…) là CTKM chuẩn. Script `dongBoDuLieu` đọc file này (`docCtkm`, khóa `CTKM_SHEET_ID`) vào bộ số `ctkm_chot`. Chương trình Lịch post khớp cùng hệ thống, cùng brand và ngày chạy NTD trùng ít nhất 50% thì có dấu **◆ Đã chốt CTKM** (thanh có viền nhấn, chip ở bảng, ô lọc riêng). Cửa sổ chương trình hiện kỳ, thời gian PO giảm giá, thời gian giảm giá NTD và bảng sản phẩm: cơ cấu KM, giá thường, giá CK, FC số bán.
