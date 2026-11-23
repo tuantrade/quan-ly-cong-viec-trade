@@ -15,6 +15,7 @@
     return;
   }
   var duong = location.pathname.split('/').pop() || 'index.html';
+  var laKhachAnDanh = /[?&]khach=1/.test(location.search);   // vào bằng nút Khách: chỉ thấy Trang báo cáo
   var TRANG = /bao-cao-mt\.html$/.test(duong) ? 'bao-cao' : /lich-post-2027\.html$/.test(duong) ? 'lich-2027' : 'app';
   var MAC_DINH = { app: 'tong-quan', 'bao-cao': 'sell-in', 'lich-2027': '' };
   var NHOM = [
@@ -74,7 +75,7 @@
   var html = '<button id="tbNut" type="button" aria-label="Mở menu chuyển trang" aria-controls="thanhBen" aria-expanded="false">☰</button>' +
     '<div id="tbNen"></div><nav id="thanhBen" aria-label="Chuyển trang">' +
     '<a class="tb-logo" href="./#tong-quan"><img src="logo-tvp.png" alt="">Trade MKT</a>' +
-    NHOM.map(function (g, i) {
+    NHOM.filter(function (g) { return !laKhachAnDanh || g.ten === 'Trang báo cáo'; }).map(function (g, i) {
       return (i ? '<div class="tb-ke"></div>' : '') + '<div class="tb-nhom">' + g.ten + '</div>' +
         g.muc.map(function (m) {
           // Mục báo cáo: mở trong app (#bc-...), trừ khi đang ở chính trang bao-cao-mt.html mở riêng
@@ -86,6 +87,7 @@
           return '<a class="tb-muc" href="' + href + '" data-trang="' + t + '" data-muc="' + v + '"' + (t === 'app' ? ' data-v="' + v + '"' : '') + '>' + m.ten + '</a>';
         }).join('');
     }).join('') + '</nav>';
+  if (laKhachAnDanh) html = html.replace('</nav>', '<div class="tb-ke"></div><a class="tb-muc" href="./">Đăng nhập</a><div class="tb-nhom" style="text-transform:none;letter-spacing:0;font-weight:500">Bạn đang xem với tư cách khách</div></nav>');
   document.body.insertAdjacentHTML('afterbegin', html);
 
   function capNhat() {

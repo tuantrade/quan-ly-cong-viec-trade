@@ -136,6 +136,12 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
   window.addEventListener('resize', function(){ clearTimeout(window.__bcRs); window.__bcRs = setTimeout(goiNghe, 150); });
   (async function(){
     var s = (await sb.auth.getSession()).data.session, loi = document.getElementById('bc-loi');
+    var khachAnDanh = !s && /[?&]khach=1/.test(location.search);   // nút "Khách" ở màn hình đăng nhập: không cần tài khoản
+    if (khachAnDanh) {
+      laKhach = true; nguoiXem = 'khach-an-danh';
+      document.getElementById('bc-ai').innerHTML = 'Khách · chỉ xem báo cáo · <a href="./">Đăng nhập</a>';
+      await taiHet(); return;
+    }
     if (!s) { loi.hidden = false; loi.innerHTML = 'Bạn chưa đăng nhập. <a href="./">Mở app để đăng nhập</a> rồi quay lại trang này.'; Object.keys(ds).forEach(function(id){ ds[id] = { status:'error', data:[], message:'Chưa đăng nhập' }; }); goiNghe(); return; }
     var x = await sb.rpc('duoc_xem');
     if (x.error || !x.data) { loi.hidden = false; loi.textContent = 'Email ' + s.user.email + ' chưa có trong danh sách thành viên của app.'; return; }

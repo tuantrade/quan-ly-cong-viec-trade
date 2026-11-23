@@ -46,6 +46,10 @@ header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1
 .brand-wrap{display:flex;align-items:center;gap:10px}
 .brand-logo{width:46px;height:auto;display:block;flex:none}
 .auth-logo{display:block;width:120px;height:auto;margin:0 auto 10px}
+.auth-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--soft);border-radius:10px;margin-bottom:4px}
+.auth-tabs>*{all:unset;box-sizing:border-box;text-align:center;padding:8px 6px;border-radius:8px;cursor:pointer;font-weight:600;color:var(--muted)}
+.auth-tabs>[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.auth-tabs>*:hover{color:var(--ink)}.auth-tabs>*:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .brand{display:flex;flex-direction:column}
 .brand h1{font-size:17px;font-weight:700;letter-spacing:-.01em}
 .brand span{font-size:12px;color:var(--muted)}
@@ -1066,6 +1070,7 @@ function renderAuth(){
   const title={login:'Đăng nhập',signup:'Tạo tài khoản',forgot:'Quên mật khẩu',reset:'Đặt mật khẩu mới'}[m];
   main.innerHTML=`<form class="auth" id="authForm" novalidate>
     <img class="auth-logo" src="logo-tvp-day-du.png" alt="Trí Việt Phát Foods">
+    ${m==='login'||m==='signup'?`<div class="auth-tabs" role="tablist" aria-label="Cách vào app"><button type="button" role="tab" aria-selected="${m==='login'}" data-auth="login">Đăng nhập</button><button type="button" role="tab" aria-selected="${m==='signup'}" data-auth="signup">Đăng ký</button><a role="tab" aria-selected="false" href="bao-cao-mt.html?khach=1#sell-in" title="Xem Trang báo cáo, không cần tài khoản">Khách</a></div>`:''}
     <h2>${title}</h2>
     ${m!=='reset'?`<div class="field"><label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="email" required></div>`:''}
     ${m!=='forgot'?`<div class="field"><label for="aPass">${m==='reset'?'Mật khẩu mới':'Mật khẩu'}</label><input id="aPass" type="password" autocomplete="${m==='login'?'current-password':'new-password'}" minlength="6" required></div>`:''}
@@ -1073,6 +1078,7 @@ function renderAuth(){
     <button class="btn pri" type="submit">${{login:'Đăng nhập',signup:'Tạo tài khoản',forgot:'Gửi email đặt lại mật khẩu',reset:'Lưu mật khẩu mới'}[m]}</button>
     <div class="row">${m==='login'?`<button class="link" type="button" data-auth="signup">Tạo tài khoản mới</button><button class="link" type="button" data-auth="forgot">Quên mật khẩu?</button>`:(m==='reset'?'':`<button class="link" type="button" data-auth="login">← Quay lại đăng nhập</button>`)}</div>
     ${m==='signup'?'<p class="hint">Chỉ email đã được quản lý thêm vào danh sách thành viên mới xem được dữ liệu.</p>':''}
+    ${m==='login'||m==='signup'?'<p class="hint">Chỉ muốn xem số liệu? Bấm <a href="bao-cao-mt.html?khach=1#sell-in">Khách</a> để vào Trang báo cáo, không cần tài khoản.</p>':''}
   </form>`;
 }
 main.addEventListener('submit', async e=>{

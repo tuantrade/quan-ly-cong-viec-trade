@@ -1134,3 +1134,37 @@ begin
 end $$;
 revoke all on function public.lam_moi_canh_bao() from public, anon, authenticated;
 select public.lam_moi_canh_bao();
+
+-- ---------------------------------------------------------------------
+-- KHÁCH KHÔNG CẦN TÀI KHOẢN (theo yêu cầu chủ app, 23/11/2026): nút "Khách" ở màn hình đăng nhập
+-- mở Trang báo cáo (bao-cao-mt.html?khach=1). Người chưa đăng nhập (vai trò anon) CHỈ ĐỌC được các bảng số của báo cáo.
+-- Không mở: giá vốn / lãi gộp (bảng gia_ban), thành viên, công việc, quy trình, lịch post, cảnh báo, nhật ký nạp.
+-- Muốn đóng lại: chạy phần "ĐÓNG KHÁCH KHÔNG CẦN TÀI KHOẢN" ngay dưới.
+-- ---------------------------------------------------------------------
+do $$
+declare bang text;
+begin
+  foreach bang in array array['nguon_sellin','nguon_sellin_ch','nguon_don_hang','nguon_coop_ban','nguon_coop_ch','nguon_coop_sku',
+                              'nguon_emart','danh_muc_san_pham','trang_thai_nguon'] loop
+    execute format('drop policy if exists "khach_an_danh_xem" on public.%I', bang);
+    execute format('create policy "khach_an_danh_xem" on public.%I for select to anon using (true)', bang);
+    execute format('grant select on public.%I to anon', bang);
+  end loop;
+  drop policy if exists "khach_an_danh_xem" on public.bo_so_tinh_san;
+  create policy "khach_an_danh_xem" on public.bo_so_tinh_san for select to anon using (bo_so in ('baseline', 'baseline_wil', 'kiem_ton_ctv'));
+  grant select on public.bo_so_tinh_san to anon;
+end $$;
+grant select on public.ds_coop_sku, public.ds_emart_tuan, public.dong_bo_so_ban to anon;
+-- Bảng giá công khai (không giá vốn, lãi gộp): cho cả khách chưa đăng nhập
+create or replace view public.gia_ban_cong_khai as
+select id, he_thong, chuoi, nhan_hang, san_pham, giam, trading_term, gia_le, ghi_chu_cong_khai as ghi_chu
+from public.gia_ban
+where public.duoc_xem() or auth.role() = 'anon';
+grant select on public.gia_ban_cong_khai to anon, authenticated;
+
+-- ĐÓNG KHÁCH KHÔNG CẦN TÀI KHOẢN (bỏ dấu -- để chạy khi muốn đóng):
+-- do $$ declare bang text; begin
+--   foreach bang in array array['nguon_sellin','nguon_sellin_ch','nguon_don_hang','nguon_coop_ban','nguon_coop_ch','nguon_coop_sku','nguon_emart','danh_muc_san_pham','trang_thai_nguon','bo_so_tinh_san'] loop
+--     execute format('drop policy if exists "khach_an_danh_xem" on public.%I', bang);
+--   end loop; end $$;
+-- revoke select on public.gia_ban_cong_khai from anon;
