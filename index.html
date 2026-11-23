@@ -59,6 +59,39 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .sk{display:grid;gap:16px}.sk .k{border-radius:12px;background:linear-gradient(90deg,var(--soft) 25%,var(--line) 37%,var(--soft) 63%);background-size:400% 100%;animation:skMo 1.3s ease infinite}
 .sk .h4{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:14px}.sk .h4 .k{height:118px}.sk .k.cao{height:220px}.sk .k.vua{height:140px}
 @keyframes skMo{0%{background-position:100% 50%}100%{background-position:0 50%}}
+/* ===== Màn hình xin chào (mỗi ngày 1 lần khi mở app) ===== */
+#chao{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;overflow:hidden;
+  background:radial-gradient(900px 500px at 80% -10%,var(--tuyet-anh,rgba(109,187,146,.16)),transparent 60%),radial-gradient(800px 420px at 0% 110%,var(--accent-soft),transparent 60%),var(--bg);
+  transition:opacity .45s ease,visibility .45s;cursor:pointer}
+#chao.tat{opacity:0;visibility:hidden}
+#chao .the{position:relative;z-index:2;width:min(520px,100%);text-align:center;display:grid;gap:14px;justify-items:center;cursor:default}
+#chao .logo{width:84px;height:auto;filter:drop-shadow(0 6px 14px rgba(0,0,0,.12))}
+#chao .loi{font-size:15px;color:var(--muted);font-weight:500}
+#chao h1{font-family:var(--font-tieu-de);font-size:clamp(30px,6vw,44px);line-height:1.12;margin:0;letter-spacing:-.01em}
+#chao h1 b{color:var(--accent)}
+#chao .ngay{font-size:14px;color:var(--muted)}
+#chao .cau{font-size:15px;max-width:40ch;line-height:1.5}
+#chao .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:2px}
+#chao .chips span{padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;font-weight:600}
+#chao .chips .do{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}
+#chao .chips .cam{color:#c2410c;border-color:color-mix(in srgb,#d97706 40%,var(--line))}
+#chao .chips .xanh{color:var(--ok)}
+#chao button.vao{margin-top:6px;padding:11px 22px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 35%,transparent);transition:transform .15s ease}
+#chao button.vao:hover{transform:translateY(-1px)}
+#chao button.vao:focus-visible{outline:3px solid var(--accent-soft);outline-offset:3px}
+#chao .goi-y{font-size:12px;color:var(--muted)}
+#chao .tuyet{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}#chao .tuyet i{position:absolute;top:-12px;border-radius:50%;background:var(--tuyet-hat,#cfe0ee);animation:roi linear infinite}
+@media (prefers-reduced-motion:reduce){ #chao .tuyet{display:none} }
+#chao .canh{position:absolute;left:0;right:0;bottom:0;height:170px;z-index:1;pointer-events:none}
+#chao .canh svg{width:100%;height:100%;display:block}
+#chao .canh .d1{fill:var(--tuyet1,var(--soft))}#chao .canh .d2{fill:var(--tuyet2,var(--line))}#chao .canh .d3{fill:var(--tuyet3,var(--line))}#chao .canh .cay{fill:var(--tuyet-cay,var(--accent))}#chao .canh .cay2{fill:var(--tuyet-cay2,var(--accent-soft))}
+#chao .the>*{animation:chaoLen .6s cubic-bezier(.2,.7,.2,1) both}
+#chao .the>*:nth-child(2){animation-delay:.08s}#chao .the>*:nth-child(3){animation-delay:.16s}#chao .the>*:nth-child(4){animation-delay:.24s}
+#chao .the>*:nth-child(5){animation-delay:.32s}#chao .the>*:nth-child(6){animation-delay:.4s}#chao .the>*:nth-child(n+7){animation-delay:.48s}
+#chao .logo{animation:chaoLogo .7s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes chaoLen{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes chaoLogo{from{opacity:0;transform:scale(.7) rotate(-8deg)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){ #chao .the>*,#chao .logo{animation:none} #chao{transition:none} }
 /* ===== Chuyển trang mượt ===== */
 main.chuyen>*{animation:hienRa .32s cubic-bezier(.2,.7,.2,1) both}
 main.chuyen>*:nth-child(2){animation-delay:.04s}main.chuyen>*:nth-child(3){animation-delay:.08s}main.chuyen>*:nth-child(n+4){animation-delay:.12s}
@@ -490,6 +523,41 @@ function render(){
   rendering=true; try{ renderNow(); } finally{ rendering=false; }
 }
 let viewTruoc='';
+/* Màn hình xin chào: hiện 1 lần mỗi ngày khi mở app (sau khi tải xong số), bấm bất kỳ đâu / Enter / Esc để vào, tự ẩn sau 8 giây */
+let daChao=false;
+function moChao(){
+  if(daChao || laKhach()) return; daChao=true;
+  const t=todayStr(); let lan=''; try{ lan=localStorage.getItem('chaoNgay')||''; }catch(e){}
+  if(lan===t && !/[?&]chao=1/.test(location.search)) return;
+  try{ localStorage.setItem('chaoNgay',t); }catch(e){}
+  const gio=new Date().getHours(), buoi=gio<11?'Chào buổi sáng':gio<13?'Chào buổi trưa':gio<18?'Chào buổi chiều':'Chào buổi tối';
+  const ten=String(me()?.ho_ten||'').trim(), tenGoi=ten&&!/^quản lý$/i.test(ten)?ten.split(/\s+/).slice(-1)[0]:'';
+  const thu=new Date().getDay();
+  const CAU=['Chủ nhật vẫn ghé thăm, chăm quá! Nhớ nghỉ ngơi nữa nhé.','Đầu tuần rồi, cùng khởi động thật năng lượng nào!','Thứ Ba vững vàng, việc nào xong việc đó.','Giữa tuần rồi, giữ nhịp đều tay nhé.','Thứ Năm rồi, chỉ còn chút nữa thôi.','Thứ Sáu vui vẻ! Chốt nốt việc tuần này nào.','Thứ Bảy mà vẫn làm việc, cảm ơn bạn nhiều!'];
+  const mua = MUA==='noel' ? 'Trời se lạnh rồi, giữ ấm nhé ❄' : MUA==='tet' ? 'Tết đến gần, chúc bạn một mùa bán hàng thắng lớn 🌼' : '';
+  const steps=allSteps(), k=khoaTen(ten), cuaToi=ten?steps.filter(x=>isOpen(x.s)&&khoaTen(phuTrach(x.s))===k):[];
+  const tre=cuaToi.filter(x=>x.s.han&&x.s.han<t).length, homNay=cuaToi.filter(x=>x.s.han===t).length, choDuyet=cuaToi.filter(x=>x.s.trangThai==='cho').length;
+  const choSt=lichPost.filter(x=>ttCua(x)?.trang_thai==='da_dang_ky' && x.ngay_ket_thuc>=t).length;
+  const chips=[tre?`<span class="do">${tre} việc trễ hạn</span>`:'', homNay?`<span class="cam">${homNay} việc hạn hôm nay</span>`:'', choDuyet?`<span class="cam">${choDuyet} việc chờ bạn duyệt</span>`:'', choSt?`<span>${choSt} chương trình chờ siêu thị duyệt</span>`:''].filter(Boolean);
+  const el=document.createElement('div'); el.id='chao'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.setAttribute('aria-label','Xin chào');
+  const canh=document.querySelector('.canh-dong svg');
+  el.innerHTML=`<div class="the">
+      <img class="logo" src="logo-tvp.png" alt="Logo Trí Việt Phát">
+      <div class="loi">${buoi}${mua?' · '+mua:''}</div>
+      <h1>${tenGoi?`Chào <b>${esc(tenGoi)}</b>!`:'Chào bạn!'}</h1>
+      <div class="ngay">${THU[thu]}, ${fd(t)}</div>
+      <p class="cau">${CAU[thu]}</p>
+      <div class="chips">${chips.length?chips.join(''):'<span class="xanh">✓ Không có việc trễ hay đến hạn hôm nay</span>'}</div>
+      <button class="vao" type="button">Vào làm việc →</button>
+      <div class="goi-y">Bấm vào bất kỳ đâu để vào</div>
+    </div>${MUA==='noel'?`<div class="tuyet" aria-hidden="true">${Array.from({length:22},()=>{ const c=(3+Math.random()*4).toFixed(1); return `<i style="left:${(Math.random()*100).toFixed(1)}%;width:${c}px;height:${c}px;opacity:${(.4+Math.random()*.5).toFixed(2)};--lac:${Math.round(Math.random()*60-30)}px;animation-duration:${(10+Math.random()*10).toFixed(1)}s;animation-delay:-${(Math.random()*15).toFixed(1)}s"></i>`; }).join('')}</div>`:''}${canh?`<div class="canh" aria-hidden="true">${canh.outerHTML}</div>`:''}`;
+  document.body.appendChild(el);
+  const dong=()=>{ if(el.classList.contains('tat')) return; el.classList.add('tat'); document.removeEventListener('keydown',phim); setTimeout(()=>el.remove(),500); };
+  const phim=e=>{ if(e.key==='Enter'||e.key==='Escape'||e.key===' '){ e.preventDefault(); dong(); } };
+  el.addEventListener('click',dong); document.addEventListener('keydown',phim);
+  setTimeout(()=>el.querySelector('button.vao')?.focus(),300);
+  setTimeout(dong,8000);
+}
 /* Giao diện sáng / tối: Theo máy -> Sáng -> Tối. Lưu trong trình duyệt, áp cho cả Trang báo cáo đang mở trong app */
 const CHE_DO_MAU=[['','◐','Theo máy'],['light','☀','Sáng'],['dark','☾','Tối']];
 function apCheDoMau(m){
@@ -523,6 +591,7 @@ function renderNow(){
   if(laKhach()) khoaChiXem(main);
   if(view!==viewTruoc){ viewTruoc=view; main.classList.remove('chuyen'); void main.offsetWidth; main.classList.add('chuyen'); clearTimeout(window.__chuyen); window.__chuyen=setTimeout(()=>main.classList.remove('chuyen'),700); }
   if(view==='tong-quan') demLen();
+  moChao();
 }
 
 /* Trang báo cáo trong app: một khung (iframe) giữ suốt phiên, đổi mục chỉ đổi phần # của trang báo cáo, không tải lại số */
