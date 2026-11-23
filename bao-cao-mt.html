@@ -170,6 +170,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .sv-filters-sku select{max-width:22rem}
 .sv-filter select:disabled{opacity:.6}
 .sv-filter select{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);min-width:10rem}
+.sv-card.sv-nam{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--cds-gap-md) var(--cds-gap-lg);border-left:4px solid var(--color-ok)}
+.sv-nam-trai{display:flex;flex-direction:column;gap:2px}.sv-nam .sv-kpi-val{font-size:30px}
+.sv-nam-phai{display:flex;flex-wrap:wrap;gap:var(--cds-gap-sm) var(--cds-gap-lg);font-size:var(--cds-font-size-body);color:var(--color-fg-muted)}.sv-nam-phai b{color:var(--color-fg);font-weight:var(--cds-font-weight-medium)}
 .sv-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:var(--cds-gap-md)}
 .sv-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0;display:flex;flex-direction:column;gap:var(--cds-gap-sm)}
 .sv-kpi-label{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
@@ -233,6 +236,8 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
       <select id="sv-thang" data-source="tong_quan"></select>
     </label>
   </header>
+
+  <section class="sv-card sv-nam" id="ca-nam" aria-label="Tổng cả năm"><div class="sv-nam-trai"><span class="sv-kpi-label" id="k-nam-nhan">Doanh thu thuần cả năm</span><span class="sv-kpi-val dash-skeleton" id="k-nam">—</span></div><div class="sv-nam-phai" id="k-nam-sub">—</div></section>
 
   <section class="sv-kpis" id="chi-so">
     <div class="sv-card"><span class="sv-kpi-label">Doanh thu thuần</span><span class="sv-kpi-val dash-skeleton" id="k-thuan" data-source="tong_quan" data-field="thuan">—</span><span class="sv-kpi-sub" id="k-thuan-sub">—</span></div>
@@ -1035,6 +1040,17 @@ function drawSellIn() {
   const r = tq.data.find((x) => x.thang === m);
   const w = 'thang=' + enc(m);
   drawMonths(document.getElementById('c-thang'), tq.data, m);
+  // Ô cố định: tổng cả năm (năm của tháng mới nhất có số), không đổi theo tháng đang chọn; đi theo ô lọc hệ thống chung
+  {
+    const cuoiT = months[months.length - 1], nam = cuoiT.slice(0, 4), dsNam = tq.data.filter((x) => x.thang.slice(0, 4) === nam);
+    const tong = dsNam.reduce((a, x) => a + x.thuan, 0), du = dsNam.filter((x) => x.so_sanh_ca_thang), bqDu = du.length ? du.reduce((a, x) => a + x.thuan, 0) / du.length : null;
+    const cao = dsNam.reduce((a, x) => (!a || x.thuan > a.thuan ? x : a), null), rCuoi = dsNam[dsNam.length - 1];
+    document.getElementById('k-nam-nhan').textContent = `Doanh thu thuần cả năm ${nam}${gHt ? ' · ' + gHt : ''}`;
+    setText('k-nam', ty(tong) + ' đồng');
+    document.getElementById('k-nam-sub').innerHTML = `<span>Từ <b>${dmy(dsNam[0].ngay_dau)}</b> đến <b>${dmy(rCuoi.ngay_cuoi)}</b> (${dsNam.length} tháng)</span>` +
+      (bqDu != null ? `<span>Bình quân <b>${ty(bqDu)}</b>/tháng (${du.length} tháng đủ)</span>` : '') +
+      (cao ? `<span>Cao nhất <b>${thangLabel(cao.thang)}</b>: ${ty(cao.thuan)}</span>` : '');
+  }
   mark(setText('k-thuan', ty(r.thuan)), 'tong_quan', 'thuan', w);
   mark(setText('k-ds', ty(r.doanh_so - r.tra_lai)), 'tong_quan', 'doanh_so', w);
   mark(setText('k-tra', ty(r.tra_lai)), 'tong_quan', 'tra_lai', w);
