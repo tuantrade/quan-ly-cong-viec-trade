@@ -251,7 +251,7 @@ const TT_DB = {chua:'chua_lam', dang:'dang_lam', cho:'cho_duyet', xong:'xong', b
 const TT_APP = {chua_lam:'chua', dang_lam:'dang', cho_duyet:'cho', xong:'xong', khong_ap_dung:'bo'};
 const MOC_DB = {bd:'bat_dau', kt:'ket_thuc'}, MOC_APP = {bat_dau:'bd', ket_thuc:'kt'};
 const TTHD = {chuabd:['Chưa bắt đầu','neutral'], dangchay:['Đang chạy','info'], tre:['Có việc trễ','bad'], hoanthanh:['Hoàn thành','ok']};
-const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','bc-sell-in','bc-sell-out','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
+const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','lich-post-2027','bc-sell-in','bc-sell-out','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
 
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
 let giaBan = [], giaLoc = {ht:'', nhan:''};
@@ -282,7 +282,7 @@ const isManager = () => me()?.vai_tro==='quan_ly';
 /* Khách: chỉ xem. Cơ sở dữ liệu đã chặn mọi thao tác ghi; phần dưới đây ẩn nút sửa cho gọn */
 const laKhach = () => me()?.vai_tro==='khach';
 const NUT_SUA = '[data-tao-lp],[data-tao27],[data-tao-tu-qt],[data-done],[data-duyet],[data-tralai],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-act="them-buoc"],[data-act="sua-hd"],[data-act="xoa-hd"],[data-act="tao-qt"],[data-act="them-tv"]';
-const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo','giaHt','giaNhan'];
+const O_LOC = ['fq','fnhan','fkenh','ftt','fnguoi','pMode','pTu','pDen','lpChuoi','lpNhan','lpLoai','lpTu','lpSo','lp27Chuoi','lp27Nhan','lp27Tu','lp27So','giaHt','giaNhan'];
 function khoaChiXem(goc){
   goc.querySelectorAll(NUT_SUA).forEach(el=>el.remove());
   goc.querySelectorAll('input,select,textarea').forEach(el=>{ if(!O_LOC.includes(el.id)) el.disabled=true; });
@@ -435,6 +435,7 @@ function renderNow(){
   else if(view==='hoat-dong') html+=renderList();
   else if(view==='lich-viec') html+=renderCal();
   else if(view==='lich-post') html+=renderLichPost();
+  else if(view==='lich-post-2027') html+=renderLichPost27();
   else if(view==='gia') html+=renderGia();
   else if(view==='quy-trinh') html+=renderTpls();
   else if(view==='thanh-vien') html+=renderMembers();
@@ -718,6 +719,73 @@ const thangCua = d => d.slice(0,7);
 function themThang(ym,n){ const [y,m]=ym.split('-').map(Number); const d=new Date(Date.UTC(y,m-1+n,1)); return d.toISOString().slice(0,7); }
 function tenThang(ym){ const [y,m]=ym.split('-'); return 'T'+Number(m)+'/'+y; }
 const LOAI_LP = {onpost:'Onpost', offpost:'Offpost', '':'Không ghi'};
+/* ---------- Lịch post 2027: trình bày giống trang Lịch post (thanh thời gian theo hệ thống · brand).
+   Lịch 2027 mới có các kỳ của từng hệ thống, chưa rõ chương trình của từng brand: mỗi ô ghi mã kỳ (VD C701, 2701). ---------- */
+let lichLoc27 = {chuoi:'', nhan:'', tu:'', soThang:'3'};
+const ky27 = () => lich27.filter(x=>ngay10(x.ntd_bat_dau)).map(x=>({...x, bd:ngay10(x.ntd_bat_dau), kt:ngay10(x.ntd_ket_thuc)||ngay10(x.ntd_bat_dau)}));
+const nhan27 = () => NH.filter(n=>n.dang_dung!==false).map(n=>n.ten);
+function hdCua27Nhan(x, nhan){ const n=khopNhan(nhan); return hdCua27(x).filter(a=>!n || !a.nhanId || a.nhanId===n.id); }
+function renderLichPost27(){
+  const t=todayStr(), ds=ky27();
+  if(!ds.length) return `<section class="card"><div class="card-h"><h2>Lịch post 2027</h2></div><div class="empty">Chưa có lịch post 2027.</div></section>`;
+  const L=lichLoc27;
+  const dsChuoi=[...new Set(ds.map(x=>x.he_thong).filter(Boolean))], dsNhan=nhan27();
+  const thangMin=thangCua(ds.reduce((m,x)=>x.bd<m?x.bd:m,'9999-12-31')), thangMax=thangCua(ds.reduce((m,x)=>x.kt>m?x.kt:m,'0000-01-01'));
+  const dsThang=[]; for(let m=thangMin; m<=thangMax && dsThang.length<60; m=themThang(m,1)) dsThang.push(m);
+  if(!L.tu || !dsThang.includes(L.tu)) L.tu = dsThang.includes(thangCua(t)) ? thangCua(t) : dsThang[0];
+  const so=Math.max(1,Number(L.soThang)||3);
+  const dau=L.tu+'-01', cuoi=addDays(themThang(L.tu,so)+'-01',-1), tongNgay=diff(dau,cuoi)+1;
+  const pct=d=>(diff(dau,d)/tongNgay*100);
+  const thangs=[]; for(let m=L.tu,i=0;i<so;i++,m=themThang(m,1)) thangs.push(m);
+  const nenThang=thangs.map((m,i)=>i?`<div class="g-sep" style="left:${pct(m+'-01')}%"></div>`:'').join('');
+  const homNay=(t>=dau&&t<=cuoi)?`<div class="g-today" style="left:${pct(t)}%" title="Hôm nay"></div>`:'';
+  const chuois=dsChuoi.filter(c=>!L.chuoi||c===L.chuoi), nhans=dsNhan.filter(n=>!L.nhan||n===L.nhan);
+  let rows='';
+  chuois.forEach(c=>{
+    const kc=ds.filter(x=>x.he_thong===c && x.bd<=cuoi && x.kt>=dau).sort((a,b)=>a.bd.localeCompare(b.bd));
+    nhans.forEach((nh,ni)=>{
+      const lan=[];
+      const bars=kc.map(x=>{ let l=lan.findIndex(e=>e<x.bd); if(l<0){ l=lan.length; lan.push(''); } lan[l]=x.kt;
+        const bd=x.bd<dau?dau:x.bd, kt=x.kt>cuoi?cuoi:x.kt, co=hdCua27Nhan(x,nh).length>0;
+        return `<button type="button" class="g-bar ${co?'co':''}" data-lp27="${esc(x.ma_dong)}" data-nhan27="${esc(nh)}" style="left:${pct(bd)}%;width:calc(${(diff(bd,kt)+1)/tongNgay*100}% - 2px);top:${5+l*28}px" title="${esc(x.ma_ky+(x.chu_de?' · '+x.chu_de:'')+'\n'+fd(x.bd)+' – '+fd(x.kt)+'\nChưa rõ chương trình của '+nh)}">${co?'✓ ':''}${esc(x.ma_ky||'')}</button>`; }).join('');
+      rows+=`<div class="g-row"><div class="g-lab ${ni===0?'chuoi-dau':''}">${ni===0?`<b>${esc(c)}</b>`:''}${esc(nh)}</div><div class="g-track" style="height:${10+Math.max(1,lan.length)*28}px">${nenThang}${homNay}${bars}</div></div>`;
+    });
+  });
+  const sapToi=ds.filter(x=>(!L.chuoi||x.he_thong===L.chuoi) && x.kt>=t && x.bd<=addDays(t,60)).sort((a,b)=>a.bd.localeCompare(b.bd));
+  const opt=(arr,sel,blank)=>`<option value="">${blank}</option>`+arr.map(v=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v)}</option>`).join('');
+  const ngayHan=x=>{ const h=ngay10(x.han_dang_ky); if(!h) return '<span class="muted">chưa có</span>'; const con=diff(t,h); return `${fd(h)}${con>=0?`<div class="sub ${con<=7?'late':''}">còn ${con} ngày</div>`:'<div class="sub">đã qua</div>'}`; };
+  return `<section class="card"><div class="card-h"><div><h2>Lịch post 2027</h2><p>Các kỳ chương trình 2027 của ${dsChuoi.length} hệ thống (${ds.length} kỳ). Chưa rõ chương trình của từng brand nên mỗi ô ghi mã kỳ. Bấm vào ô để xem ngày giao hàng, hạn đăng ký, thời gian PO và tạo hoạt động.</p></div></div>
+    <div class="filters">
+      <select id="lp27Chuoi" aria-label="Lọc hệ thống">${opt(dsChuoi,L.chuoi,'Tất cả hệ thống')}</select>
+      <select id="lp27Nhan" aria-label="Lọc nhãn hàng">${opt(dsNhan,L.nhan,'Tất cả nhãn')}</select>
+      <select id="lp27Tu" aria-label="Từ tháng">${dsThang.map(m=>`<option value="${m}" ${m===L.tu?'selected':''}>Từ ${tenThang(m)}</option>`).join('')}</select>
+      <select id="lp27So" aria-label="Số tháng hiển thị">${[1,2,3,6,12].map(n=>`<option value="${n}" ${String(n)===String(L.soThang)?'selected':''}>${n} tháng</option>`).join('')}</select>
+    </div>
+    <div class="g-legend"><span><i style="background:var(--soft);border:1px solid var(--line)"></i>Kỳ chương trình (ghi mã kỳ)</span><span><i style="background:var(--ok-soft)"></i>✓ Đã tạo hoạt động</span><span><i style="background:var(--bad)"></i>Hôm nay</span></div>
+    ${rows?`<div class="scroll"><div class="gantt"><div class="g-row head"><div class="g-lab"><b>Hệ thống · nhãn</b></div><div class="g-track" style="min-height:30px">${thangs.map((m,i)=>`<div class="g-mon" style="left:${pct(m+'-01')}%;width:${(diff(m+'-01',addDays(themThang(m,1)+'-01',-1))+1)/tongNgay*100}%">${tenThang(m)}</div>`).join('')}</div></div>${rows}</div></div>`:'<div class="empty">Không có kỳ nào trong khoảng này.</div>'}
+  </section>
+  <section class="card"><div class="card-h"><h2>Kỳ sắp tới (60 ngày tới)</h2><p>${sapToi.length} kỳ · hạn đăng ký, thời gian PO giảm giá, giao hàng và ngày chạy</p></div>${sapToi.length?`<div class="scroll"><table><thead><tr><th>Hệ thống</th><th>Mã kỳ</th><th>Chủ đề</th><th>Hạn đăng ký</th><th>PO giảm giá</th><th>Giao hàng</th><th>Ngày chạy</th></tr></thead><tbody>${
+    sapToi.map(x=>{ const po=poCua(x.he_thong,x.bd,x.kt), gh=ngay10(x.gh_bat_dau);
+      return `<tr class="click" data-lp27="${esc(x.ma_dong)}" data-nhan27=""><td>${esc(x.he_thong)}</td><td><b>${esc(x.ma_ky||'—')}</b></td><td>${esc(x.chu_de||'—')}</td><td class="num">${ngayHan(x)}</td><td class="num">${po?`${fd(po.bd)} – ${fd(po.kt)}`:'<span class="muted">—</span>'}</td><td class="num">${gh?`${fd(gh)} – ${fd(ngay10(x.gh_ket_thuc)||gh)}`:'<span class="muted">chưa có</span>'}</td><td class="num">${fd(x.bd)} – ${fd(x.kt)}</td></tr>`; }).join('')
+  }</tbody></table></div>`:'<div class="empty">Không có kỳ nào trong 60 ngày tới.</div>'}</section>`;
+}
+function renderModalLp27(){
+  const x=ky27().find(v=>v.ma_dong===modal.d.ma); if(!x) return '';
+  const nh=modal.d.nhan||'', hd=nh?hdCua27Nhan(x,nh):hdCua27(x), gh=ngay10(x.gh_bat_dau), h=ngay10(x.han_dang_ky), cp=ngay10(x.comple_bat_dau);
+  return `<div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="tt27"><header><h2 id="tt27">${esc(x.he_thong)}${nh?' · '+esc(nh):''} · kỳ ${esc(x.ma_ky||'')}</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header>
+    <div class="body"><div class="chips"><span class="chip num">Chạy ${fd(x.bd)} – ${fd(x.kt)} (${diff(x.bd,x.kt)+1} ngày)</span>${chipPo(x.he_thong,x.bd,x.kt)}</div>
+    ${x.chu_de?`<p class="lp-nd">${esc(x.chu_de)}</p>`:''}
+    ${nh?`<p class="hint" style="margin:0">Chưa rõ chương trình của ${esc(nh)} trong kỳ này.</p>`:''}
+    <div class="scroll"><table><tbody>
+      <tr><td>Hạn đăng ký</td><td class="num">${h?fd(h):'<span class="muted">chưa có</span>'}</td></tr>
+      <tr><td>Giao hàng</td><td class="num">${gh?`${fd(gh)} – ${fd(ngay10(x.gh_ket_thuc)||gh)}`:'<span class="muted">chưa có</span>'}</td></tr>
+      ${cp?`<tr><td>Comple (GO)</td><td class="num">${fd(cp)} – ${fd(ngay10(x.comple_ket_thuc)||cp)}</td></tr>`:''}
+      ${x.ghi_chu?`<tr><td>Ghi chú</td><td>${esc(x.ghi_chu)}</td></tr>`:''}
+      ${x.nguon?`<tr><td>Nguồn</td><td>${esc(x.nguon)}</td></tr>`:''}
+    </tbody></table></div>
+    <div><b>Hoạt động trong app:</b> ${hd.length?hd.map(a=>`<button type="button" class="link" data-m="mo-hd" data-id="${esc(a.id)}">${esc(a.ten)}</button>`).join(', '):'<span class="muted">chưa có</span>'}</div></div>
+    <footer><button class="btn" data-m="close" type="button">Đóng</button>${laKhach()?'':`<button class="btn pri" data-m="tao-27" type="button">Tạo hoạt động</button>`}</footer></div>`;
+}
 function renderLichPost(){
   const t=todayStr();
   if(!lichPost.length) return `<section class="card"><div class="card-h"><h2>Lịch post</h2><p>Lịch CTKM theo siêu thị, lấy từ Google Sheet kế hoạch</p></div><div class="empty">Chưa có dữ liệu lịch post. Lịch được đồng bộ tự động từ Google Sheet bằng script Google (xem README, mục “Lịch post”).</div></section>`;
@@ -1053,6 +1121,7 @@ function renderModalNow(){
       <p class="hint" style="margin:0">Trong sheet: hàng ${x.dong}, cột ${x.cot}${x.nhom?' · '+esc(x.nhom):''}</p>
       <div><b>Hoạt động trong app:</b> ${hd.length?hd.map(a=>`<button type="button" class="link" data-m="mo-hd" data-id="${esc(a.id)}">${esc(a.ten)}</button>`).join(', '):'<span class="muted">chưa có</span>'}</div>${soLp}</div>
       <footer><button class="btn" data-m="close" type="button">Đóng</button>${laKhach()?'':`<button class="btn pri" data-m="tao-lp" type="button">Tạo hoạt động CTKM</button>`}</footer></div>` : ''; }
+  if(modal.type==='lp27') inner=renderModalLp27();
   if(modal.type==='tralai') inner=`<div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="ttTr"><header><h2 id="ttTr">Trả lại bước</h2><button class="btn ghost" data-m="close" type="button" aria-label="Đóng">✕</button></header><div class="body"><p style="margin:0 0 8px">“${esc(modal.d.ten)}” sẽ quay về ${esc(modal.d.nguoi)} ở trạng thái Đang làm.</p><div class="field"><label for="trLyDo">Lý do / cần sửa gì</label><textarea id="trLyDo" data-t="lyDo" rows="3">${esc(modal.d.lyDo)}</textarea></div></div><footer><button class="btn" data-m="close" type="button">Hủy</button><button class="btn pri" data-m="tralai-ok" type="button">Trả lại</button></footer></div>`;
   modalEl.innerHTML=`<div class="backdrop" data-m="bg">${inner}</div>`;
 }
@@ -1147,6 +1216,7 @@ modalEl.addEventListener('click', e=>{
   if(m==='tsave') return saveTpl();
   if(m==='tralai-ok') return traLai();
   if(m==='tao-lp'){ const id=modal.d.id; closeModal(); if(!laKhach()) taoTuLp(id); return; }
+  if(m==='tao-27'){ const {ma, nhan}=modal.d; closeModal(); if(laKhach()) return; taoTu27(ma); const n=nhan?khopNhan(nhan):null; if(n && modal?.d){ modal.d.nhan=String(n.id); modal.d.ten=String(modal.d.ten||"").replace(/^CTKM /,"CTKM "+n.ten+" "); renderModal(); } return; }
   if(m==='mo-hd'){ const id=t.dataset.id; closeModal(); selectedId=id; view='hoat-dong'; location.hash='hoat-dong'; render(); return; }
   if(m==='tdelete'){ const id=modal.d.id; askConfirm('Xóa quy trình mẫu?','Các hoạt động đã tạo từ mẫu này vẫn giữ nguyên.','Xóa',()=>{ templates=templates.filter(x=>x.id!==id); render(); run('qt'+id,()=>sb.from('quy_trinh').delete().eq('id',id)); }); return; }
 });
@@ -1254,8 +1324,9 @@ function traLai(){
 document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach()) openNew(); });
 main.addEventListener('click', e=>{
   if(!authed) return;
-  const t=e.target.closest('[data-lp],[data-tao-lp],[data-tao27],[data-tao-tu-qt],[data-xem-lich],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
+  const t=e.target.closest('[data-lp27],[data-lp],[data-tao-lp],[data-tao27],[data-tao-tu-qt],[data-xem-lich],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
   if(laKhach() && t.matches(NUT_SUA)) return toast('Bạn đang xem với quyền khách nên không sửa được.');
+  if(t.dataset.lp27!=null){ modal={type:'lp27', d:{ma:t.dataset.lp27, nhan:t.dataset.nhan27||''}}; return renderModal(); }
   if(t.dataset.lp!=null) return moLp(t.dataset.lp);
   if(t.dataset.taoLp!=null) return taoTuLp(t.dataset.taoLp);
   if(t.dataset.tao27!=null) return taoTu27(t.dataset.tao27);
@@ -1307,6 +1378,10 @@ main.addEventListener('change', e=>{
   if(el.id==='lpLoai'){ lichLoc.loai=el.value; render(); }
   if(el.id==='lpTu'){ lichLoc.tu=el.value; render(); }
   if(el.id==='lpSo'){ lichLoc.soThang=el.value; render(); }
+  if(el.id==='lp27Chuoi'){ lichLoc27.chuoi=el.value; render(); }
+  if(el.id==='lp27Nhan'){ lichLoc27.nhan=el.value; render(); }
+  if(el.id==='lp27Tu'){ lichLoc27.tu=el.value; render(); }
+  if(el.id==='lp27So'){ lichLoc27.soThang=el.value; render(); }
 });
 main.addEventListener('input', e=>{ if(e.target.id==='fq'){ filters.q=e.target.value; clearTimeout(main._q); main._q=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const f=document.getElementById('fq'); if(f){ f.focus(); try{f.setSelectionRange(pos,pos);}catch(_){} } },250); } });
 

@@ -23,7 +23,7 @@
       { ten: 'Hoạt động', trang: 'app', v: 'hoat-dong', href: './#hoat-dong' },
       { ten: 'Lịch việc', trang: 'app', v: 'lich-viec', href: './#lich-viec' },
       { ten: 'Lịch post', trang: 'app', v: 'lich-post', href: './#lich-post' },
-      { ten: 'Lịch post 2027', trang: 'lich-2027', v: '', href: 'lich-post-2027.html' } ] },
+      { ten: 'Lịch post 2027', trang: 'app', v: 'lich-post-2027', href: './#lich-post-2027' } ] },   // nay mở ngay trong app, trình bày như Lịch post
     { ten: 'Trang báo cáo', muc: [
       { ten: 'Sell-in', trang: 'bao-cao', v: 'sell-in', href: 'bao-cao-mt.html#sell-in' },
       { ten: 'Sell-out', trang: 'bao-cao', v: 'sell-out', href: 'bao-cao-mt.html#sell-out' },
