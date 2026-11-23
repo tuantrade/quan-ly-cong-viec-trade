@@ -191,6 +191,8 @@ Mỗi sáng (khoảng 7h–8h, trừ Chủ nhật), một script Google gửi th
 - Gmail cá nhân gửi tối đa khoảng 100 thư/ngày; nhóm nhỏ dùng không hết.
 
 ## Lịch post (lịch CTKM theo siêu thị)
+
+**Đã chốt CTKM**: file Google Sheet *CẬP NHẬT CTKM KÊNH MT 2026* (mỗi tháng 1 tab T11.2026…) là CTKM chuẩn. Script `dongBoDuLieu` đọc file này (`docCtkm`, khóa `CTKM_SHEET_ID`) vào bộ số `ctkm_chot`. Chương trình Lịch post khớp cùng hệ thống, cùng brand và ngày chạy NTD trùng ít nhất 50% thì có dấu **◆ Đã chốt CTKM** (thanh có viền nhấn, chip ở bảng, ô lọc riêng). Cửa sổ chương trình hiện kỳ, thời gian PO giảm giá, thời gian giảm giá NTD và bảng sản phẩm: cơ cấu KM, giá thường, giá CK, FC số bán.
 Trang **Lịch post** hiện lịch CTKM của từng chuỗi / nhãn hàng dạng thanh thời gian, lấy từ Google Sheet kế hoạch (ví dụ tab `PLAN 2026` trong file *TRADE MASTER PLAN*).
 
 - Mỗi hàng là một chuỗi · nhãn hàng; mỗi thanh là một chương trình. Màu xanh = Onpost, màu vàng = Offpost (đọc từ chữ “onpost/offpost” trong ô hoặc ở cột siêu thị), xám = không ghi.
