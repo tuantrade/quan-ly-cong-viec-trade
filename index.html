@@ -534,7 +534,12 @@ function moChao(){
   const ten=String(me()?.ho_ten||'').trim(), tenGoi=ten&&!/^quản lý$/i.test(ten)?ten.split(/\s+/).slice(-1)[0]:'';
   const thu=new Date().getDay();
   const CAU=['Chủ nhật vẫn ghé thăm, chăm quá! Nhớ nghỉ ngơi nữa nhé.','Đầu tuần rồi, cùng khởi động thật năng lượng nào!','Thứ Ba vững vàng, việc nào xong việc đó.','Giữa tuần rồi, giữ nhịp đều tay nhé.','Thứ Năm rồi, chỉ còn chút nữa thôi.','Thứ Sáu vui vẻ! Chốt nốt việc tuần này nào.','Thứ Bảy mà vẫn làm việc, cảm ơn bạn nhiều!'];
-  const mua = MUA==='noel' ? 'Trời se lạnh rồi, giữ ấm nhé ❄' : MUA==='tet' ? 'Tết đến gần, chúc bạn một mùa bán hàng thắng lớn 🌼' : '';
+  // Lời theo mùa: Noel, Tết theo lịch mùa của app; ngoài 2 mùa đó thì mùa hè (tháng 5–8), mùa thu (1/9–14/11)
+  const thang=+t.slice(5,7), chon=ds=>ds[Math.floor(Math.random()*ds.length)];
+  const mua = MUA==='noel' ? 'Trời se lạnh rồi, giữ ấm nhé ❄' : MUA==='tet' ? 'Tết đến gần, chúc bạn một mùa bán hàng thắng lớn 🌼'
+    : thang>=5&&thang<=8 ? chon(['Hè rồi, nhớ uống đủ nước nhé ☀','Nắng hè rực rỡ, chúc một ngày tươi mát 🍃','Mùa hè, mùa trà Wil mát lạnh lên ngôi 🧊'])
+    : thang>=9&&thang<=11 ? chon(['Thu sang rồi, trời dịu mát dễ chịu 🍂','Gió thu nhẹ nhàng, chúc bạn làm việc thật thong thả 🍁','Mùa thu, mùa của những kế hoạch cuối năm 🍂'])
+    : '';
   const steps=allSteps(), k=khoaTen(ten), cuaToi=ten?steps.filter(x=>isOpen(x.s)&&khoaTen(phuTrach(x.s))===k):[];
   const tre=cuaToi.filter(x=>x.s.han&&x.s.han<t).length, homNay=cuaToi.filter(x=>x.s.han===t).length, choDuyet=cuaToi.filter(x=>x.s.trangThai==='cho').length;
   const choSt=lichPost.filter(x=>ttCua(x)?.trang_thai==='da_dang_ky' && x.ngay_ket_thuc>=t).length;
