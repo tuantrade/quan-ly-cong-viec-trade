@@ -9,26 +9,27 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 <script src="cau-hinh.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Serif:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 /* Màu và cỡ chữ thay cho bộ giao diện của dashboard Claude */
 :root{
-  --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-anthropic-sans: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;   /* cùng font với app */
   --font-anthropic-serif: "Noto Serif", "Times New Roman", serif;   /* Georgia thiếu một số chữ Việt có dấu (ế, ộ…) */
-  --color-bg:#f6f4ef; --color-panel:#ffffff; --color-fg:#1f2421; --color-fg-muted:#5f665f; --color-border-line:#e2ddd2;
+  --color-bg:#f3f5f2; --color-panel:#ffffff; --color-fg:#1c2621; --color-fg-muted:#5d6a63; --color-border-line:#dde3dc;   /* cùng bảng màu với app */
   --color-ok:#23804f; --color-warn:#a86d00; --color-bad:#b9381f;
   --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:12px; --cds-gap-lg:20px;
   --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:12px; --cds-pad-lg:16px;
   --cds-radius:10px; --cds-border:1px solid var(--color-border-line);
   --cds-font-size-caption:12px; --cds-font-size-body:14px; --cds-font-size-heading:16px; --cds-font-size-title:22px; --cds-font-weight-medium:600;
-  --cds-surface-popover:#ffffff; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.14); --cds-text-secondary:#5f665f;
-  --cds-chart-grid:#ebe6db; --cds-chart-axis:#8a8f88; --cds-chart-muted:#b7b9b2; --cds-dur-slow:.3s;
+  --cds-surface-popover:#ffffff; --cds-shadow-popover:0 6px 24px rgba(0,0,0,.14); --cds-text-secondary:#5d6a63;
+  --cds-chart-grid:#e6ebe5; --cds-chart-axis:#8a8f88; --cds-chart-muted:#b7b9b2; --cds-dur-slow:.3s;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --color-bg:#151916; --color-panel:#1d221e; --color-fg:#e8ebe6; --color-fg-muted:#a3aaa2; --color-border-line:#2f3630;
+  --color-bg:#121815; --color-panel:#1a221e; --color-fg:#e6ece8; --color-fg-muted:#9aa8a0; --color-border-line:#2c3732;
   --color-ok:#6cc595; --color-warn:#e2b04f; --color-bad:#f08a72;
   --cds-surface-popover:#252b26; --cds-text-secondary:#a3aaa2; --cds-chart-grid:#2b312c; --cds-chart-axis:#7d857c; --cds-chart-muted:#4b524b; } }
 :root[data-theme="dark"]{
-  --color-bg:#151916; --color-panel:#1d221e; --color-fg:#e8ebe6; --color-fg-muted:#a3aaa2; --color-border-line:#2f3630;
+  --color-bg:#121815; --color-panel:#1a221e; --color-fg:#e6ece8; --color-fg-muted:#9aa8a0; --color-border-line:#2c3732;
   --color-ok:#6cc595; --color-warn:#e2b04f; --color-bad:#f08a72;
   --cds-surface-popover:#252b26; --cds-text-secondary:#a3aaa2; --cds-chart-grid:#2b312c; --cds-chart-axis:#7d857c; --cds-chart-muted:#4b524b; }
 html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans);font-size:14px}

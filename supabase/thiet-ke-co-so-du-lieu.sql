@@ -1211,3 +1211,47 @@ do $$ begin
   end if;
 end $$;
 select count(*) as so_dong from public.trang_thai_lp;
+
+-- ---------------------------------------------------------------------
+-- SỐ CHO 4 Ô LỚN Ở TRANG TỔNG QUAN (đường xu hướng 7 tháng):
+--   sellin : doanh thu thuần sell-in từng tháng (tháng cuối = đến ngày cuối có số, ghi_chu = ngày đó)
+--   sellout: sản phẩm bán ra bình quân 1 ngày từng tháng, cộng Co.op và Emart (chỉ kỳ đã kết thúc, có bán)
+-- Tính sẵn cùng lúc với cảnh báo (lam_moi_canh_bao) vào bo_so_tinh_san 'canh_bao' -> du_lieu.kpi
+-- ---------------------------------------------------------------------
+create or replace view public.kpi_tong_quan with (security_invoker = true) as
+with mi as (select max(ngay) as d from public.nguon_sellin),
+si as (
+  select to_char(ngay, 'YYYY-MM') as thang, sum(doanh_so - chiet_khau - tra_lai) as gia_tri, max(ngay)::text as ghi_chu
+  from public.nguon_sellin
+  where ngay >= (date_trunc('month', (select d from mi)) - interval '6 month')::date
+  group by 1),
+ky as (
+  select chuoi, tu_ngay, den_ngay, sum(so_luong) as sl
+  from public.sell_out_ky_nhan
+  where nhan_hang <> '' and den_ngay <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+  group by 1, 2, 3 having sum(so_luong) > 0),
+thang as (
+  select to_char(tu_ngay, 'YYYY-MM') as thang, chuoi, sum(sl) as sl, max(den_ngay) - min(tu_ngay) + 1 as so_ngay
+  from ky group by 1, 2),
+so as (
+  select thang, sum(sl::numeric / so_ngay) as gia_tri, string_agg(chuoi || ' ' || so_ngay || ' ngày', ', ' order by chuoi) as ghi_chu
+  from thang group by 1)
+select 'sellin'::text as loai, thang, gia_tri, ghi_chu from si
+union all
+select 'sellout', thang, gia_tri, ghi_chu from so
+where thang >= to_char((date_trunc('month', (now() at time zone 'Asia/Ho_Chi_Minh')) - interval '6 month'), 'YYYY-MM');
+
+create or replace function public.lam_moi_canh_bao() returns integer
+language plpgsql security definer set search_path = public as $$
+declare bn jsonb; ct jsonb; kp jsonb;
+begin
+  select coalesce(jsonb_agg(to_jsonb(v)), '[]'::jsonb) into bn from public.canh_bao_ban_nhap v;
+  select coalesce(jsonb_agg(to_jsonb(v)), '[]'::jsonb) into ct from public.canh_bao_chi_tiet v;
+  select coalesce(jsonb_agg(to_jsonb(v) order by v.loai, v.thang), '[]'::jsonb) into kp from public.kpi_tong_quan v;
+  insert into public.bo_so_tinh_san (bo_so, du_lieu, so_dong, ten, mo_ta, nguon_cap_nhat, luc)
+  values ('canh_bao', jsonb_build_object('ban_nhap', bn, 'chi_tiet', ct, 'kpi', kp), jsonb_array_length(bn), 'Cảnh báo sụt giảm',
+          'Tính sẵn từ canh_bao_ban_nhap, canh_bao_chi_tiet, kpi_tong_quan', 'lam_moi_canh_bao', now())
+  on conflict (bo_so) do update set du_lieu = excluded.du_lieu, so_dong = excluded.so_dong, luc = now();
+  return jsonb_array_length(bn);
+end $$;
+revoke all on function public.lam_moi_canh_bao() from public, anon, authenticated;
