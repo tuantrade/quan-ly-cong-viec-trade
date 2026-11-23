@@ -237,4 +237,38 @@ function docBangGia(tabs) {
   return { gia_ban: out, loi: loi };
 }
 
-if (typeof module !== 'undefined') module.exports = { docSoBanHang: docSoBanHang, docFileCoop: docFileCoop, docEmartSellOut: docEmartSellOut, docBangGia: docBangGia, so_: so_, ngay_: ngay_ };
+/**
+ * File "CẬP NHẬT CTKM KÊNH MT 2026": mỗi tháng 1 tab (T1.2026 …), dòng tiêu đề có "KỲ POST" và "BRAND".
+ * Mỗi dòng 1 sản phẩm; hệ thống, kỳ, thời gian PO, thời gian NTD, brand chỉ ghi ở dòng đầu khối -> điền xuống.
+ * Trả về [{tab, he_thong, ky, po_tu, po_den, ntd_tu, ntd_den, brand, san_pham, co_cau, gia_thuong, gia_ck, fc, ds_act, ghi_chu}]
+ */
+function docCtkm(tabs) {
+  var ra = [], loi = [];
+  var khoang = function (v) { var m = chu_(v).match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/); return m ? [ngay_(m[1]), ngay_(m[2])] : ['', '']; };
+  Object.keys(tabs).forEach(function (ten) {
+    if (!/^T\d{1,2}[.\/]\d{4}$/i.test(chu_(ten))) return;
+    var v = tabs[ten], h = -1;
+    for (var i = 0; i < Math.min(8, v.length); i++) if (v[i].some(function (x) { return /KỲ POST/i.test(chu_(x)); })) { h = i; break; }
+    if (h < 0) { loi.push(ten + ': không thấy dòng tiêu đề'); return; }
+    var H = v[h].map(function (x) { return boDau_(x); }), c = function (re) { for (var j = 0; j < H.length; j++) if (re.test(H[j])) return j; return -1; };
+    var C = { ht: c(/he thong|chain/), ky: c(/ky post/), po: c(/giam po/), ntd: c(/giam gia ntd|ntd/), br: c(/^brand/), sp: c(/ten san pham/), cc: c(/co cau/),
+              gt: c(/gia thuong/), gck: c(/gia ck/), fc: c(/fc so ban/), ds: c(/doanh so/), gc: c(/ghi chu/) };
+    if (C.ky < 0 || C.sp < 0 || C.ntd < 0) { loi.push(ten + ': thiếu cột'); return; }
+    var cur = { ht: '', ky: '', po: ['', ''], ntd: ['', ''], br: '' };
+    for (var r = h + 1; r < v.length; r++) {
+      var d = v[r], sp = chu_(d[C.sp]);
+      if (C.ht >= 0 && chu_(d[C.ht])) { cur.ht = chu_(d[C.ht]); cur.br = ''; }
+      if (chu_(d[C.ky])) { cur.ky = chu_(d[C.ky]); cur.br = ''; }
+      if (C.po >= 0 && chu_(d[C.po])) cur.po = khoang(d[C.po]);
+      if (chu_(d[C.ntd])) cur.ntd = khoang(d[C.ntd]);
+      if (C.br >= 0 && chu_(d[C.br])) cur.br = brandChuan_(d[C.br]);
+      if (!sp || !cur.ht || !cur.ntd[0]) continue;
+      ra.push({ tab: chu_(ten), he_thong: cur.ht, ky: cur.ky, po_tu: cur.po[0], po_den: cur.po[1], ntd_tu: cur.ntd[0], ntd_den: cur.ntd[1], brand: cur.br, san_pham: sp,
+        co_cau: C.cc >= 0 ? chu_(d[C.cc]) : '', gia_thuong: C.gt >= 0 ? so_(d[C.gt]) : null, gia_ck: C.gck >= 0 ? so_(d[C.gck]) : null,
+        fc: C.fc >= 0 && chu_(d[C.fc]) ? so_(d[C.fc]) : null, ds_act: C.ds >= 0 && chu_(d[C.ds]) ? so_(d[C.ds]) : null, ghi_chu: C.gc >= 0 ? chu_(d[C.gc]) : '' });
+    }
+  });
+  return { ctkm: ra, loi: loi };
+}
+
+if (typeof module !== 'undefined') module.exports = { docSoBanHang: docSoBanHang, docFileCoop: docFileCoop, docEmartSellOut: docEmartSellOut, docBangGia: docBangGia, docCtkm: docCtkm, so_: so_, ngay_: ngay_ };

@@ -63,7 +63,7 @@ function dongBoDuLieu() {
       });
     }
     // Google Sheet Emart và Bảng giá: đọc lại khi có thay đổi
-    [['EMART_SHEET_ID', 'emart'], ['GIA_SHEET_ID', 'gia_ban']].forEach(function (x) {
+    [['EMART_SHEET_ID', 'emart'], ['GIA_SHEET_ID', 'gia_ban'], ['CTKM_SHEET_ID', 'ctkm']].forEach(function (x) {
       var id = thongSo_(x[0]); if (!id) return;
       var f = DriveApp.getFileById(id), ma = id + '@' + f.getLastUpdated().toISOString();
       if (daDoc[ma]) return;
@@ -138,6 +138,11 @@ function napSheet_(g, loai, id, ten, ma, sua) {
     var n = goiTheoLo_(g, 'emart', e.emart_tuan, { tep: ma, ten_tep: ten, ten: 'Emart bán ra', nguon_cap_nhat: sua,
       mo_ta: 'Theo tuần trong tháng (1–7, 8–14, …) hoặc kỳ của tab T10, T11 × điểm bán × sản phẩm; doanh số theo giá bán lẻ sau KM' });
     console.log('Đã nạp Emart: ' + n + ' dòng');
+  } else if (loai === 'ctkm') {   // CẬP NHẬT CTKM KÊNH MT: chương trình đã chốt -> bộ số ctkm_chot (app đánh dấu "Đã chốt CTKM" ở Lịch post)
+    var ck = docCtkm(tabs); if (!ck.ctkm.length) throw new Error('Không đọc được dòng CTKM nào. ' + ck.loi.join(' | '));
+    goi_(g, 'bo_so', ck.ctkm, { bo_so: 'ctkm_chot', tep: ma, ten_tep: ten, ten: 'CTKM đã chốt', nguon_cap_nhat: sua, loi: ck.loi.join(' | '),
+      mo_ta: 'File CẬP NHẬT CTKM KÊNH MT: hệ thống, kỳ, thời gian PO, thời gian giảm giá NTD, brand, sản phẩm, cơ cấu, giá thường, giá CK' });
+    console.log('Đã nạp CTKM đã chốt: ' + ck.ctkm.length + ' dòng');
   } else {
     var gb = docBangGia(tabs); if (!gb.gia_ban.length) throw new Error('Không đọc được dòng giá nào. ' + gb.loi.join(' | '));
     var m = goiTheoLo_(g, 'gia_ban', gb.gia_ban, { tep: ma, ten_tep: ten, ten: 'Bảng giá siêu thị', nguon_cap_nhat: sua, loi: gb.loi.join(' | '),
