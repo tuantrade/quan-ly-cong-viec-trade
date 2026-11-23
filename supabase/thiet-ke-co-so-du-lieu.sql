@@ -1168,3 +1168,46 @@ grant select on public.gia_ban_cong_khai to anon, authenticated;
 --     execute format('drop policy if exists "khach_an_danh_xem" on public.%I', bang);
 --   end loop; end $$;
 -- revoke select on public.gia_ban_cong_khai from anon;
+
+-- ---------------------------------------------------------------------
+-- TRẠNG THÁI CHƯƠNG TRÌNH TRONG LỊCH POST (quy trình: Trade lên CTKM -> trình ký -> CEO duyệt -> KAM đăng ký -> siêu thị duyệt)
+-- Lịch post được thay toàn bộ mỗi lần đồng bộ từ Google Sheet, nên trạng thái lưu riêng, gắn theo khóa
+-- khoa = chuỗi|siêu thị|nhãn|loại|ngày bắt đầu|ngày kết thúc (app tính). Đổi ngày chạy trên sheet thì phải chọn lại trạng thái.
+-- lich_su: mảng {tt, nguoi, luc} – ai đổi, lúc nào.
+-- ---------------------------------------------------------------------
+create table if not exists public.trang_thai_lp (
+  khoa       text primary key,
+  trang_thai text not null check (trang_thai in ('dang_soan', 'cho_ceo', 'ceo_duyet', 'da_dang_ky', 'st_duyet', 'st_tu_choi')),
+  nguoi      text not null default '',
+  luc        timestamptz not null default now(),
+  lich_su    jsonb not null default '[]'::jsonb
+);
+alter table public.trang_thai_lp enable row level security;
+grant select on public.trang_thai_lp to authenticated;
+drop policy if exists "thanh_vien_xem" on public.trang_thai_lp;
+create policy "thanh_vien_xem" on public.trang_thai_lp for select to authenticated using (public.duoc_xem());
+
+-- Đổi trạng thái: chỉ thành viên / quản lý (không phải khách). Ghi thêm vào lịch sử.
+create or replace function public.dat_trang_thai_lp(p_khoa text, p_tt text) returns void
+language plpgsql security definer set search_path = public as $$
+declare ten text;
+begin
+  if not public.la_thanh_vien() then raise exception 'Chỉ thành viên mới đổi được trạng thái'; end if;
+  if coalesce(trim(p_khoa), '') = '' then raise exception 'Thiếu khóa chương trình'; end if;
+  select coalesce(nullif(ho_ten, ''), email) into ten from public.thanh_vien where email = public.email_hien_tai();
+  if coalesce(p_tt, '') = '' then   -- bỏ trạng thái (về "Chưa cập nhật")
+    delete from public.trang_thai_lp where khoa = p_khoa; return;
+  end if;
+  insert into public.trang_thai_lp (khoa, trang_thai, nguoi, luc, lich_su)
+  values (p_khoa, p_tt, coalesce(ten, ''), now(), jsonb_build_array(jsonb_build_object('tt', p_tt, 'nguoi', coalesce(ten, ''), 'luc', now())))
+  on conflict (khoa) do update set trang_thai = excluded.trang_thai, nguoi = excluded.nguoi, luc = excluded.luc,
+    lich_su = trang_thai_lp.lich_su || excluded.lich_su;
+end $$;
+revoke all on function public.dat_trang_thai_lp(text, text) from public, anon;
+grant execute on function public.dat_trang_thai_lp(text, text) to authenticated;
+do $$ begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'trang_thai_lp') then
+    execute 'alter publication supabase_realtime add table public.trang_thai_lp';
+  end if;
+end $$;
+select count(*) as so_dong from public.trang_thai_lp;
