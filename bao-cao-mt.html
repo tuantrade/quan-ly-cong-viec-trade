@@ -393,7 +393,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
             <th data-field="sl_ngay"><button type="button" data-k="sl_ngay">BQ 1 ngày</button></th>
             <th data-field="ds"><button type="button" data-k="ds">Doanh số tại quầy</button></th>
             <th data-field="ton"><button type="button" data-k="ton">Tồn cuối kỳ</button></th>
-            <th data-field="tang"><button type="button" data-k="tang">BQ 1 ngày so với kỳ trước</button></th>
+            <th data-field="tang"><button type="button" data-k="tang">Doanh số BQ 1 ngày so với kỳ trước</button></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -425,7 +425,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 
     <ul class="sv-foot" id="so-cach-tinh">
       <li>Cùng một cách trình bày cho mọi hệ thống. Nguồn số bán ra: Co.op: file bán ra – tồn kho theo cửa hàng Co.op gửi, theo tháng (tháng đang chạy theo kỳ của file). Emart: Google Sheet "[EMART] SELL OUT THÁNG" (sheet SELL OUT, T10, T11), cộng các tuần thành tháng. Lotte và GO! / Big C: file cộng tác viên đếm tồn, bán ra = tồn đầu + hàng nhập − tồn cuối, mỗi siêu thị một kỳ đếm riêng.</li>
-      <li>Bình quân 1 ngày = sản lượng ÷ số ngày của kỳ, tính cho từng siêu thị rồi cộng lại (các siêu thị kiểm tồn có số ngày đếm khác nhau). Biểu đồ theo kỳ tính bằng tiền theo cùng cách: doanh số tại quầy ÷ số ngày của kỳ. "So với kỳ trước" so bình quân 1 ngày với kỳ liền trước của cùng hệ thống.</li>
+      <li>Bình quân 1 ngày = sản lượng ÷ số ngày của kỳ, tính cho từng siêu thị rồi cộng lại (các siêu thị kiểm tồn có số ngày đếm khác nhau). Biểu đồ theo kỳ tính bằng tiền theo cùng cách: doanh số tại quầy ÷ số ngày của kỳ. "So với kỳ trước" so bình quân 1 ngày với kỳ liền trước của cùng hệ thống; riêng bảng theo siêu thị so doanh số tại quầy bình quân 1 ngày.</li>
       <li>Doanh số tại quầy: Emart lấy đúng cột Doanh số trong sheet (giá bán lẻ sau khuyến mãi). Co.op, Lotte, GO! / Big C = sản lượng × giá bán lẻ trong bảng giá siêu thị (tab 4), tức giá niêm yết: ngày siêu thị giảm giá thì doanh số thật thấp hơn. Mã chưa có giá dùng được thì chưa tính và có ghi số dòng thiếu.</li>
       <li>Hàng vào siêu thị cùng kỳ: Co.op và Emart = số TVP giao vào (sổ bán hàng, bán − trả lại, cùng ngày với kỳ; Co.op gồm Co.opMart, Co.op Food, Co.op Finelife). Lotte, GO! / Big C = hàng nhập trong file kiểm tồn của các siêu thị được đếm. Bán ra ÷ hàng vào dưới 1 nghĩa là hàng vào nhiều hơn hàng bán ra.</li>
       <li>Tồn cuối kỳ: Co.op theo file Co.op; Lotte, GO! / Big C theo số đếm cuối kỳ; Emart chưa có số tồn. Số ngày tồn kho = tồn cuối ÷ bình quân bán 1 ngày.</li>
@@ -1202,29 +1202,29 @@ dash.calc('so_ky', {
 });
 const soGroup = (rows, keyOf, init) => {
   const g = new Map();
-  for (const r of rows) { const k = keyOf(r); if (!g.has(k)) g.set(k, init(r)); const x = g.get(k); x.sl += r.sl; x.sl_ngay += r.so_ngay ? r.sl / r.so_ngay : 0; if (r.ds != null) x.ds += r.ds; if (r.ton != null) x.ton = (x.ton || 0) + r.ton; x._r.push(r); }
+  for (const r of rows) { const k = keyOf(r); if (!g.has(k)) g.set(k, init(r)); const x = g.get(k); x.sl += r.sl; x.sl_ngay += r.so_ngay ? r.sl / r.so_ngay : 0; if (r.ds != null) { x.ds += r.ds; x.ds_ngay = (x.ds_ngay || 0) + (r.so_ngay ? r.ds / r.so_ngay : 0); } if (r.ton != null) x.ton = (x.ton || 0) + r.ton; x._r.push(r); }
   return [...g.values()];
 };
-const soPrev = (rows, keyNoKy) => {
+const soPrev = (rows, keyNoKy, f = 'sl_ngay') => {
   const kyTu = new Map(); for (const x of rows) kyTu.set(x.he_thong + '|' + x.ky, x.tu);
   const order = new Map(); for (const [k, tu] of kyTu) { const h = k.split('|')[0]; if (!order.has(h)) order.set(h, []); order.get(h).push([k.split('|').slice(1).join('|'), tu]); }
   for (const l of order.values()) l.sort((a, b) => a[1].localeCompare(b[1]));
   const idx = new Map(rows.map((x) => [x.he_thong + '|' + x.ky + '|' + keyNoKy(x), x]));
   for (const x of rows) {
     const l = order.get(x.he_thong), i = l.findIndex((e) => e[0] === x.ky), p = i > 0 ? idx.get(x.he_thong + '|' + l[i - 1][0] + '|' + keyNoKy(x)) : null;
-    x.tang = p && p.sl_ngay ? x.sl_ngay / p.sl_ngay - 1 : null;
+    x.tang = p && p[f] ? (x[f] || 0) / p[f] - 1 : null;
   }
   return rows;
 };
 dash.calc('so_ch', {
   inputs: ['so_rows'],
   title: 'Sell-out: theo siêu thị',
-  description: 'Mỗi hệ thống × kỳ × siêu thị: sản lượng theo brand, tổng, bình quân 1 ngày, doanh số tại quầy, tồn cuối, bình quân 1 ngày so với kỳ trước của cùng siêu thị.',
+  description: 'Mỗi hệ thống × kỳ × siêu thị: sản lượng theo brand, tổng, bình quân 1 ngày, doanh số tại quầy, tồn cuối, doanh số bình quân 1 ngày so với kỳ trước của cùng siêu thị.',
   fn: (so_rows) => {
     const key = { 'Wil': 'wil', 'Gungon': 'gungon', 'Guyumi': 'guyumi', 'Má Bảy': 'ma_bay' };
     const rows = soGroup(so_rows, (r) => r.he_thong + '|' + r.ky + '|' + r.cua_hang, (r) => ({ he_thong: r.he_thong, ky: r.ky, tu: r.tu, cua_hang: r.cua_hang, wil: 0, gungon: 0, guyumi: 0, ma_bay: 0, sl: 0, sl_ngay: 0, ds: 0, ton: null, _r: [] }))
       .map(({ _r, ...x }) => { for (const r of _r) if (key[r.brand]) x[key[r.brand]] += r.sl; return x; });
-    return soPrev(rows, (x) => x.cua_hang);
+    return soPrev(rows, (x) => x.cua_hang, 'ds_ngay');
   },
 });
 dash.calc('so_sp', {
