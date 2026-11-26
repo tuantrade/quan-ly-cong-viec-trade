@@ -952,7 +952,9 @@ function dongBoLoc() {
 }
 
 // ---------- Bảng SKU: lọc hệ thống, cửa hàng
-let skuRows = [], skuThang = null;
+let skuRows = [], skuThang = null, namCN = '';
+const khopKy = (t) => skuThang === 'ca-nam' ? String(t).slice(0, 4) === namCN : String(t).slice(0, 7) === skuThang;
+const kyLabel = () => skuThang === 'ca-nam' ? 'Cả năm ' + namCN + ' (lũy kế)' : thangLabel(skuThang);
 const skuHt = document.getElementById('sku-ht'), skuCh = document.getElementById('sku-ch'), skuNote = document.getElementById('sku-ch-note');
 skuHt.addEventListener('change', () => { skuCh.value = ''; drawSku(); });
 skuCh.addEventListener('change', () => drawSku());
@@ -970,7 +972,7 @@ function gomSku(rows, dvt) {
 }
 function drawSku() {
   const si = dash.data('sellin');
-  const raw = si.status === 'ok' && skuThang ? si.data.filter((r) => r.thang === skuThang && hopLoc(r.he_thong)) : [];
+  const raw = si.status === 'ok' && skuThang ? si.data.filter((r) => khopKy(r.thang) && hopLoc(r.he_thong)) : [];
   const tongHt = new Map(); raw.forEach((r) => tongHt.set(r.he_thong, (tongHt.get(r.he_thong) || 0) + thuanR(r)));
   const hts = [...tongHt.keys()].sort((a, b) => tongHt.get(b) - tongHt.get(a));
   const htCu = skuHt.value;
@@ -984,7 +986,7 @@ function drawSku() {
       dash.can('sellin_ch');
       skuCh.replaceChildren(new Option(ch.status === 'error' ? 'Chưa tải được số theo cửa hàng' : 'Đang tải danh sách cửa hàng…', '')); skuCh.disabled = true;
     } else {
-      const chRows = ch.data.filter((r) => String(r.ngay).slice(0, 7) === skuThang && r.he_thong === ht);
+      const chRows = ch.data.filter((r) => khopKy(String(r.ngay).slice(0, 7)) && r.he_thong === ht);
       const chs = [...new Set(chRows.map((r) => tenCh(r.diem_nhan)))].sort((a, b) => a.localeCompare(b, 'vi')), chCu = skuCh.value;
       skuCh.replaceChildren(new Option(chs.length ? `Tất cả (${chs.length} điểm)` : 'Tháng này chưa có số theo cửa hàng', ''), ...chs.map((c) => new Option(c, c)));
       skuCh.disabled = !chs.length; skuCh.value = chs.includes(chCu) ? chCu : '';
@@ -995,7 +997,7 @@ function drawSku() {
   skuNote.hidden = !note; skuNote.textContent = note;
   // So với tháng trước: cùng phạm vi đang xem (cả kênh / hệ thống / điểm nhận); tháng mới nhất chưa hết tháng thì so cùng các ngày của tháng trước
   const prevMap = new Map();
-  if (si.status === 'ok' && skuThang) {
+  if (si.status === 'ok' && skuThang && skuThang !== 'ca-nam') {   // cả năm: chưa có năm trước để so
     const thangs = [...new Set(si.data.map((r) => r.thang))].sort();
     const ngayCuoi = skuThang === thangs[thangs.length - 1] ? si.data.filter((r) => r.thang === skuThang).map((r) => r.ngay).sort().pop().slice(8, 10) : '99';
     const pm = prevOf(skuThang), chD = dash.data('sellin_ch');
@@ -1036,7 +1038,7 @@ function drawCh() {
   const ch = dash.data('sellin_ch'), si = dash.data('sellin');
   if (!skuThang) return;
   if (ch.status !== 'ok') { dash.can('sellin_ch'); note.textContent = ch.status === 'error' ? 'Chưa tải được số theo cửa hàng.' : 'Đang tải số theo cửa hàng…'; tb.replaceChildren(); tf.replaceChildren(); return; }
-  const thang = ch.data.filter((r) => String(r.ngay).slice(0, 7) === skuThang && hopLoc(r.he_thong));
+  const thang = ch.data.filter((r) => khopKy(String(r.ngay).slice(0, 7)) && hopLoc(r.he_thong));
   const tongHt = new Map(); thang.forEach((r) => tongHt.set(r.he_thong, (tongHt.get(r.he_thong) || 0) + thuanR(r)));
   const hts = [...tongHt.keys()].sort((a, b) => tongHt.get(b) - tongHt.get(a)), htCu = chHt.value;
   chHt.replaceChildren(new Option(gHt ? `Tất cả ${gHt}` : 'Tất cả', ''), ...hts.map((h) => new Option(h, h))); chHt.value = hts.includes(htCu) ? htCu : '';
@@ -1051,8 +1053,8 @@ function drawCh() {
   // So với tháng trước: cùng các ngày nếu tháng đang xem là tháng mới nhất (chưa hết tháng)
   const thangs = si.status === 'ok' ? [...new Set(si.data.map((r) => r.thang))].sort() : [];
   const ngayCuoi = thangs.length && skuThang === thangs[thangs.length - 1] ? si.data.filter((r) => r.thang === skuThang).map((r) => r.ngay).sort().pop().slice(8, 10) : '99';
-  const pm = prevOf(skuThang), truoc = new Map();
-  ch.data.filter((r) => String(r.ngay).slice(0, 7) === pm && hopLoc(r.he_thong) && trong(r) && String(r.ngay).slice(8, 10) <= ngayCuoi)
+  const pm = skuThang === 'ca-nam' ? '' : prevOf(skuThang), truoc = new Map();
+  ch.data.filter((r) => pm && String(r.ngay).slice(0, 7) === pm && hopLoc(r.he_thong) && trong(r) && String(r.ngay).slice(8, 10) <= ngayCuoi)
     .forEach((r) => { const k = r.he_thong + '|' + tenCh(r.diem_nhan); truoc.set(k, (truoc.get(k) || 0) + thuanR(r)); });
   const q = boDauCh(document.getElementById('ch-q').value);
   const rows = [...g.entries()].map(([k, { sku, ...x }]) => { const p = truoc.get(k); return { ...x, so_sku: sku.size, tang: p > 0 ? x.thuan / p - 1 : null, ty_trong: tong ? x.thuan / tong : null }; })
@@ -1070,7 +1072,7 @@ function drawCh() {
   const s = (k) => rows.reduce((a, r) => a + r[k], 0), ft = document.createElement('tr');
   ft.append(o(`Cộng ${vi(rows.length)} điểm`, 'l'), o('', 'l'), o(tr(s('wil'))), o(tr(s('gungon'))), o(tr(s('guyumi'))), o(tr(s('ma_bay'))), o(tr(s('thuan'))), o(''), o(pct(tong ? s('thuan') / tong : null)), o(''));
   tf.replaceChildren(ft);
-  note.textContent = `${thangLabel(skuThang)}${ht ? ' · ' + ht : (gHt ? ' · ' + gHt : ' · tất cả hệ thống')}: ${vi(g.size)} điểm nhận hàng, doanh thu thuần ${tr(tong)} triệu.${q ? ` Đang lọc theo chữ "${document.getElementById('ch-q').value.trim()}".` : ''}`;
+  note.textContent = `${kyLabel()}${ht ? ' · ' + ht : (gHt ? ' · ' + gHt : ' · tất cả hệ thống')}: ${vi(g.size)} điểm nhận hàng, doanh thu thuần ${tr(tong)} triệu.${q ? ` Đang lọc theo chữ "${document.getElementById('ch-q').value.trim()}".` : ''}`;
 }
 const boDauCh = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
 
@@ -1185,6 +1187,7 @@ function drawSystems(el, rows, lab = 'he_thong', tot = 'thuan', unit = 'hệ th�
 }
 
 function drawMonths(el, rows, sel) {
+  const dam = (k) => k === sel || (sel && sel.length === 4 && k.startsWith(sel));
   el.replaceChildren(); el.classList.remove('dash-skeleton');
   const have = new Map(rows.map((r) => [r.thang, r]));
   const months = []; let [y, m] = rows[0].thang.split('-').map(Number); const last = rows[rows.length - 1].thang;
@@ -1202,7 +1205,7 @@ function drawMonths(el, rows, sel) {
   const showVal = x.bandwidth() >= measure(svg, ['9,99 tỷ']) - 4;
   for (const k of months) {
     const r = have.get(k), cx = x(k) + x.bandwidth() / 2;
-    svg.append('text').attr('x', cx).attr('y', H - bottom + 16).attr('text-anchor', 'middle').attr('fill', k === sel ? 'var(--color-fg)' : 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('T' + Number(k.slice(5)));
+    svg.append('text').attr('x', cx).attr('y', H - bottom + 16).attr('text-anchor', 'middle').attr('fill', dam(k) ? 'var(--color-fg)' : 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('T' + Number(k.slice(5)));
     if (!r) {
       svg.append('text').attr('x', cx).attr('y', H - bottom - 6).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('Chưa có');
       continue;
@@ -1210,12 +1213,12 @@ function drawMonths(el, rows, sel) {
     const partial = r.ngay_cuoi.slice(8) !== String(new Date(Date.UTC(+k.slice(0, 4), +k.slice(5), 0)).getUTCDate()).padStart(2, '0');
     if (partial) svg.append('text').attr('x', cx).attr('y', H - bottom + 30).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text('đến ' + Number(r.ngay_cuoi.slice(8)) + '/' + Number(k.slice(5)));
     svg.append('rect').attr('x', x(k)).attr('width', x.bandwidth()).attr('y', yS(Math.max(r.thuan, 0))).attr('height', Math.max(yS(0) - yS(Math.max(r.thuan, 0)), 0.5)).attr('rx', 4)
-      .attr('fill', k === sel ? MAU_TONG : 'var(--cds-chart-muted)').style('cursor', 'pointer')
+      .attr('fill', dam(k) ? MAU_TONG : 'var(--cds-chart-muted)').style('cursor', 'pointer')
       .on('click', () => dash.setParams({ thang: k }))
       .on('mousemove', (ev) => tipShow(el, tip, ev, [line(thangLabel(k) + (partial ? ` (đến ngày ${Number(r.ngay_cuoi.slice(8))})` : ''), 't'), line('Doanh thu thuần: ' + ty(r.thuan)), line('Doanh số bán: ' + ty(r.doanh_so)), ...ghiChuThang(k).slice(0, 4).map((n) => line('📌 ' + n.noi_dung))]))
       .on('mouseleave', () => { tip.hidden = true; });
     if (ghiChuThang(k).length) svg.append('circle').attr('cx', x(k) + x.bandwidth() - 4).attr('cy', yS(Math.max(r.thuan, 0)) + 6).attr('r', 4).attr('fill', 'var(--gc-co)').append('title').text(ghiChuThang(k).length + ' ghi chú');
-    if (showVal) svg.append('text').attr('x', cx).attr('y', yS(Math.max(r.thuan, 0)) - 6).attr('text-anchor', 'middle').attr('fill', k === sel ? 'var(--color-fg)' : 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text(ty(r.thuan));
+    if (showVal) svg.append('text').attr('x', cx).attr('y', yS(Math.max(r.thuan, 0)) - 6).attr('text-anchor', 'middle').attr('fill', dam(k) ? 'var(--color-fg)' : 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text(ty(r.thuan));
   }
 }
 
@@ -1296,6 +1299,41 @@ function veGhiChuNgay(el, mm) {
   box.querySelectorAll('[data-gc-xoa]').forEach((b) => b.addEventListener('click', async () => { if (!confirm('Xóa ghi chú này?')) return; const r = await BC.sb.from('ghi_chu_bieu_do').delete().eq('id', b.dataset.gcXoa); if (r.error) alert(r.error.message); window.taiGhiChu(); }));
 }
 
+function veCaNam(Y) {
+  const si = dash.data('sellin'), dh = dash.data('don_hang'); if (si.status !== 'ok') return;
+  const n = (x) => Number(x) || 0, th = (r) => n(r.doanh_so) - n(r.chiet_khau) - n(r.tra_lai);
+  const rs = si.data.filter((r) => String(r.thang).slice(0, 4) === Y && hopLoc(r.he_thong));
+  const don = (dh.status === 'ok' ? dh.data : []).filter((d) => String(d.thang).slice(0, 4) === Y && hopLoc(d.he_thong));
+  const sum = (a, f) => a.reduce((x, r) => x + f(r), 0), ngays = rs.map((r) => r.ngay).sort(), dau = ngays[0], cuoi = ngays[ngays.length - 1];
+  const tong = sum(rs, th), ds = sum(rs, (r) => n(r.doanh_so)), tl = sum(rs, (r) => n(r.tra_lai)), ck = sum(rs, (r) => n(r.chiet_khau));
+  const soThang = new Set(rs.map((r) => r.thang)).size;
+  setText('k-thuan', ty(tong)); setText('k-ds', ty(ds - tl)); setText('k-tra', ty(tl));
+  setText('k-don', vi(new Set(don.map((d) => d.so_chung_tu)).size)); setText('k-diem', vi(new Set(don.map((d) => d.he_thong + '|' + d.diem_nhan)).size));
+  document.getElementById('k-thuan-sub').textContent = `Lũy kế ${soThang} tháng, ${dmy(dau)} – ${dmy(cuoi)}`;
+  document.getElementById('k-ds-sub').textContent = 'Chiết khấu: ' + ty(ck);
+  document.getElementById('k-tra-sub').textContent = pct(ds ? tl / ds : null) + ' so với doanh số bán';
+  // theo hệ thống
+  const key = { 'Wil': 'wil', 'Gungon': 'gungon', 'Guyumi': 'guyumi', 'Má Bảy': 'ma_bay', 'Không theo brand': 'khac' };
+  const gH = new Map(); for (const r of rs) { if (!gH.has(r.he_thong)) gH.set(r.he_thong, { thang: 'ca-nam', he_thong: r.he_thong, wil: 0, gungon: 0, guyumi: 0, ma_bay: 0, khac: 0, thuan: 0 }); const x = gH.get(r.he_thong); x[key[r.brand] || 'khac'] += th(r); x.thuan += th(r); }
+  const hRows = [...gH.values()].map((x) => { const d = don.filter((o) => o.he_thong === x.he_thong); return { ...x, ty_trong: tong ? x.thuan / tong : null, so_don: new Set(d.map((o) => o.so_chung_tu)).size, so_diem: new Set(d.map((o) => o.diem_nhan)).size }; }).sort((a, b) => b.thuan - a.thuan);
+  const lede = document.getElementById('sv-lede'); lede.replaceChildren();
+  const b1 = document.createElement('b'); b1.textContent = ty(tong) + ' đồng'; lede.append(`Lũy kế từ ${dmy(dau)} đến ${dmy(cuoi)} (${soThang} tháng), doanh thu thuần sell-in đạt `, b1);
+  if (hRows[0]) { const b2 = document.createElement('b'); b2.textContent = hRows[0].he_thong; const b3 = document.createElement('b'); b3.textContent = pct(hRows[0].ty_trong); lede.append('; ', b2, ' chiếm ', b3, '.'); } else lede.append('.');
+  drawSystems(document.getElementById('c-hethong'), hRows, 'he_thong', 'thuan', 'hệ thống', chonHt);
+  const o = (v, c) => { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; return td; };
+  document.querySelector('#t-hethong tbody').replaceChildren(...hRows.map((x) => { const t = document.createElement('tr'); t.className = 'sv-bam'; t.title = 'Bấm để xem từng cửa hàng và từng mã của ' + x.he_thong; t.addEventListener('click', () => chonHt(x.he_thong));
+    t.append(o(x.he_thong, 'l'), o(tr(x.wil)), o(tr(x.gungon)), o(tr(x.guyumi)), o(tr(x.ma_bay)), o(x.khac ? tr(x.khac) : '–'), o(tr(x.thuan)), o(pct(x.ty_trong)), o('–'), o(vi(x.so_don)), o(vi(x.so_diem))); return t; }));
+  // theo brand
+  const bRows = ['Wil', 'Gungon', 'Guyumi', 'Má Bảy', 'Không theo brand'].map((b) => { const a = rs.filter((r) => r.brand === b), sold = a.filter((r) => n(r.doanh_so) > 0); return { brand: b, thuan: sum(a, th), so_he_thong: new Set(sold.map((r) => r.he_thong)).size, so_sku: new Set(sold.map((r) => r.ma_hang)).size, co: a.length }; }).filter((x) => x.co);
+  document.querySelector('#t-brand tbody').replaceChildren(...bRows.map((x, i) => { const t = document.createElement('tr'); const td0 = document.createElement('td'); td0.className = 'l'; const sw = document.createElement('span'); sw.className = 'sv-sw'; sw.style.background = dash.colors[i]; td0.append(sw, x.brand);
+    t.append(td0, o(tr(x.thuan)), o(pct(tong ? x.thuan / tong : null)), o('–'), o(vi(x.so_he_thong)), o(vi(x.so_sku))); return t; }));
+  // theo ngày: không hợp khi xem cả năm
+  const elN = document.getElementById('c-ngay'); elN.classList.remove('dash-skeleton'); elN.innerHTML = '<p class="sv-note" style="padding:24px 0;text-align:center">Đang xem lũy kế cả năm. Chọn một tháng ở ô Tháng để xem theo ngày.</p>';
+  { const gh = document.getElementById('gc-hop'); if (gh) gh.hidden = true; }
+  // SKU, cửa hàng: lũy kế cả năm
+  skuThang = 'ca-nam'; namCN = Y; skuRows = gomSku(rs, new Map(rs.map((r) => [r.ma_hang, r.dvt]))); drawSku();
+}
+
 // ---------- legend
 document.getElementById('sv-legend').replaceChildren(...BRANDS.map((b, i) => line(b, null, dash.colors[i])));
 
@@ -1308,10 +1346,12 @@ function drawSellIn() {
     return drawRest();
   }
   const months = tq.data.map((r) => r.thang);
-  let m = dash.params().thang;
+  let m = dash.params().thang; const caNam = m === 'ca-nam';
   if (!months.includes(m)) m = months[months.length - 1];
-  sel.replaceChildren(...months.slice().reverse().map((x) => new Option(thangLabel(x), x)));
-  sel.value = m;
+  sel.replaceChildren(new Option('Cả năm ' + m.slice(0, 4) + ' (lũy kế từ đầu năm)', 'ca-nam'), ...months.slice().reverse().map((x) => new Option(thangLabel(x), x)));
+  sel.value = caNam ? 'ca-nam' : m;
+  if (caNam) { drawMonths(document.getElementById('c-thang'), tq.data, m.slice(0, 4)); return veCaNam(m.slice(0, 4)); }
+  { const gh = document.getElementById('gc-hop'); if (gh) gh.hidden = false; }
   const r = tq.data.find((x) => x.thang === m);
   const w = 'thang=' + enc(m);
   drawMonths(document.getElementById('c-thang'), tq.data, m);
