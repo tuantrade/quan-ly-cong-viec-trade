@@ -737,14 +737,16 @@ function moChao(){
   setTimeout(()=>el.querySelector('button.vao')?.focus(),300);
   setTimeout(dong,8000);
 }
-/* Giao diện sáng / tối: Theo máy -> Sáng -> Tối. Lưu trong trình duyệt, áp cho cả Trang báo cáo đang mở trong app */
-const CHE_DO_MAU=[['','◐','Theo máy'],['light','☀','Sáng'],['dark','☾','Tối']];
+/* Giao diện chỉ 2 chế độ: Sáng <-> Tối. Lưu trong trình duyệt, áp cho cả Trang báo cáo đang mở trong app.
+   Lần đầu chưa chọn: lấy theo máy một lần rồi ghi rõ Sáng hoặc Tối */
+const CHE_DO_MAU=[['light','☀','Sáng'],['dark','☾','Tối']];
 function apCheDoMau(m){
   if(m) document.documentElement.dataset.theme=m; else delete document.documentElement.dataset.theme;
   const f=document.querySelector('#khungBc iframe'); try{ const de=f&&f.contentDocument&&f.contentDocument.documentElement; if(de){ if(m) de.dataset.theme=m; else delete de.dataset.theme; } }catch(e){}
   const b=document.getElementById('nutMau'), c=CHE_DO_MAU.find(x=>x[0]===m)||CHE_DO_MAU[0]; if(b){ b.textContent=c[1]+' '+c[2]; b.title='Giao diện: '+c[2]+' (bấm để đổi)'; }
 }
 let cheDoMau=''; try{ cheDoMau=localStorage.getItem('cheDoMau')||''; }catch(e){}
+if(!CHE_DO_MAU.some(x=>x[0]===cheDoMau)){ cheDoMau = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; try{ localStorage.setItem('cheDoMau',cheDoMau); }catch(e){} }
 apCheDoMau(cheDoMau);
 document.getElementById('nutMau').addEventListener('click',()=>{ const i=CHE_DO_MAU.findIndex(x=>x[0]===cheDoMau); cheDoMau=CHE_DO_MAU[(i+1)%CHE_DO_MAU.length][0]; try{ localStorage.setItem('cheDoMau',cheDoMau); }catch(e){} apCheDoMau(cheDoMau); });
 function renderNow(){
