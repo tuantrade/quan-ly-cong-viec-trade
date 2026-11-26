@@ -202,6 +202,9 @@ Khi chọn quy trình mẫu có chữ “Audit”, cửa sổ **Tạo hoạt đ�
 - Sell-in → **Độ phủ từng mã**: điểm nhận hàng có nhập mã ÷ điểm có nhập hàng TVP, cùng hệ thống, 90 ngày; bấm dòng để xem điểm chưa nhập.
 - `thanh-ben.js` kiểm bản trang trên máy chủ mỗi 5 phút và khi quay lại tab; khác bản đang xem thì hiện thanh “Web vừa có bản mới · Tải lại”.
 
+## Phiếu audit tại điểm bán
+Mỗi bước “Audit: cửa hàng · hệ thống · giờ” (tạo từ mẫu Audit) có nút **📝 Phiếu audit** ở chi tiết hoạt động, Việc của tôi và Lịch việc. Phiếu gồm: hàng trên kệ từng mã (có hàng / hết hàng / không bán, số mặt kệ, giá trên kệ; danh sách mã lấy từ các mã cửa hàng nhập trong 120 ngày, không có thì mã đang bán ở hệ thống 180 ngày), POSM và trưng bày (3 câu Có/Không + ghi chú), đối thủ tại kệ (thương hiệu, đang làm gì, giá), ảnh chụp (thu nhỏ còn 1600px rồi lưu ở kho riêng `anh-audit`), ghi chú. Nút “Lưu và đánh dấu bước xong”. Hoạt động audit có phần **Kết quả audit**: phiếu đã nộp, tỷ lệ có hàng trên kệ, POSM đúng chương trình, đối thủ có hoạt động, bảng từng cửa hàng. Dữ liệu: bảng `phieu_audit`, view `ds_sku_he_thong` (SQL cuối file thiết kế).
+
 ## Lịch post (lịch CTKM theo siêu thị)
 
 **Xem theo năm, kéo ngang**: chọn Năm 2026 / Năm 2027 (các năm có lịch); cả 12 tháng của năm nằm trên một dải, màn hình thấy 3 tháng (đổi được 6 hoặc 12). Kéo ngang bằng chuột, vuốt, Shift + lăn chuột, hoặc nút ◀ ▶ (mỗi lần 1 tháng), nút Hôm nay về tháng hiện tại. Cột tên chuỗi · nhãn đứng yên khi kéo. Trang Lịch post 2027 dùng cùng cách xem, mở sẵn năm 2027.

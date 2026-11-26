@@ -1255,3 +1255,59 @@ begin
   return jsonb_array_length(bn);
 end $$;
 revoke all on function public.lam_moi_canh_bao() from public, anon, authenticated;
+
+-- ===== Phiếu audit tại điểm bán (mỗi bước "Audit: cửa hàng" có 1 phiếu) =====
+create table if not exists public.phieu_audit (
+  id           uuid primary key default gen_random_uuid(),
+  buoc_id      uuid not null unique references public.buoc_cong_viec(id) on delete cascade,
+  hoat_dong_id uuid not null references public.hoat_dong(id) on delete cascade,
+  he_thong     text not null default '',
+  cua_hang     text not null default '',
+  ngay         date,
+  gio          text not null default '',
+  nguoi        text not null default '',
+  san_pham     jsonb not null default '[]'::jsonb,   -- [{ma, ten, brand, tt: 'co'|'het'|'khong', so_mat, gia}]
+  posm         jsonb not null default '{}'::jsonb,   -- {co_posm, dung_ct, diem_phu: true|false|null, ghi_chu}
+  doi_thu      jsonb not null default '[]'::jsonb,   -- [{ten, hoat_dong, gia}]
+  ghi_chu      text not null default '',
+  anh          jsonb not null default '[]'::jsonb,   -- đường dẫn ảnh trong kho anh-audit
+  luc          timestamptz not null default now()
+);
+create index if not exists phieu_audit_hd_idx on public.phieu_audit (hoat_dong_id);
+alter table public.phieu_audit enable row level security;
+grant select, insert, update, delete on public.phieu_audit to authenticated;
+drop policy if exists "thanh_vien_xem" on public.phieu_audit;
+drop policy if exists "thanh_vien_them" on public.phieu_audit;
+drop policy if exists "thanh_vien_sua" on public.phieu_audit;
+drop policy if exists "thanh_vien_xoa" on public.phieu_audit;
+create policy "thanh_vien_xem" on public.phieu_audit for select to authenticated using (public.duoc_xem());
+create policy "thanh_vien_them" on public.phieu_audit for insert to authenticated with check (public.la_thanh_vien());
+create policy "thanh_vien_sua" on public.phieu_audit for update to authenticated using (public.la_thanh_vien()) with check (public.la_thanh_vien());
+create policy "thanh_vien_xoa" on public.phieu_audit for delete to authenticated using (public.la_thanh_vien());
+
+-- Danh sách mã đang bán ở từng hệ thống (180 ngày) để phiếu audit có sẵn mã khi cửa hàng chưa có trong sổ bán hàng
+create or replace view public.ds_sku_he_thong with (security_invoker = true) as
+select public.chuoi_app(he_thong) as chuoi, ma_hang, max(ten_hang) as ten_hang, max(brand) as brand
+from public.nguon_sellin_ch
+where ngay >= current_date - 180 and brand <> 'Không theo brand' and doanh_so > 0
+group by 1, 2;
+grant select on public.ds_sku_he_thong to authenticated;
+
+-- Kho ảnh audit: riêng tư, chỉ thành viên xem / tải lên / xóa
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('anh-audit', 'anh-audit', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+drop policy if exists "anh_audit_xem" on storage.objects;
+drop policy if exists "anh_audit_them" on storage.objects;
+drop policy if exists "anh_audit_xoa" on storage.objects;
+create policy "anh_audit_xem" on storage.objects for select to authenticated using (bucket_id = 'anh-audit' and public.duoc_xem());
+create policy "anh_audit_them" on storage.objects for insert to authenticated with check (bucket_id = 'anh-audit' and public.la_thanh_vien());
+create policy "anh_audit_xoa" on storage.objects for delete to authenticated using (bucket_id = 'anh-audit' and public.la_thanh_vien());
+
+-- Báo app tải lại khi có phiếu mới
+do $$ begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'phieu_audit') then
+    alter publication supabase_realtime add table public.phieu_audit;
+  end if;
+exception when others then null; end $$;
+
