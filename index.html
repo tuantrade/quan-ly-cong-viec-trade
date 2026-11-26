@@ -501,7 +501,8 @@ const chipChot = x => chotCua(x)?' <span class="pill chot" title="Có trong file
 const pillTtLp = x => { const r=ttCua(x); return r?`<span class="pill tt-${TT_LP_CLS[r.trang_thai]}">${TT_LP_TEN[r.trang_thai]}</span>`:'<span class="pill neutral" style="opacity:.7">Chưa cập nhật</span>'; };
 let lanTai = 0, loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
 let view = 'tong-quan', selectedId = null, pendingRender = false, notice = '';
-let filters = {q:'', nhan:'', kenh:'', tt:''}, calPerson = '', calAudit = false;
+let filters = {q:'', nhan:'', kenh:'', tt:''}, calPerson = null,   // null = chưa chọn: Lịch việc tự mở việc của người đang đăng nhập
+  calAudit = false;
 let modal = null, authMode = 'login', authMsg = {err:'', ok:''};
 const main = document.getElementById('main');
 
@@ -1301,10 +1302,12 @@ function renderDetail(a){
 
 function renderCal(){
   const t=todayStr(), in7=addDays(t,7); const ppl=people();
+  if(calPerson===null && loaded && members.length){ const toi=tenNguoi(me()?.ho_ten||''); calPerson = toi && !laKhach() && ppl.includes(toi) ? toi : ''; }
+  const toiTen=tenNguoi(me()?.ho_ten||''), xemToi=!!calPerson && calPerson===toiTen;
   const open=allSteps().filter(x=>isOpen(x.s) && (!calAudit || laBuocAuditCh(x.s)) && (!calPerson || tenNguoi(phuTrach(x.s))===calPerson || (calPerson==='__none' && !tenNguoi(phuTrach(x.s)))))
     .sort((p,q)=>(p.s.han||'9').localeCompare(q.s.han||'9'));
   const groups=[['Trễ hạn','bad',x=>x.s.han&&x.s.han<t],['Hôm nay','warn',x=>x.s.han===t],['7 ngày tới','info',x=>x.s.han>t&&x.s.han<=in7],['Sau 7 ngày','neutral',x=>!x.s.han||x.s.han>in7]];
-  let h=`<section class="card"><div class="card-h"><h2>Lịch việc</h2><p>Tất cả bước chưa xong, xếp theo hạn. Bước chờ duyệt nằm ở người duyệt.</p></div>
+  let h=`<section class="card"><div class="card-h"><h2>${xemToi?'Lịch việc của tôi · '+esc(calPerson):calPerson&&calPerson!=='__none'?'Lịch việc · '+esc(calPerson):'Lịch việc'}</h2><p>${xemToi?'Các bước bạn phụ trách chưa xong, xếp theo hạn (bước chờ duyệt nằm ở người duyệt). Muốn xem người khác hoặc cả team, chọn ở ô bên dưới.':'Tất cả bước chưa xong, xếp theo hạn. Bước chờ duyệt nằm ở người duyệt.'}</p></div>
   ${calAudit?'<div class="loc-audit"><span class="pill info">📍 Đang xem riêng lịch audit</span><button type="button" class="link" data-bo-audit>Xem mọi việc</button></div>':''}<div class="filters"><select id="fnguoi" aria-label="Lọc theo người"><option value="">Tất cả mọi người</option>${ppl.map(p=>`<option value="${esc(p)}" ${calPerson===p?'selected':''}>${esc(p)}</option>`).join('')}<option value="__none" ${calPerson==='__none'?'selected':''}>Chưa giao người</option></select></div>`;
   groups.forEach(([ten,cls,fn])=>{ const rows=open.filter(fn);
     h+=`<div class="group"><h3><span class="pill ${cls}">${rows.length}</span>${ten}</h3>${rows.length?`<div class="scroll"><table><tbody>${
