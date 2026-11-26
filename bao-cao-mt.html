@@ -38,6 +38,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .bc-than{max-width:1280px;margin:0 auto;padding:16px}
 .bc-thong-bao{padding:14px 16px;border:1px solid var(--color-border-line);border-radius:10px;background:var(--color-panel);margin:16px}
 .dash-skeleton{color:var(--color-fg-muted)}
+#t-ch tfoot td{font-weight:700;border-top:2px solid var(--color-border-line);position:sticky;bottom:0;background:var(--color-bg)}
 </style>
 </head>
 <body>
@@ -327,6 +328,38 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
           <th data-field="so_he_thong"><button type="button" data-k="so_he_thong">Số hệ thống có bán</button></th>
         </tr></thead>
         <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sv-card" id="bang-ch">
+    <h2 class="sv-h">Theo cửa hàng</h2>
+    <p class="sv-note">Doanh thu thuần (bán − chiết khấu − trả lại, triệu đồng) của từng cửa hàng / điểm nhận hàng trong tháng đang xem, lấy từ Sổ chi tiết bán hàng. "So với tháng trước": tháng đang chạy so với cùng các ngày của tháng trước. Tỷ trọng tính trên tổng của phạm vi đang xem. Bấm tiêu đề cột để sắp xếp.</p>
+    <div class="sv-filters sv-filters-sku">
+      <label class="sv-filter" for="ch-ht">Hệ thống
+        <select id="ch-ht"><option value="">Tất cả</option></select>
+      </label>
+      <label class="sv-filter" for="ch-q">Tìm
+        <input class="sv-search" id="ch-q" type="search" placeholder="Tìm tên cửa hàng" aria-label="Tìm cửa hàng">
+      </label>
+    </div>
+    <p class="sv-note" id="ch-note"></p>
+    <div class="sv-tablewrap" style="max-height:32rem">
+      <table class="sv-table" id="t-ch">
+        <thead><tr>
+          <th class="l" data-field="cua_hang"><button type="button" data-k="cua_hang">Cửa hàng / điểm nhận</button></th>
+          <th class="l" data-field="he_thong"><button type="button" data-k="he_thong">Hệ thống</button></th>
+          <th data-field="wil"><button type="button" data-k="wil">Wil</button></th>
+          <th data-field="gungon"><button type="button" data-k="gungon">Gungon</button></th>
+          <th data-field="guyumi"><button type="button" data-k="guyumi">Guyumi</button></th>
+          <th data-field="ma_bay"><button type="button" data-k="ma_bay">Má Bảy</button></th>
+          <th data-field="thuan"><button type="button" data-k="thuan">Tổng thuần (tr)</button></th>
+          <th data-field="tang"><button type="button" data-k="tang">So với tháng trước</button></th>
+          <th data-field="ty_trong"><button type="button" data-k="ty_trong">Tỷ trọng</button></th>
+          <th data-field="so_sku"><button type="button" data-k="so_sku">Số SKU</button></th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot></tfoot>
       </table>
     </div>
   </section>
@@ -924,6 +957,7 @@ function drawSku() {
     prevRaw.filter((r) => String(r.ngay).slice(8, 10) <= ngayCuoi).forEach((r) => prevMap.set(r.ma_hang, (prevMap.get(r.ma_hang) || 0) + thuanR(r)));
   }
   goc = goc.map((x) => { const p = prevMap.get(x.ma_hang); return { ...x, tang: p > 0 ? x.thuan / p - 1 : null }; });
+  try { drawCh(); } catch (e) { console.warn('Bảng theo cửa hàng', e); }
   const q = document.getElementById('sv-q').value.trim().toLowerCase();
   const sv = (r) => (r[skuSort.k] == null ? (skuSort.dir > 0 ? Infinity : -Infinity) : r[skuSort.k]);
   const rows = goc.filter((r) => !q || (r.ten_hang + ' ' + r.brand + ' ' + r.ma_hang).toLowerCase().includes(q))
@@ -937,6 +971,58 @@ function drawSku() {
     return t;
   }));
 }
+
+// ---------- Bảng theo cửa hàng (sell-in theo điểm nhận hàng)
+let chSort = { k: 'thuan', dir: -1 };
+const chHt = document.getElementById('ch-ht');
+chHt.addEventListener('change', () => drawCh());
+document.getElementById('ch-q').addEventListener('input', () => drawCh());
+document.querySelectorAll('#t-ch th button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k; chSort = { k, dir: chSort.k === k ? -chSort.dir : (['cua_hang', 'he_thong'].includes(k) ? 1 : -1) }; drawCh();
+}));
+const KHOA_BR = { 'Wil': 'wil', 'Gungon': 'gungon', 'Guyumi': 'guyumi', 'Má Bảy': 'ma_bay' };
+function drawCh() {
+  const tb = document.querySelector('#t-ch tbody'), tf = document.querySelector('#t-ch tfoot'), note = document.getElementById('ch-note');
+  const ch = dash.data('sellin_ch'), si = dash.data('sellin');
+  if (!skuThang) return;
+  if (ch.status !== 'ok') { dash.can('sellin_ch'); note.textContent = ch.status === 'error' ? 'Chưa tải được số theo cửa hàng.' : 'Đang tải số theo cửa hàng…'; tb.replaceChildren(); tf.replaceChildren(); return; }
+  const thang = ch.data.filter((r) => String(r.ngay).slice(0, 7) === skuThang && hopLoc(r.he_thong));
+  const tongHt = new Map(); thang.forEach((r) => tongHt.set(r.he_thong, (tongHt.get(r.he_thong) || 0) + thuanR(r)));
+  const hts = [...tongHt.keys()].sort((a, b) => tongHt.get(b) - tongHt.get(a)), htCu = chHt.value;
+  chHt.replaceChildren(new Option(gHt ? `Tất cả ${gHt}` : 'Tất cả', ''), ...hts.map((h) => new Option(h, h))); chHt.value = hts.includes(htCu) ? htCu : '';
+  const ht = chHt.value, trong = (r) => !ht || r.he_thong === ht;
+  const g = new Map(); let tong = 0;
+  for (const r of thang) {
+    if (!trong(r)) continue;
+    const ten = tenCh(r.diem_nhan), k = r.he_thong + '|' + ten, t = thuanR(r); tong += t;
+    if (!g.has(k)) g.set(k, { he_thong: r.he_thong, cua_hang: ten, wil: 0, gungon: 0, guyumi: 0, ma_bay: 0, thuan: 0, sku: new Set() });
+    const x = g.get(k); x.thuan += t; if (KHOA_BR[r.brand]) x[KHOA_BR[r.brand]] += t; if ((Number(r.doanh_so) || 0) > 0) x.sku.add(r.ma_hang);
+  }
+  // So với tháng trước: cùng các ngày nếu tháng đang xem là tháng mới nhất (chưa hết tháng)
+  const thangs = si.status === 'ok' ? [...new Set(si.data.map((r) => r.thang))].sort() : [];
+  const ngayCuoi = thangs.length && skuThang === thangs[thangs.length - 1] ? si.data.filter((r) => r.thang === skuThang).map((r) => r.ngay).sort().pop().slice(8, 10) : '99';
+  const pm = prevOf(skuThang), truoc = new Map();
+  ch.data.filter((r) => String(r.ngay).slice(0, 7) === pm && hopLoc(r.he_thong) && trong(r) && String(r.ngay).slice(8, 10) <= ngayCuoi)
+    .forEach((r) => { const k = r.he_thong + '|' + tenCh(r.diem_nhan); truoc.set(k, (truoc.get(k) || 0) + thuanR(r)); });
+  const q = boDauCh(document.getElementById('ch-q').value);
+  const rows = [...g.entries()].map(([k, { sku, ...x }]) => { const p = truoc.get(k); return { ...x, so_sku: sku.size, tang: p > 0 ? x.thuan / p - 1 : null, ty_trong: tong ? x.thuan / tong : null }; })
+    .filter((r) => !q || boDauCh(r.cua_hang + ' ' + r.he_thong).includes(q));
+  const sv = (r) => (r[chSort.k] == null ? (chSort.dir > 0 ? Infinity : -Infinity) : r[chSort.k]);
+  rows.sort((a, b) => { const x = sv(a), y = sv(b); return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * chSort.dir; });
+  document.querySelectorAll('#t-ch th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === chSort.k) th.setAttribute('aria-sort', chSort.dir > 0 ? 'ascending' : 'descending'); });
+  const o = (v, c) => { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; return td; };
+  tb.replaceChildren(...rows.map((r) => {
+    const t = document.createElement('tr'); t.dataset.key = enc(r.he_thong) + ',' + enc(r.cua_hang);
+    t.append(o(r.cua_hang, 'l'), o(r.he_thong, 'l'), o(r.wil ? tr(r.wil) : '–'), o(r.gungon ? tr(r.gungon) : '–'), o(r.guyumi ? tr(r.guyumi) : '–'), o(r.ma_bay ? tr(r.ma_bay) : '–'),
+      o(tr(r.thuan)), o(r.tang == null ? '–' : sgn(r.tang), r.tang == null ? '' : (r.tang >= 0 ? 'sv-up' : 'sv-down')), o(pct(r.ty_trong)), o(vi(r.so_sku)));
+    return t;
+  }));
+  const s = (k) => rows.reduce((a, r) => a + r[k], 0), ft = document.createElement('tr');
+  ft.append(o(`Cộng ${vi(rows.length)} điểm`, 'l'), o('', 'l'), o(tr(s('wil'))), o(tr(s('gungon'))), o(tr(s('guyumi'))), o(tr(s('ma_bay'))), o(tr(s('thuan'))), o(''), o(pct(tong ? s('thuan') / tong : null)), o(''));
+  tf.replaceChildren(ft);
+  note.textContent = `${thangLabel(skuThang)}${ht ? ' · ' + ht : (gHt ? ' · ' + gHt : ' · tất cả hệ thống')}: ${vi(g.size)} điểm nhận hàng, doanh thu thuần ${tr(tong)} triệu.${q ? ` Đang lọc theo chữ "${document.getElementById('ch-q').value.trim()}".` : ''}`;
+}
+const boDauCh = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
 
 // ---------- charts
 function drawSystems(el, rows, lab = 'he_thong', tot = 'thuan', unit = 'hệ thống') {
