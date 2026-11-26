@@ -377,12 +377,12 @@ ol.tsteps .when{color:var(--muted);font-size:12px}
 .mua-lop{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
 .mua-lop i{position:absolute;top:-24px;font-style:normal;line-height:1;animation:roi linear infinite;will-change:transform}
 @keyframes roi{0%{transform:translate(0,-30px) rotate(0)}50%{transform:translate(var(--lac,20px),50vh) rotate(180deg)}100%{transform:translate(0,105vh) rotate(360deg)}}
-.mua-noel{--tuyet1:#e4edf3;--tuyet2:#d3e0ea;--tuyet3:#c3d4e0;--tuyet-cay:#4f8a68;--tuyet-cay2:#86b39a;--tuyet-hat:#b9cfe1;--tuyet-anh:rgba(176,206,232,.38);--tuyet-anh2:rgba(206,224,238,.32)}
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .mua-noel{--tuyet1:#1b252d;--tuyet2:#19222a;--tuyet3:#172028;--tuyet-cay:#2f6a4d;--tuyet-cay2:#26503d;--tuyet-hat:rgba(214,232,248,.5);--tuyet-anh:rgba(86,128,170,.16);--tuyet-anh2:rgba(70,110,150,.10)} }
-:root[data-theme="dark"] .mua-noel{--tuyet1:#1b252d;--tuyet2:#19222a;--tuyet3:#172028;--tuyet-cay:#2f6a4d;--tuyet-cay2:#26503d;--tuyet-hat:rgba(214,232,248,.5);--tuyet-anh:rgba(86,128,170,.16);--tuyet-anh2:rgba(70,110,150,.10)}
-body.mua-noel{background:radial-gradient(1100px 420px at 88% -12%,var(--tuyet-anh),transparent 62%),radial-gradient(900px 360px at -5% -8%,var(--tuyet-anh2),transparent 60%),var(--bg);background-attachment:fixed}
+.mua-noel{--tuyet-nen1:#dbe9f5;--tuyet-nen2:#eaf2f9;--tuyet-vien:rgba(110,155,200,.55);--tuyet1:#e4edf3;--tuyet2:#d3e0ea;--tuyet3:#c3d4e0;--tuyet-cay:#4f8a68;--tuyet-cay2:#86b39a;--tuyet-hat:#b9cfe1;--tuyet-anh:rgba(176,206,232,.38);--tuyet-anh2:rgba(206,224,238,.32)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .mua-noel{--tuyet-nen1:#13263a;--tuyet-nen2:#141f2b;--tuyet-vien:rgba(170,210,255,.35);--tuyet1:#1b252d;--tuyet2:#19222a;--tuyet3:#172028;--tuyet-cay:#2f6a4d;--tuyet-cay2:#26503d;--tuyet-hat:rgba(214,232,248,.5);--tuyet-anh:rgba(86,128,170,.16);--tuyet-anh2:rgba(70,110,150,.10)} }
+:root[data-theme="dark"] .mua-noel{--tuyet-nen1:#13263a;--tuyet-nen2:#141f2b;--tuyet-vien:rgba(170,210,255,.35);--tuyet1:#1b252d;--tuyet2:#19222a;--tuyet3:#172028;--tuyet-cay:#2f6a4d;--tuyet-cay2:#26503d;--tuyet-hat:rgba(214,232,248,.5);--tuyet-anh:rgba(86,128,170,.16);--tuyet-anh2:rgba(70,110,150,.10)}
+body.mua-noel{background:radial-gradient(1100px 420px at 88% -12%,var(--tuyet-anh),transparent 62%),radial-gradient(900px 360px at -5% -8%,var(--tuyet-anh2),transparent 60%),linear-gradient(180deg,var(--tuyet-nen1),var(--tuyet-nen2) 70%);background-attachment:fixed}
 .mua-noel .mua-lop{z-index:0}
-.mua-noel .mua-lop i{border-radius:50%;background:var(--tuyet-hat);filter:blur(.4px)}
+.mua-noel .mua-lop i{border-radius:50%;background:#fff;box-shadow:0 0 5px 1px var(--tuyet-vien);filter:blur(.3px)}
 body.mua-noel main, body.mua-noel #khungBc{position:relative;z-index:1}
 .canh-dong{display:none;position:fixed;left:0;right:0;bottom:0;height:300px;pointer-events:none;z-index:0}
 .mua-noel .canh-dong{display:block}
@@ -2243,8 +2243,8 @@ function trangTriMua(){
   document.body.classList.add('mua-'+MUA);
   const lop=document.querySelector('.mua-lop'), nut=document.getElementById('nutMua');
   const HOA='<svg viewBox="0 0 20 20" width="100%" height="100%"><g fill="#f2b632">'+[0,72,144,216,288].map(g=>`<ellipse cx="10" cy="4.6" rx="3.4" ry="4.6" transform="rotate(${g} 10 10)"/>`).join('')+'</g><circle cx="10" cy="10" r="2.2" fill="#d8322b"/></svg>';
-  const veRoi=()=>{ lop.innerHTML=Array.from({length:MUA==='noel'?18:16},()=>{ const c=MUA==='noel'?6+Math.random()*8:8+Math.random()*12;
-    return `<i style="left:${Math.random()*100}%;font-size:${c}px;width:${c}px;height:${c}px;opacity:${(.45+Math.random()*.45).toFixed(2)};--lac:${Math.round(Math.random()*80-40)}px;animation-duration:${(MUA==='noel'?18+Math.random()*14:9+Math.random()*10).toFixed(1)}s;animation-delay:-${(Math.random()*24).toFixed(1)}s">${MUA==='noel'?'':HOA}</i>`; }).join(''); };
+  const veRoi=()=>{ lop.innerHTML=Array.from({length:MUA==='noel'?45:16},()=>{ const c=MUA==='noel'?6+Math.random()*8:8+Math.random()*12;
+    return `<i style="left:${Math.random()*100}%;font-size:${c}px;width:${c}px;height:${c}px;opacity:${(MUA==='noel'?.75+Math.random()*.25:.45+Math.random()*.45).toFixed(2)};--lac:${Math.round(Math.random()*80-40)}px;animation-duration:${(MUA==='noel'?18+Math.random()*14:9+Math.random()*10).toFixed(1)}s;animation-delay:-${(Math.random()*24).toFixed(1)}s">${MUA==='noel'?'':HOA}</i>`; }).join(''); };
   let tat=false; try{ tat=localStorage.getItem('tatHieuUngMua')==='1'; }catch(_){}
   const capNhat=()=>{ if(tat) lop.innerHTML=''; else veRoi(); nut.textContent = MUA==='noel' ? (tat?'❄ Bật tuyết rơi':'❄ Tắt tuyết rơi') : (tat?'🌼 Bật hoa mai rơi':'🌼 Tắt hoa mai rơi'); };
   nut.hidden=false; capNhat();
