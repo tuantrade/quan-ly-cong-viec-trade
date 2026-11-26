@@ -193,6 +193,15 @@ Mỗi sáng (khoảng 7h–8h, trừ Chủ nhật), một script Google gửi th
 ## Tạo hoạt động theo mẫu Audit
 Khi chọn quy trình mẫu có chữ “Audit”, cửa sổ **Tạo hoạt động mới** bỏ ô nhãn hàng, kênh, ngày bắt đầu, ngày kết thúc và thay bằng khung **Lịch audit**: mỗi dòng gồm hệ thống, tên cửa hàng (gõ để chọn từ danh sách điểm nhận hàng có sell-in 4 tháng gần nhất, hoặc gõ tên mới), ngày, giờ audit; nút **＋ Thêm lịch audit** để thêm dòng. Tạo 1 lần ra 1 hoạt động: bước “Đi audit tại điểm bán” của mẫu được tách thành 1 bước cho mỗi lịch (tên “Audit: cửa hàng · hệ thống · giờ”, hạn = ngày audit), các bước khác tính hạn theo ngày audit đầu tiên / cuối cùng. Leader giao người ở ô vai trò là mọi bước đi theo người đó.
 
+## Kiểm soát CTKM ở trang Tổng quan
+- **Báo cáo kết quả CTKM trong 10 ngày** (Tờ trình 01/TTr-TM): chương trình Lịch post kết thúc trong 40 ngày qua (trừ bị siêu thị từ chối), hạn = ngày kết thúc + 10. Tính là đã báo cáo khi hoạt động trong app gắn với chương trình có bước tên chứa “báo cáo / đánh giá / nghiệm thu / kết quả” đã xong; đúng hạn khi ngày xong ≤ hạn.
+- **PO mở trước khi CEO duyệt** (thư BOD 2309): ngày PO bắt đầu theo quy tắc PO từng hệ thống; ngày duyệt = lần đầu trạng thái Lịch post chuyển sang “CEO đã duyệt” hoặc bước sau. Chỉ tính chương trình có PO từ ngày bắt đầu theo dõi trạng thái.
+
+## Báo cáo MT: tải Excel, độ phủ, báo bản mới
+- Mỗi bảng có nút **⬇ Tải Excel** (tải đúng những gì đang lọc, số giữ dạng số).
+- Sell-in → **Độ phủ từng mã**: điểm nhận hàng có nhập mã ÷ điểm có nhập hàng TVP, cùng hệ thống, 90 ngày; bấm dòng để xem điểm chưa nhập.
+- `thanh-ben.js` kiểm bản trang trên máy chủ mỗi 5 phút và khi quay lại tab; khác bản đang xem thì hiện thanh “Web vừa có bản mới · Tải lại”.
+
 ## Lịch post (lịch CTKM theo siêu thị)
 
 **Xem theo năm, kéo ngang**: chọn Năm 2026 / Năm 2027 (các năm có lịch); cả 12 tháng của năm nằm trên một dải, màn hình thấy 3 tháng (đổi được 6 hoặc 12). Kéo ngang bằng chuột, vuốt, Shift + lăn chuột, hoặc nút ◀ ▶ (mỗi lần 1 tháng), nút Hôm nay về tháng hiện tại. Cột tên chuỗi · nhãn đứng yên khi kéo. Trang Lịch post 2027 dùng cùng cách xem, mở sẵn năm 2027.
