@@ -211,6 +211,11 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)}
 .au-xoa{align-self:end;height:38px}
 .au-them{justify-self:start}
 @media (max-width:760px){ .au-dong{grid-template-columns:26px 1fr 1fr} .au-dong .au-ch{grid-column:2 / 4} .au-xoa{grid-column:3;justify-self:end} }
+.gantt.nam{width:max(calc(210px + (100% - 210px) * 12 / var(--so,3)), calc(210px + 12 * 120px));min-width:0}
+.gantt.nam .g-lab{position:sticky;left:0;z-index:3;background:var(--surface)}
+.gantt.nam .g-row.head .g-lab{z-index:4}
+.lp-cuon{cursor:grab;overscroll-behavior-x:contain}.lp-cuon.keo{cursor:grabbing;user-select:none}.lp-cuon.keo .g-bar{pointer-events:none}
+.lp-nav .lp-nam{display:inline-flex;gap:4px}.lp-nav .lp-cach{width:8px}.lp-nav .lp-goi{flex-basis:100%;font-size:12px;color:var(--muted)}
 .lp-nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 16px 10px}.lp-nav .lp-khoang{margin-left:6px;font-size:13px;color:var(--muted)}.lp-nav .lp-khoang b{color:var(--ink)}
 .g-bar.tt-neutral,.g-legend i.tt-neutral{background:var(--soft);color:var(--muted);border-color:var(--line)}
 .g-bar.tt-warn,.g-legend i.tt-warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
@@ -366,7 +371,7 @@ let giaBan = [], giaLoc = {ht:'', nhan:''};
 let soNguon = [], soHd = {};
 let canhBao = [], canhBaoCt = [], canhBaoLuc = null, canhBaoKpi = [];   // cảnh báo sụt giảm sức nhập (sell-in) / sức bán (sell-out), từ view canh_bao_ban_nhap
 let lich27 = [];   // Lịch post 2027 (4 hệ thống MT), đọc từ bo_so_tinh_san
-let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tt:'', tu:'', soThang:'6'};
+let lichPost = [], dongBoLich = null, lichLoc = {chuoi:'', nhan:'', loai:'', tt:'', tu:'', soThang:'3', nam:''};
 /* Trạng thái chương trình Lịch post (bảng trang_thai_lp): Trade lên CTKM -> trình ký -> CEO duyệt -> KAM đăng ký -> siêu thị duyệt */
 let ttLp = new Map();
 const TT_LP = [['dang_soan','Đang soạn','neutral'],['cho_ceo','Chờ CEO duyệt','warn'],['ceo_duyet','CEO đã duyệt, chờ KAM đăng ký','info'],
@@ -635,6 +640,7 @@ function renderNow(){
   if(laKhach()) khoaChiXem(main);
   if(view!==viewTruoc){ viewTruoc=view; main.classList.remove('chuyen'); void main.offsetWidth; main.classList.add('chuyen'); clearTimeout(window.__chuyen); window.__chuyen=setTimeout(()=>main.classList.remove('chuyen'),700); }
   if(view==='tong-quan') demLen();
+  apCuonLp();
   moChao();
 }
 
@@ -967,10 +973,39 @@ function tenThang(ym){ const [y,m]=ym.split('-'); return 'T'+Number(m)+'/'+y; }
 const LOAI_LP = {onpost:'Onpost', offpost:'Offpost', '':'Không ghi'};
 /* ---------- Lịch post 2027: trình bày giống trang Lịch post (thanh thời gian theo hệ thống · brand).
    Lịch 2027 mới có các kỳ của từng hệ thống, chưa rõ chương trình của từng brand: mỗi ô ghi mã kỳ (VD C701, 2701). ---------- */
-let lichLoc27 = {chuoi:'', nhan:'', tu:'', soThang:'6'};
+let lichLoc27 = {chuoi:'', nhan:'', tu:'', soThang:'3', nam:''};
 const ky27 = () => lich27.filter(x=>ngay10(x.ntd_bat_dau)).map(x=>({...x, bd:ngay10(x.ntd_bat_dau), kt:ngay10(x.ntd_ket_thuc)||ngay10(x.ntd_bat_dau)}));
 const nhan27 = () => NH.filter(n=>n.dang_dung!==false).map(n=>n.ten);
 function hdCua27Nhan(x, nhan){ const n=khopNhan(nhan); return hdCua27(x).filter(a=>!n || !a.nhanId || a.nhanId===n.id); }
+/* Lịch post dạng cả năm: chọn năm, 12 tháng nằm trên một dải kéo ngang, màn hình thấy 3 / 6 / 12 tháng */
+function khungNam(L, dsThang, t){
+  const years=[...new Set(dsThang.map(m=>m.slice(0,4)))].sort(), y=t.slice(0,4);
+  if(!L.nam || !years.includes(L.nam)) L.nam = years.includes(y) ? y : years[0];
+  const so=[3,6,12].includes(+L.soThang)? +L.soThang : 3; L.soThang=String(so); L._years=years;
+  const dau=L.nam+'-01-01', cuoi=L.nam+'-12-31', thangs=[]; for(let m=L.nam+'-01',i=0;i<12;i++,m=themThang(m,1)) thangs.push(m);
+  return {so, dau, cuoi, tongNgay:diff(dau,cuoi)+1, thangs};
+}
+function navNam(L,k){
+  return `<div class="lp-nav" data-lp-khung="${k}"><span class="lp-nam" role="group" aria-label="Chọn năm">${(L._years||[]).map(n=>`<button type="button" class="btn sm ${n===L.nam?'pri':''}" data-lp-nam="${n}" data-k="${k}" aria-pressed="${n===L.nam}">Năm ${n}</button>`).join('')}</span>
+    <span class="lp-cach"></span><button type="button" class="btn sm" data-lp-cuon="-1" data-k="${k}" title="Kéo về 1 tháng">◀</button><button type="button" class="btn sm" data-lp-cuon="0" data-k="${k}">Hôm nay</button><button type="button" class="btn sm" data-lp-cuon="1" data-k="${k}" title="Kéo tới 1 tháng">▶</button>
+    <span class="lp-khoang" data-lp-khoang="${k}"></span><span class="lp-goi">Kéo ngang lịch (hoặc giữ Shift + lăn chuột) để xem tháng khác</span></div>`;
+}
+function apCuonLp(){
+  document.querySelectorAll('.lp-cuon').forEach(el=>{
+    const k=el.dataset.lpK, L=k==='27'?lichLoc27:lichLoc, so=+L.soThang||3;
+    const mw=()=>Math.max(1,(el.scrollWidth-210)/12);
+    const ghi=()=>{ const th=el.scrollLeft/mw(); L._thang=th; const a=Math.max(0,Math.min(11,Math.round(th))), b=Math.min(11,a+so-1), sp=document.querySelector(`[data-lp-khoang="${k}"]`);
+      if(sp) sp.innerHTML=`Đang xem <b>T${a+1}</b> – <b>T${b+1}/${L.nam}</b>`; };
+    if(L._cuonNam!==L.nam){ L._cuonNam=L.nam; const t=todayStr(); L._thang = t.slice(0,4)===L.nam ? Math.max(0,Math.min(12-so,Number(t.slice(5,7))-2)) : 0; }
+    el.scrollLeft=(L._thang||0)*mw(); ghi();
+    el.onscroll=ghi;
+    el.onmousedown=e=>{ if(e.button!==0||e.target.closest('button,a,select,input')) return;   // kéo bằng chuột (điện thoại, bàn rê dùng vuốt sẵn có)
+      e.preventDefault(); const x0=e.clientX, s0=el.scrollLeft; let keo=false;
+      const mv=ev=>{ const dx=ev.clientX-x0; if(!keo&&Math.abs(dx)>4){ keo=true; el.classList.add('keo'); } if(keo) el.scrollLeft=s0-dx; };
+      const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); el.classList.remove('keo'); };
+      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); };
+  });
+}
 function renderLichPost27(){
   const t=todayStr(), ds=ky27();
   if(!ds.length) return `<section class="card"><div class="card-h"><h2>Lịch post 2027</h2></div><div class="empty">Chưa có lịch post 2027.</div></section>`;
@@ -978,11 +1013,10 @@ function renderLichPost27(){
   const dsChuoi=[...new Set(ds.map(x=>x.he_thong).filter(Boolean))], dsNhan=nhan27();
   const thangMin=thangCua(ds.reduce((m,x)=>x.bd<m?x.bd:m,'9999-12-31')), thangMax=thangCua(ds.reduce((m,x)=>x.kt>m?x.kt:m,'0000-01-01'));
   const dsThang=[]; for(let m=thangMin; m<=thangMax && dsThang.length<60; m=themThang(m,1)) dsThang.push(m);
-  if(!L.tu || !dsThang.includes(L.tu)) L.tu = dsThang.includes(thangCua(t)) ? thangCua(t) : dsThang[0];
-  const so=Math.max(1,Number(L.soThang)||6); L._ds=dsThang;
-  const dau=L.tu+'-01', cuoi=addDays(themThang(L.tu,so)+'-01',-1), tongNgay=diff(dau,cuoi)+1;
+  if(!L.nam) L.nam='2027';   // trang Lịch post 2027 mở sẵn năm 2027
+  const K=khungNam(L,dsThang,t), so=K.so, dau=K.dau, cuoi=K.cuoi, tongNgay=K.tongNgay;
   const pct=d=>(diff(dau,d)/tongNgay*100);
-  const thangs=[]; for(let m=L.tu,i=0;i<so;i++,m=themThang(m,1)) thangs.push(m);
+  const thangs=K.thangs;
   const nenThang=thangs.map((m,i)=>i?`<div class="g-sep" style="left:${pct(m+'-01')}%"></div>`:'').join('');
   const homNay=(t>=dau&&t<=cuoi)?`<div class="g-today" style="left:${pct(t)}%" title="Hôm nay"></div>`:'';
   const chuois=dsChuoi.filter(c=>!L.chuoi||c===L.chuoi), nhans=dsNhan.filter(n=>!L.nhan||n===L.nhan);
@@ -1004,12 +1038,11 @@ function renderLichPost27(){
     <div class="filters">
       <select id="lp27Chuoi" aria-label="Lọc hệ thống">${opt(dsChuoi,L.chuoi,'Tất cả hệ thống')}</select>
       <select id="lp27Nhan" aria-label="Lọc nhãn hàng">${opt(dsNhan,L.nhan,'Tất cả nhãn')}</select>
-      <select id="lp27Tu" aria-label="Từ tháng">${dsThang.map(m=>`<option value="${m}" ${m===L.tu?'selected':''}>Từ ${tenThang(m)}</option>`).join('')}</select>
-      <select id="lp27So" aria-label="Số tháng hiển thị">${[1,2,3,6,12].map(n=>`<option value="${n}" ${String(n)===String(L.soThang)?'selected':''}>${n} tháng</option>`).join('')}</select>
+      <select id="lp27So" aria-label="Số tháng hiển thị">${[3,6,12].map(n=>`<option value="${n}" ${String(n)===String(L.soThang)?'selected':''}>Thấy ${n} tháng</option>`).join('')}</select>
     </div>
-    <div class="lp-nav" data-lp-khung="27"><button type="button" class="btn sm" data-lp-dich="-1" title="Lùi 1 tháng">◀ Tháng trước</button><button type="button" class="btn sm" data-lp-dich="0">Hôm nay</button><button type="button" class="btn sm" data-lp-dich="1" title="Tới 1 tháng">Tháng sau ▶</button><span class="lp-khoang">Đang xem <b>${tenThang(L.tu)}</b> – <b>${tenThang(themThang(L.tu,so-1))}</b>${dsThang[0]<L.tu?' · còn tháng trước':''}${dsThang[dsThang.length-1]>themThang(L.tu,so-1)?' · còn tháng sau':''}</span></div>
+    ${navNam(L,'27')}
     <div class="g-legend"><span><i style="background:var(--soft);border:1px solid var(--line)"></i>Kỳ chương trình (ghi mã kỳ)</span><span><i style="background:var(--ok-soft)"></i>✓ Đã tạo hoạt động</span><span><i style="background:var(--bad)"></i>Hôm nay</span></div>
-    ${rows?`<div class="scroll"><div class="gantt"><div class="g-row head"><div class="g-lab"><b>Hệ thống · nhãn</b></div><div class="g-track" style="min-height:30px">${thangs.map((m,i)=>`<div class="g-mon" style="left:${pct(m+'-01')}%;width:${(diff(m+'-01',addDays(themThang(m,1)+'-01',-1))+1)/tongNgay*100}%">${tenThang(m)}</div>`).join('')}</div></div>${rows}</div></div>`:'<div class="empty">Không có kỳ nào trong khoảng này.</div>'}
+    ${rows?`<div class="scroll lp-cuon" data-lp-k="27"><div class="gantt nam" style="--so:${so}"><div class="g-row head"><div class="g-lab"><b>Hệ thống · nhãn</b></div><div class="g-track" style="min-height:30px">${thangs.map((m,i)=>`<div class="g-mon" style="left:${pct(m+'-01')}%;width:${(diff(m+'-01',addDays(themThang(m,1)+'-01',-1))+1)/tongNgay*100}%">${tenThang(m)}</div>`).join('')}</div></div>${rows}</div></div>`:'<div class="empty">Năm này chưa có kỳ nào.</div>'}
   </section>
   <section class="card"><div class="card-h"><h2>Kỳ sắp tới (60 ngày tới)</h2><p>${sapToi.length} kỳ · hạn đăng ký, thời gian PO giảm giá, giao hàng và ngày chạy</p></div>${sapToi.length?`<div class="scroll"><table><thead><tr><th>Hệ thống</th><th>Mã kỳ</th><th>Chủ đề</th><th>Hạn đăng ký</th><th>PO giảm giá</th><th>Giao hàng</th><th>Ngày chạy</th></tr></thead><tbody>${
     sapToi.map(x=>{ const po=poCua(x.he_thong,x.bd,x.kt), gh=ngay10(x.gh_bat_dau);
@@ -1041,9 +1074,7 @@ function renderLichPost(){
   const dsNhan=[...new Set(lichPost.map(x=>x.nhan_hang).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi'));
   const thangMin=thangCua(lichPost.reduce((m,x)=>x.ngay_bat_dau<m?x.ngay_bat_dau:m,'9999-12-31')), thangMax=thangCua(lichPost.reduce((m,x)=>x.ngay_ket_thuc>m?x.ngay_ket_thuc:m,'0000-01-01'));
   const dsThang=[]; for(let m=thangMin; m<=thangMax && dsThang.length<60; m=themThang(m,1)) dsThang.push(m);
-  if(!L.tu || !dsThang.includes(L.tu)) L.tu = dsThang.includes(thangCua(t)) ? thangCua(t) : dsThang[0];
-  const so=Math.max(1,Number(L.soThang)||6); L._ds=dsThang;
-  const dau=L.tu+'-01', cuoi=addDays(themThang(L.tu,so)+'-01',-1), tongNgay=diff(dau,cuoi)+1;
+  const K=khungNam(L,dsThang,t), so=K.so, dau=K.dau, cuoi=K.cuoi, tongNgay=K.tongNgay;
   const pct=d=>(diff(dau,d)/tongNgay*100);
   const loc=lichPost.filter(x=>(!L.chuoi||x.chuoi===L.chuoi)&&(!L.nhan||x.nhan_hang===L.nhan)&&(!L.loai||x.loai===(L.loai==='khong'?'':L.loai))&&(!L.tt||(L.tt==='chua'?!ttCua(x):ttCua(x)?.trang_thai===L.tt))&&(!L.chot||(L.chot==='chot'?chotCua(x):!chotCua(x))));
   const trongKhung=loc.filter(x=>x.ngay_bat_dau<=cuoi && x.ngay_ket_thuc>=dau);
@@ -1052,7 +1083,7 @@ function renderLichPost(){
   trongKhung.forEach(x=>{ const k=x.chuoi+'|'+x.sieu_thi+'|'+x.nhan_hang; (nhom.get(k)||nhom.set(k,[]).get(k)).push(x); });
   const thuTuChuoi=c=>dsChuoi.indexOf(c);
   const hang=[...nhom.entries()].sort((a,b)=>thuTuChuoi(a[1][0].chuoi)-thuTuChuoi(b[1][0].chuoi) || a[1][0].dong-b[1][0].dong);
-  const thangs=[]; for(let m=L.tu,i=0;i<so;i++,m=themThang(m,1)) thangs.push(m);
+  const thangs=K.thangs;
   const nenThang=thangs.map((m,i)=>i?`<div class="g-sep" style="left:${pct(m+'-01')}%"></div>`:'').join('');
   const homNay=(t>=dau&&t<=cuoi)?`<div class="g-today" style="left:${pct(t)}%" title="Hôm nay"></div>`:'';
   let chuoiTruoc='';
@@ -1075,13 +1106,12 @@ function renderLichPost(){
       <select id="lpLoai" aria-label="Lọc loại"><option value="">Onpost và offpost</option><option value="onpost" ${L.loai==='onpost'?'selected':''}>Chỉ Onpost</option><option value="offpost" ${L.loai==='offpost'?'selected':''}>Chỉ Offpost</option><option value="khong" ${L.loai==='khong'?'selected':''}>Không ghi loại</option></select>
       <select id="lpChot" aria-label="Lọc CTKM đã chốt"><option value="">Chốt và chưa chốt</option><option value="chot" ${L.chot==='chot'?'selected':''}>◆ Đã chốt CTKM</option><option value="chua" ${L.chot==='chua'?'selected':''}>Chưa có trong file CTKM</option></select>
       <select id="lpTt" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option>${TT_LP.map(([k,t])=>`<option value="${k}" ${L.tt===k?'selected':''}>${t}</option>`).join('')}<option value="chua" ${L.tt==='chua'?'selected':''}>Chưa cập nhật</option></select>
-      <select id="lpTu" aria-label="Từ tháng">${dsThang.map(m=>`<option value="${m}" ${m===L.tu?'selected':''}>Từ ${tenThang(m)}</option>`).join('')}</select>
-      <select id="lpSo" aria-label="Số tháng hiển thị">${[1,2,3,6,12].map(n=>`<option value="${n}" ${String(n)===String(L.soThang)?'selected':''}>${n} tháng</option>`).join('')}</select>
+      <select id="lpSo" aria-label="Số tháng hiển thị">${[3,6,12].map(n=>`<option value="${n}" ${String(n)===String(L.soThang)?'selected':''}>Thấy ${n} tháng</option>`).join('')}</select>
     </div>
-    <div class="lp-nav" data-lp-khung="lp"><button type="button" class="btn sm" data-lp-dich="-1" title="Lùi 1 tháng">◀ Tháng trước</button><button type="button" class="btn sm" data-lp-dich="0">Hôm nay</button><button type="button" class="btn sm" data-lp-dich="1" title="Tới 1 tháng">Tháng sau ▶</button><span class="lp-khoang">Đang xem <b>${tenThang(L.tu)}</b> – <b>${tenThang(themThang(L.tu,so-1))}</b>${dsThang[0]<L.tu?' · còn tháng trước':''}${dsThang[dsThang.length-1]>themThang(L.tu,so-1)?' · còn tháng sau':''}</span></div>
+    ${navNam(L,'lp')}
     <div class="g-legend">${TT_LP.map(([k,t,c])=>`<span><i class="tt-${c}"></i>${t}</span>`).join('')}</div>
     <div class="g-legend"><span style="font-weight:600">Chưa cập nhật trạng thái:</span><span><i class="chot-mau"></i>◆ Đã chốt CTKM (có trong file CẬP NHẬT CTKM)</span><span><i style="background:var(--info-soft)"></i>Onpost</span><span><i style="background:var(--warn-soft)"></i>Offpost</span><span><i style="background:var(--soft);border:1px solid var(--line)"></i>Không ghi loại</span><span><i style="box-shadow:inset 0 0 0 2px var(--ok)"></i>✓ đã có hoạt động trong app</span><span><i style="background:var(--bad);opacity:.55;width:3px"></i>Hôm nay</span><span>Bấm vào một thanh để xem chi tiết${laKhach()?'':' và tạo hoạt động CTKM'}.</span></div>
-    ${rows?`<div class="scroll"><div class="gantt"><div class="g-row head"><div class="g-lab"><b>Chuỗi · nhãn</b></div><div class="g-track" style="min-height:30px">${thangs.map((m,i)=>`<div class="g-mon" style="left:${pct(m+'-01')}%;width:${(diff(m+'-01',addDays(themThang(m,1)+'-01',-1))+1)/tongNgay*100}%">${tenThang(m)}</div>`).join('')}${homNay}</div></div>${rows}</div></div>`:'<div class="empty">Không có chương trình nào trong khoảng này.</div>'}
+    ${rows?`<div class="scroll lp-cuon" data-lp-k="lp"><div class="gantt nam" style="--so:${so}"><div class="g-row head"><div class="g-lab"><b>Chuỗi · nhãn</b></div><div class="g-track" style="min-height:30px">${thangs.map((m,i)=>`<div class="g-mon" style="left:${pct(m+'-01')}%;width:${(diff(m+'-01',addDays(themThang(m,1)+'-01',-1))+1)/tongNgay*100}%">${tenThang(m)}</div>`).join('')}${homNay}</div></div>${rows}</div></div>`:'<div class="empty">Năm này chưa có chương trình nào.</div>'}
   </section>
   <section class="card"><div class="card-h"><h2>Sắp bắt đầu (45 ngày tới)</h2><p>${sapToi.length} chương trình · cột “Hoạt động” cho biết đã tạo CTKM trong app chưa</p></div>${sapToi.length?`<div class="scroll"><table><thead><tr><th>Bắt đầu</th><th>Chuỗi</th><th>Nhãn</th><th>Loại</th><th>Trạng thái</th><th>Nội dung</th><th>Hoạt động trong app</th></tr></thead><tbody>${
     sapToi.map(x=>{ const hd=hdCuaLp(x); return `<tr><td class="num">${fd(x.ngay_bat_dau)}<div class="sub">đến ${fd(x.ngay_ket_thuc)}</div></td><td>${esc(x.chuoi)}</td><td>${brTag(x.nhan_hang)}</td><td>${LOAI_LP[x.loai]}</td><td>${pillTtLp(x)}${chipChot(x)}</td><td><button type="button" class="link" data-lp="${x.id}">${esc(dongDau(x.noi_dung))}</button></td><td>${hd.length?hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):`<button class="btn sm" data-tao-lp="${x.id}" type="button">Tạo CTKM</button>`}</td></tr>`; }).join('')
@@ -1655,10 +1685,10 @@ document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach())
 main.addEventListener('click', e=>{
   if(!authed) return;
   const kp=e.target.closest('[data-kpi-lp]'); if(kp){ lichLoc.tt=kp.dataset.kpiLp; }
-  const dich=e.target.closest('[data-lp-dich]'); if(dich){ const L=dich.closest('[data-lp-khung]').dataset.lpKhung==='27'?lichLoc27:lichLoc, ds=L._ds||[], n=+dich.dataset.lpDich;
-    if(n===0){ const hn=thangCua(todayStr()); L.tu=ds.includes(hn)?hn:(ds[0]||L.tu); }
-    else { const i=ds.indexOf(L.tu), j=Math.min(Math.max(0,i+n),ds.length-1); if(j>=0) L.tu=ds[j]; }
-    return render(); }
+  const nam=e.target.closest('[data-lp-nam]'); if(nam){ const L=nam.dataset.k==='27'?lichLoc27:lichLoc; L.nam=nam.dataset.lpNam; L._cuonNam=null; return render(); }
+  const cuon=e.target.closest('[data-lp-cuon]'); if(cuon){ const k=cuon.dataset.k, L=k==='27'?lichLoc27:lichLoc, n=+cuon.dataset.lpCuon, el=document.querySelector(`.lp-cuon[data-lp-k="${k}"]`);
+    if(n===0){ const y=todayStr().slice(0,4); L._cuonNam=null; if((L._years||[]).includes(y) && L.nam!==y){ L.nam=y; return render(); } return apCuonLp(); }
+    if(el){ const mw=(el.scrollWidth-210)/12; L._dich=(L._dich!=null&&Date.now()-(L._dichLuc||0)<700?L._dich:Math.round(el.scrollLeft/mw))+n; L._dich=Math.max(0,Math.min(12,L._dich)); L._dichLuc=Date.now(); el.scrollTo({left:L._dich*mw, behavior:'smooth'}); } return; }
   const t=e.target.closest('[data-lp27],[data-lp],[data-tao-lp],[data-tao27],[data-tao-tu-qt],[data-xem-lich],[data-open],[data-done],[data-duyet],[data-tralai],[data-act],[data-delstep],[data-sua-qt],[data-del-member],[data-gop],[data-pnav],[data-person]'); if(!t) return;
   if(laKhach() && t.matches(NUT_SUA)) return toast('Bạn đang xem với quyền khách nên không sửa được.');
   if(t.dataset.lp27!=null){ modal={type:'lp27', d:{ma:t.dataset.lp27, nhan:t.dataset.nhan27||''}}; return renderModal(); }
@@ -1714,7 +1744,7 @@ main.addEventListener('change', e=>{
   if(el.id==='lpTt'){ lichLoc.tt=el.value; render(); }
   if(el.id==='lpChot'){ lichLoc.chot=el.value; render(); }
   if(el.id==='lpTu'){ lichLoc.tu=el.value; render(); }
-  if(el.id==='lpSo'){ lichLoc.soThang=el.value; render(); }
+  if(el.id==='lpSo'){ lichLoc.soThang=el.value; const th=lichLoc._thang; render(); }
   if(el.id==='lp27Chuoi'){ lichLoc27.chuoi=el.value; render(); }
   if(el.id==='lp27Nhan'){ lichLoc27.nhan=el.value; render(); }
   if(el.id==='lp27Tu'){ lichLoc27.tu=el.value; render(); }
