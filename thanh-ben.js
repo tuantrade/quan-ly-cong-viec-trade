@@ -15,6 +15,30 @@
     document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a[href^="./"]'); if (a) { e.preventDefault(); window.top.location.href = a.href; } });   // link về app: mở ở cửa sổ ngoài
     return;
   }
+  // Báo có bản mới: so bản trang trong bộ nhớ trình duyệt với bản trên máy chủ; khác nhau thì hiện thanh "Tải lại"
+  (function () {
+    var trang = location.pathname + location.search, ds = [trang];
+    if (!/bao-cao-mt\.html|lich-post-2027\.html/.test(location.pathname)) ds.push('bao-cao-mt.html?trong-app=1');   // app: kiểm cả trang báo cáo đang nhúng
+    var goc = {};
+    function bam(t) { var h = 0; for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return h + ':' + t.length; }
+    function lay(u, kieu) { return fetch(u, { cache: kieu }).then(function (r) { return r.ok ? r.text() : null; }).catch(function () { return null; }); }
+    function bao() {
+      if (document.getElementById('banMoi')) return;
+      var d = document.createElement('div'); d.id = 'banMoi'; d.setAttribute('role', 'status');
+      d.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:80;display:flex;gap:10px;align-items:center;padding:10px 12px 10px 16px;border-radius:999px;background:#1f3d2b;color:#fff;font:600 14px/1.3 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px)';
+      d.innerHTML = '<span>Web vừa có bản mới.</span><button type="button" style="border:0;border-radius:999px;padding:7px 14px;font:inherit;cursor:pointer;background:#fff;color:#1f3d2b">Tải lại</button><button type="button" aria-label="Để sau" style="border:0;background:transparent;color:#fff;font:inherit;cursor:pointer;opacity:.75">✕</button>';
+      var b = d.querySelectorAll('button'); b[0].onclick = function () { location.reload(); }; b[1].onclick = function () { d.remove(); };
+      document.body.appendChild(d);
+    }
+    function kiem() {
+      ds.forEach(function (u) {
+        var truoc = goc[u] ? Promise.resolve(goc[u]) : lay(u, 'force-cache').then(function (t) { return t && (goc[u] = bam(t)); });
+        truoc.then(function (h0) { if (!h0) return; return lay(u, 'reload').then(function (t) { if (t && bam(t) !== h0) bao(); }); });
+      });
+    }
+    setTimeout(kiem, 4000); setInterval(kiem, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) kiem(); });
+  })();
   var duong = location.pathname.split('/').pop() || 'index.html';
   var laKhachAnDanh = /[?&]khach=1/.test(location.search);   // vào bằng nút Khách: chỉ thấy Trang báo cáo
   var TRANG = /bao-cao-mt\.html$/.test(duong) ? 'bao-cao' : /lich-post-2027\.html$/.test(duong) ? 'lich-2027' : 'app';

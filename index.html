@@ -216,6 +216,7 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)}
 .gantt.nam .g-row.head .g-lab{z-index:4}
 .lp-cuon{cursor:grab;overscroll-behavior-x:contain}.lp-cuon.keo{cursor:grabbing;user-select:none}.lp-cuon.keo .g-bar{pointer-events:none}
 .lp-nav .lp-nam{display:inline-flex;gap:4px}.lp-nav .lp-cach{width:8px}.lp-nav .lp-goi{flex-basis:100%;font-size:12px;color:var(--muted)}
+.warn-t{color:var(--warn);font-weight:600}.ok-t{color:var(--ok);font-weight:600}
 .lp-nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 16px 10px}.lp-nav .lp-khoang{margin-left:6px;font-size:13px;color:var(--muted)}.lp-nav .lp-khoang b{color:var(--ink)}
 .g-bar.tt-neutral,.g-legend i.tt-neutral{background:var(--soft);color:var(--muted);border-color:var(--line)}
 .g-bar.tt-warn,.g-legend i.tt-warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
@@ -741,13 +742,60 @@ function demLen(){
     if(k<1) requestAnimationFrame(buoc); };
   requestAnimationFrame(buoc);
 }
+/* ===== Kiểm soát CTKM theo Tờ trình 01/TTr-TM và thư BOD 2309: PO trước khi duyệt, báo cáo kết quả trong 10 ngày ===== */
+const TT_DA_DUYET = new Set(['ceo_duyet','da_dang_ky','st_duyet','st_tu_choi']);
+function ngayCeoDuyet(x){   // ngày đầu tiên chương trình được chuyển sang "CEO đã duyệt" (hoặc bước sau đó) trong app
+  const t=ttCua(x); if(!t) return '';
+  const ls=(t.lich_su||[]).filter(h=>TT_DA_DUYET.has(h.tt)).map(h=>String(h.luc||'').slice(0,10)).filter(Boolean).sort();
+  return ls[0] || (TT_DA_DUYET.has(t.trang_thai) ? String(t.luc||'').slice(0,10) : '');
+}
+function renderKiemSoatPo(){
+  const t=todayStr(), all=[...ttLp.values()], moc=all.map(v=>String(((v.lich_su||[])[0]||v).luc||'').slice(0,10)).filter(Boolean).sort()[0];
+  const h2='<div class="card-h"><div><h2>PO mở trước khi CEO duyệt</h2><p>Thư BOD 2309: không mở PO trước khi trình duyệt. Ngày PO bắt đầu theo quy tắc PO từng hệ thống; ngày duyệt = ngày đổi trạng thái sang “CEO đã duyệt” trong Lịch post.</p></div></div>';
+  if(!moc) return `<section class="card">${h2}<div class="empty">Chưa có chương trình nào được cập nhật trạng thái trong Lịch post nên chưa đo được.</div></section>`;
+  const ds=lichPost.map(x=>({x, po:poCua(x.chuoi,x.ngay_bat_dau,x.ngay_ket_thuc), tt:ttCua(x)})).filter(o=>o.po && o.po.bd>=moc && o.tt?.trang_thai!=='st_tu_choi')
+    .map(o=>({...o, duyet:ngayCeoDuyet(o.x)}));
+  const daDen=ds.filter(o=>o.po.bd<=t), vuot=daDen.filter(o=>!o.duyet || o.duyet>o.po.bd);
+  const sap=ds.filter(o=>o.po.bd>t && o.po.bd<=addDays(t,7) && !o.duyet);
+  const hang=[...vuot, ...sap].sort((a,b)=>a.po.bd.localeCompare(b.po.bd));
+  return `<section class="card">${h2}
+    <div class="tiles"><div class="tile ${vuot.length?'bad':''}"><span>PO bắt đầu trước khi CEO duyệt</span><b>${vuot.length}</b><small>trên ${daDen.length} chương trình đã đến ngày PO (từ ${fd(moc)}, ngày bắt đầu theo dõi trạng thái). Mục tiêu: 0</small></div>
+    <div class="tile ${sap.length?'warn':''}"><span>Sắp đến ngày PO, chưa duyệt</span><b>${sap.length}</b><small>PO bắt đầu trong 7 ngày tới</small></div></div>
+    ${hang.length?`<div class="scroll"><table><thead><tr><th>Chương trình</th><th>Chuỗi</th><th>Nhãn</th><th>PO bắt đầu</th><th>CEO duyệt</th><th>Tình trạng</th></tr></thead><tbody>${hang.map(o=>{
+      const tre=o.po.bd<=t, tinh=!o.duyet?(tre?`<span class="late">Đã qua ngày PO ${diff(o.po.bd,t)} ngày, chưa duyệt</span>`:`<span class="warn-t">Còn ${diff(t,o.po.bd)} ngày đến ngày PO</span>`):`<span class="late">Duyệt sau ngày PO ${diff(o.po.bd,o.duyet)} ngày</span>`;
+      return `<tr><td><button type="button" class="link" data-lp="${o.x.id}">${esc(dongDau(o.x.noi_dung))}</button></td><td>${esc(o.x.chuoi)}</td><td>${brTag(o.x.nhan_hang)}</td><td class="num">${fd(o.po.bd)}</td><td class="num">${o.duyet?fd(o.duyet):'<span class="muted">chưa</span>'}</td><td>${tinh}<div class="sub">${pillTtLp(o.x)}</div></td></tr>`; }).join('')}</tbody></table></div>`:'<div class="empty">Không có chương trình nào mở PO trước khi duyệt.</div>'}
+  </section>`;
+}
+function buocBaoCao(x){   // bước "báo cáo / đánh giá / nghiệm thu" trong hoạt động app gắn với chương trình
+  const hd=hdCuaLp(x); if(!hd.length) return {hd:[], b:null};
+  const bs=hd.flatMap(a=>(a.buoc||[]).filter(b=>/baocao|danhgia|nghiemthu|ketqua/.test(boDau(b.ten))));
+  return {hd, b: bs.find(b=>b.trangThai==='xong') || bs[0] || null};
+}
+function renderBaoCao10(){
+  const t=todayStr();
+  const ds=lichPost.filter(x=>x.ngay_ket_thuc<t && x.ngay_ket_thuc>=addDays(t,-40) && ttCua(x)?.trang_thai!=='st_tu_choi')
+    .map(x=>{ const han=addDays(x.ngay_ket_thuc,10), {hd,b}=buocBaoCao(x); const xong=b&&b.trangThai==='xong'; return {x, han, hd, b, xong, dungHan: xong && b.ngayXong && b.ngayXong<=han}; })
+    .sort((a,b)=>(a.xong-b.xong) || a.han.localeCompare(b.han));
+  const denHan=ds.filter(o=>o.han<t), dung=denHan.filter(o=>o.dungHan).length, chua=ds.filter(o=>!o.xong);
+  return `<section class="card"><div class="card-h"><div><h2>Báo cáo kết quả CTKM trong 10 ngày</h2><p>Tờ trình 01/TTr-TM: gửi Giám đốc kết quả (bán vào, bán ra, chi phí, lợi nhuận, hiệu quả) trong 10 ngày sau khi chương trình kết thúc. Tính là đã báo cáo khi hoạt động trong app gắn với chương trình có bước báo cáo / đánh giá / nghiệm thu đã xong. Chương trình kết thúc trong 40 ngày qua.</p></div></div>
+    <div class="tiles"><div class="tile ${denHan.length&&dung<denHan.length?'bad':''}"><span>Báo cáo đúng hạn</span><b>${dung}/${denHan.length}</b><small>chương trình đã qua hạn 10 ngày</small></div>
+    <div class="tile ${chua.length?'warn':''}"><span>Chưa báo cáo</span><b>${chua.length}</b><small>trên ${ds.length} chương trình đã kết thúc</small></div></div>
+    ${ds.length?`<div class="scroll"><table><thead><tr><th>Chương trình</th><th>Chuỗi</th><th>Nhãn</th><th>Kết thúc</th><th>Hạn báo cáo</th><th>Tình trạng</th></tr></thead><tbody>${ds.map(o=>{
+      const conLai=diff(t,o.han);
+      const tinh=o.xong?`<span class="ok-t">✓ Đã báo cáo${o.b.ngayXong?' '+fd(o.b.ngayXong):''}</span>${o.dungHan?'':'<div class="sub late">sau hạn</div>'}`
+        : !o.hd.length?`<span class="late">Chưa có hoạt động trong app</span>`
+        : !o.b?`<span class="warn-t">Hoạt động chưa có bước báo cáo</span>`
+        : conLai>=0?`<span class="warn-t">Chưa báo cáo · còn ${conLai} ngày</span>`:`<span class="late">Chưa báo cáo · trễ ${-conLai} ngày</span>`;
+      return `<tr><td><button type="button" class="link" data-lp="${o.x.id}">${esc(dongDau(o.x.noi_dung))}</button>${o.hd.length?`<div class="sub">${o.hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join(', ')}</div>`:''}</td><td>${esc(o.x.chuoi)}</td><td>${brTag(o.x.nhan_hang)}</td><td class="num">${fd(o.x.ngay_ket_thuc)}</td><td class="num">${fd(o.han)}</td><td>${tinh}</td></tr>`; }).join('')}</tbody></table></div>`:'<div class="empty">Không có chương trình nào kết thúc trong 40 ngày qua.</div>'}
+  </section>`;
+}
 function renderOverview(){
   const t=todayStr(), in7=addDays(t,7);
   const running=acts.filter(a=>stats(a).tt!=='hoanthanh');
   const steps=allSteps(); const tinh=steps.filter(x=>x.s.trangThai!=='bo'); const xong=tinh.filter(x=>x.s.trangThai==='xong').length;
   const late=steps.filter(x=>isLate(x.s)).sort((p,q)=>p.s.han.localeCompare(q.s.han));
   const soon=steps.filter(x=>isOpen(x.s)&&x.s.han>=t&&x.s.han<=in7);
-  let h=renderKpi()+renderToi()+renderCanhBao()+`<div class="tiles">
+  let h=renderKpi()+renderToi()+renderCanhBao()+(laKhach()?'':renderBaoCao10()+renderKiemSoatPo())+`<div class="tiles">
     <div class="tile"><span>Hoạt động đang chạy</span><b>${running.length}</b><small>trên tổng ${acts.length} hoạt động</small></div>
     <div class="tile"><span>Tiến độ chung</span><b>${tinh.length?Math.round(xong*100/tinh.length):0}%</b><small>${xong}/${tinh.length} bước đã xong</small></div>
     <div class="tile ${late.length?'bad':''}"><span>Bước đang trễ hạn</span><b>${late.length}</b><small>chưa xong mà đã quá hạn</small></div>
@@ -1771,7 +1819,8 @@ async function afterAuth(){
   if(!ok){ setChrome(); main.innerHTML=`<div class="auth"><h2>Chưa có quyền truy cập</h2><p>Email <b>${esc(myEmail())}</b> chưa có trong danh sách thành viên.</p><p class="hint">Nhờ quản lý vào mục “Thành viên” thêm email này, rồi tải lại trang.</p></div>`; return; }
   authed=true; readHash(); render();
   await loadAll();
-  channel=sb.channel('thay-doi').on('postgres_changes',{event:'*',schema:'public'},()=>scheduleReload()).subscribe();
+  if(channel){ try{ sb.removeChannel(channel); }catch(e){} }
+  channel=sb.channel('thay-doi-'+Math.random().toString(36).slice(2)).on('postgres_changes',{event:'*',schema:'public'},()=>scheduleReload()).subscribe();
 }
 /* ---------- Họa tiết theo mùa: Noel (15/11 – 26/12), Tết (27 ngày trước Mùng 1 đến 14 ngày sau) ---------- */
 const NGAY_TET = {'2027':'2027-02-06', '2028':'2028-01-26', '2029':'2029-02-13'};

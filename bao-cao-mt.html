@@ -39,6 +39,10 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .bc-thong-bao{padding:14px 16px;border:1px solid var(--color-border-line);border-radius:10px;background:var(--color-panel);margin:16px}
 .dash-skeleton{color:var(--color-fg-muted)}
 #t-ch tfoot td{font-weight:700;border-top:2px solid var(--color-border-line);position:sticky;bottom:0;background:var(--color-bg)}
+.sv-tai{display:block;margin:0 0 6px auto;font:inherit;font-size:var(--cds-font-size-caption,12px);font-weight:600;color:var(--color-fg);background:var(--color-bg);border:1px solid var(--color-border-line);border-radius:var(--cds-radius,8px);padding:4px 10px;cursor:pointer}
+.sv-tai:hover{border-color:var(--color-fg-muted)}.sv-tai:disabled{opacity:.6;cursor:wait}
+@media print{.sv-tai{display:none}}
+.sv-phu-thieu{white-space:normal!important;font-size:var(--cds-font-size-caption,12px);color:var(--color-fg-muted);background:var(--color-bg-subtle,transparent);line-height:1.5}
 </style>
 </head>
 <body>
@@ -360,6 +364,33 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
         </tr></thead>
         <tbody></tbody>
         <tfoot></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="sv-card" id="bang-phu">
+    <h2 class="sv-h">Độ phủ từng mã</h2>
+    <p class="sv-note">Độ phủ = số điểm nhận hàng có nhập mã đó ÷ số điểm nhận hàng có nhập ít nhất 1 mã TVP, cùng hệ thống, trong 90 ngày tính đến ngày có số mới nhất. Mẫu số là các điểm đang mua hàng TVP, chưa phải toàn bộ cửa hàng của chuỗi; Bách Hóa Xanh tính theo kho tổng. Bấm vào một dòng để xem các điểm chưa nhập mã đó.</p>
+    <div class="sv-filters sv-filters-sku">
+      <label class="sv-filter" for="phu-ht">Hệ thống
+        <select id="phu-ht"></select>
+      </label>
+      <label class="sv-filter" for="phu-q">Tìm
+        <input class="sv-search" id="phu-q" type="search" placeholder="Tìm mã hoặc tên hàng" aria-label="Tìm mã">
+      </label>
+    </div>
+    <p class="sv-note" id="phu-note"></p>
+    <div class="sv-tablewrap" style="max-height:32rem">
+      <table class="sv-table" id="t-phu">
+        <thead><tr>
+          <th class="l" data-field="ten_hang"><button type="button" data-k="ten_hang">Tên hàng</button></th>
+          <th class="l" data-field="brand"><button type="button" data-k="brand">Brand</button></th>
+          <th data-field="co"><button type="button" data-k="co">Điểm có nhập (90 ngày)</button></th>
+          <th data-field="tong"><button type="button" data-k="tong">Tổng điểm</button></th>
+          <th data-field="phu"><button type="button" data-k="phu">Độ phủ</button></th>
+          <th data-field="co30"><button type="button" data-k="co30">Có nhập 30 ngày gần nhất</button></th>
+        </tr></thead>
+        <tbody></tbody>
       </table>
     </div>
   </section>
@@ -958,6 +989,7 @@ function drawSku() {
   }
   goc = goc.map((x) => { const p = prevMap.get(x.ma_hang); return { ...x, tang: p > 0 ? x.thuan / p - 1 : null }; });
   try { drawCh(); } catch (e) { console.warn('Bảng theo cửa hàng', e); }
+  try { drawPhu(); } catch (e) { console.warn('Bảng độ phủ', e); }
   const q = document.getElementById('sv-q').value.trim().toLowerCase();
   const sv = (r) => (r[skuSort.k] == null ? (skuSort.dir > 0 ? Infinity : -Infinity) : r[skuSort.k]);
   const rows = goc.filter((r) => !q || (r.ten_hang + ' ' + r.brand + ' ' + r.ma_hang).toLowerCase().includes(q))
@@ -1023,6 +1055,88 @@ function drawCh() {
   note.textContent = `${thangLabel(skuThang)}${ht ? ' · ' + ht : (gHt ? ' · ' + gHt : ' · tất cả hệ thống')}: ${vi(g.size)} điểm nhận hàng, doanh thu thuần ${tr(tong)} triệu.${q ? ` Đang lọc theo chữ "${document.getElementById('ch-q').value.trim()}".` : ''}`;
 }
 const boDauCh = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
+
+// ---------- Độ phủ từng mã (từ sell-in theo điểm nhận hàng)
+let phuSort = { k: 'phu', dir: -1 }, phuMo = '';
+const phuHt = document.getElementById('phu-ht');
+phuHt.addEventListener('change', () => { phuMo = ''; drawPhu(); });
+document.getElementById('phu-q').addEventListener('input', () => drawPhu());
+document.querySelectorAll('#t-phu th button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k; phuSort = { k, dir: phuSort.k === k ? -phuSort.dir : (['ten_hang', 'brand'].includes(k) ? 1 : -1) }; drawPhu();
+}));
+document.querySelector('#t-phu tbody').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-ma]'); if (!tr) return; phuMo = phuMo === tr.dataset.ma ? '' : tr.dataset.ma; drawPhu(); });
+function drawPhu() {
+  const ch = dash.data('sellin_ch'), tb = document.querySelector('#t-phu tbody'), note = document.getElementById('phu-note');
+  if (ch.status !== 'ok') { dash.can('sellin_ch'); note.textContent = ch.status === 'error' ? 'Chưa tải được số theo cửa hàng.' : 'Đang tải số theo cửa hàng…'; tb.replaceChildren(); return; }
+  const cuoi = ch.data.reduce((m, r) => (String(r.ngay) > m ? String(r.ngay).slice(0, 10) : m), ''); if (!cuoi) return;
+  const lui = (n) => { const d = new Date(cuoi + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+  const tu90 = lui(89), tu30 = lui(29);
+  const rows = ch.data.filter((r) => String(r.ngay).slice(0, 10) >= tu90 && hopLoc(r.he_thong) && (Number(r.doanh_so) || 0) > 0);
+  const tongHt = new Map(); rows.forEach((r) => tongHt.set(r.he_thong, (tongHt.get(r.he_thong) || 0) + (Number(r.doanh_so) || 0)));
+  const hts = [...tongHt.keys()].sort((a, b) => tongHt.get(b) - tongHt.get(a)), cu = phuHt.value;
+  phuHt.replaceChildren(...hts.map((h) => new Option(h, h))); phuHt.value = hts.includes(cu) ? cu : (hts[0] || '');
+  const ht = phuHt.value, r1 = rows.filter((r) => r.he_thong === ht), tatCa = new Set(r1.map((r) => tenCh(r.diem_nhan)));
+  const g = new Map();
+  for (const r of r1) {
+    if (r.brand === 'Không theo brand') continue;
+    if (!g.has(r.ma_hang)) g.set(r.ma_hang, { ma_hang: r.ma_hang, ten_hang: r.ten_hang, brand: r.brand, chs: new Set(), chs30: new Set() });
+    const x = g.get(r.ma_hang), c = tenCh(r.diem_nhan); x.chs.add(c); if (String(r.ngay).slice(0, 10) >= tu30) x.chs30.add(c);
+  }
+  const q = document.getElementById('phu-q').value.trim().toLowerCase();
+  const ds = [...g.values()].map((x) => ({ ...x, co: x.chs.size, co30: x.chs30.size, tong: tatCa.size, phu: tatCa.size ? x.chs.size / tatCa.size : null }))
+    .filter((x) => !q || (x.ten_hang + ' ' + x.ma_hang + ' ' + x.brand).toLowerCase().includes(q));
+  const sv = (r) => (r[phuSort.k] == null ? -Infinity : r[phuSort.k]);
+  ds.sort((a, b) => { const x = sv(a), y = sv(b); return (typeof x === 'string' ? x.localeCompare(y, 'vi') : x - y) * phuSort.dir; });
+  document.querySelectorAll('#t-phu th').forEach((th) => { const b = th.querySelector('button'); th.removeAttribute('aria-sort'); if (b && b.dataset.k === phuSort.k) th.setAttribute('aria-sort', phuSort.dir > 0 ? 'ascending' : 'descending'); });
+  const o = (v, c) => { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; return td; };
+  const out = [];
+  for (const x of ds) {
+    const t = document.createElement('tr'); t.dataset.ma = x.ma_hang; t.style.cursor = 'pointer'; t.title = 'Bấm để xem các điểm chưa nhập mã này';
+    t.append(o((phuMo === x.ma_hang ? '▾ ' : '▸ ') + x.ten_hang, 'l'), o(x.brand, 'l'), o(vi(x.co)), o(vi(x.tong)), o(pct(x.phu), x.phu != null && x.phu < 0.5 ? 'sv-down' : ''), o(vi(x.co30)));
+    out.push(t);
+    if (phuMo === x.ma_hang) {
+      const thieu = [...tatCa].filter((c) => !x.chs.has(c)).sort((a, b) => a.localeCompare(b, 'vi'));
+      const d = document.createElement('tr'), td = document.createElement('td'); td.colSpan = 6; td.className = 'l sv-phu-thieu';
+      td.textContent = thieu.length ? `Chưa nhập trong 90 ngày (${thieu.length} điểm): ${thieu.join(' · ')}` : 'Tất cả các điểm đều đã nhập mã này.';
+      d.append(td); out.push(d);
+    }
+  }
+  tb.replaceChildren(...out);
+  note.textContent = `${ht}: ${vi(tatCa.size)} điểm nhận hàng có nhập hàng TVP từ ${tu90.split('-').reverse().join('/')} đến ${cuoi.split('-').reverse().join('/')}.`;
+}
+
+// ---------- Tải Excel: mỗi bảng có nút tải đúng những gì đang hiện (đã lọc, đã sắp xếp)
+let napXlsx = null;
+const layXlsx = () => napXlsx || (napXlsx = new Promise((ok, loi) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = () => ok(window.XLSX); sc.onerror = () => { napXlsx = null; loi(new Error('Không tải được bộ tạo Excel')); }; document.head.append(sc); }));
+const soVi = (t) => {   // "1.925,1" -> 1925.1 ; "12.582.000đ" -> 12582000 ; "+28,3%" -> 0.283 ; chữ thì giữ nguyên
+  const x = String(t).trim().replace(/\u2212/g, '-');
+  if (!/^[+-]?\d{1,3}(\.\d{3})*(,\d+)?\s*(đ|%)?$|^[+-]?\d+(,\d+)?\s*(đ|%)?$/.test(x)) return null;
+  const v = Number(x.replace(/[đ%\s+]/g, '').replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(v) ? (x.endsWith('%') ? { v: v / 100, z: '0.0%' } : { v, z: Number.isInteger(v) ? '#,##0' : '#,##0.0' }) : null;
+};
+async function taiExcel(tb, nut) {
+  const cu = nut.textContent; nut.disabled = true; nut.textContent = 'Đang tạo file…';
+  try {
+    const X = await layXlsx(), hien = (el) => getComputedStyle(el).display !== 'none';
+    const dong = [...tb.querySelectorAll('tr')].filter((r) => hien(r) && r.closest('table') === tb);
+    const aoa = dong.map((r) => [...r.children].filter(hien).map((c) => { const t = c.innerText.replace(/\s+/g, ' ').trim(); const n = r.parentElement.tagName === 'THEAD' ? null : soVi(t); return n ? { t: 'n', v: n.v, z: n.z } : t; }));
+    const ws = X.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = (aoa[0] || []).map((_, j) => ({ wch: Math.min(48, Math.max(8, ...aoa.map((r) => String(r[j] && r[j].v != null ? r[j].v : r[j] || '').length + 2))) }));
+    const sec = tb.closest('section'), ten = (sec?.querySelector('.sv-h')?.textContent || 'Bang').trim();
+    const loc = [...(sec?.querySelectorAll('select') || [])].map((x) => x.selectedOptions[0]?.textContent.trim()).filter((x) => x && !/^Tất cả$|^Chọn/.test(x));
+    const thang = document.getElementById('sv-thang')?.selectedOptions[0]?.textContent.trim();
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, ten.slice(0, 31).replace(/[\\/?*\[\]:]/g, ' '));
+    const tenTep = [ten, ...loc, location.hash.replace('#', '') === 'sell-in' && thang ? thang : ''].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g, ' ');
+    X.writeFile(wb, tenTep + '.xlsx');
+  } catch (e) { alert(e.message || 'Chưa tạo được file Excel'); }
+  nut.disabled = false; nut.textContent = cu;
+}
+document.querySelectorAll('table.sv-table').forEach((tb) => {
+  const nut = document.createElement('button'); nut.type = 'button'; nut.className = 'sv-tai'; nut.textContent = '⬇ Tải Excel';
+  nut.title = 'Tải bảng này ra file Excel, đúng như đang lọc và sắp xếp';
+  nut.addEventListener('click', () => taiExcel(tb, nut));
+  const boc = tb.closest('.sv-tablewrap') || tb; boc.before(nut);
+});
 
 // ---------- charts
 function drawSystems(el, rows, lab = 'he_thong', tot = 'thuan', unit = 'hệ thống') {
