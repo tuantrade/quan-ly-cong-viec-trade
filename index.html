@@ -425,7 +425,6 @@ body.mua-noel main, body.mua-noel #khungBc{position:relative;z-index:1}
       <a href="#hoat-dong" data-v="hoat-dong">Hoạt động</a>
       <a href="#lich-viec" data-v="lich-viec">Lịch việc</a>
       <a href="#lich-post" data-v="lich-post">Lịch post</a>
-      <a href="lich-post-2027.html">Lịch post 2027 ↗</a>
       <a href="#gia" data-v="gia">Giá</a>
       <a href="bao-cao-mt.html">Báo cáo MT ↗</a>
       <a href="#quy-trinh" data-v="quy-trinh">Quy trình mẫu</a>
@@ -462,7 +461,7 @@ const TT_DB = {chua:'chua_lam', dang:'dang_lam', cho:'cho_duyet', xong:'xong', b
 const TT_APP = {chua_lam:'chua', dang_lam:'dang', cho_duyet:'cho', xong:'xong', khong_ap_dung:'bo'};
 const MOC_DB = {bd:'bat_dau', kt:'ket_thuc'}, MOC_APP = {bat_dau:'bd', ket_thuc:'kt'};
 const TTHD = {chuabd:['Chưa bắt đầu','neutral'], dangchay:['Đang chạy','info'], tre:['Có việc trễ','bad'], hoanthanh:['Hoàn thành','ok']};
-const VIEWS = ['bao-cao-tuan','tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','lich-post-2027','bc-sell-in','bc-sell-out','bc-so-sanh','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
+const VIEWS = ['bao-cao-tuan','tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','bc-sell-in','bc-sell-out','bc-so-sanh','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
 
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
 let giaBan = [], giaLoc = {ht:'', nhan:''};
@@ -647,9 +646,7 @@ async function loadAll(){
   }catch(e){ console.warn('Chưa đọc được lịch post', e); lichPost=[]; dongBoLich=null; }
   })(),
   (async()=>{
-  try{ const r=await sb.from('bo_so_tinh_san').select('du_lieu').eq('bo_so','lich_post_2027').maybeSingle(); if(r.error) throw r.error;
-    lich27 = Array.isArray(r.data?.du_lieu) ? r.data.du_lieu : []; }
-  catch(e){ console.warn('Chưa đọc được Lịch post 2027', e); lich27=[]; }
+  lich27=[];   // Trang Lịch post 2027 đã gỡ (26/11/2026): không tải, không hiện ở mốc / tìm nhanh. Dữ liệu vẫn giữ trong bo_so_tinh_san 'lich_post_2027'
   })(),
   (async()=>{
   try{ const r=await sb.from('phieu_audit').select('*'); if(r.error) throw r.error; phieuAudit=new Map((r.data||[]).map(p=>[p.buoc_id,p])); coPhieuAudit=true; }
@@ -1107,11 +1104,11 @@ function renderToi(){
   }</tbody></table></div></div>`;
   h+=`</section>`;
   const moc=mocSapToi(t,30);
-  h+=`<section class="card"><div class="card-h"><div><h2>Mốc Lịch post 30 ngày tới</h2><p>Hạn đăng ký, ngày bắt đầu PO giảm giá, ngày bắt đầu giao hàng và ngày bắt đầu chạy của từng kỳ (Lịch post và Lịch post 2027) · cột cuối cho biết đã có hoạt động trong app chưa</p></div><a class="btn sm" href="#lich-post-2027">Lịch post 2027 →</a></div>${
+  h+=`<section class="card"><div class="card-h"><div><h2>Mốc Lịch post 30 ngày tới</h2><p>Hạn đăng ký, ngày bắt đầu PO giảm giá, ngày bắt đầu giao hàng và ngày bắt đầu chạy của từng chương trình Lịch post · cột cuối cho biết đã có hoạt động trong app chưa</p></div><a class="btn sm" href="#lich-post">Lịch post →</a></div>${
     moc.length ? `<div class="scroll"><table><thead><tr><th>Ngày</th><th>Còn</th><th>Mốc</th><th>Hệ thống</th><th>Kỳ / nội dung</th><th>Hoạt động trong app</th></tr></thead><tbody>${
       moc.slice(0,20).map(m=>{ const con=diff(t,m.ngay); return `<tr><td class="num">${fd(m.ngay)}</td><td class="num ${con<=3?'late':''}">${con===0?'Hôm nay':con+' ngày'}</td><td><span class="pill ${m.loai==='Hạn đăng ký'?(con<=7?'bad':'warn'):m.loai==='Bắt đầu giao hàng'?'info':m.loai==='Bắt đầu PO giảm giá'?'ok':'neutral'}">${m.loai}</span></td><td>${esc(m.ht)}</td><td>${m.lp!=null?`<button type="button" class="link" data-lp="${m.lp}">${esc(m.nd)}</button>`:esc(m.nd)}<div class="sub">Chạy ${fd(m.tu)} – ${fd(m.den)}${m.tao27?' · Lịch post 2027':''}</div></td><td>${
         m.hd.length?m.hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join('<br>'):m.tao27?`<button class="btn sm" data-tao27="${esc(m.tao27)}" type="button">Tạo CTKM</button>`:`<button class="btn sm" data-tao-lp="${m.lp}" type="button">Tạo CTKM</button>`}</td></tr>`; }).join('')
-    }</tbody></table></div>${moc.length>20?`<p class="hint" style="padding:8px 16px 12px">Còn ${moc.length-20} mốc nữa trong 30 ngày tới, xem đủ ở trang Lịch post và Lịch post 2027.</p>`:''}` : `<div class="empty">Không có mốc nào trong 30 ngày tới.</div>`
+    }</tbody></table></div>${moc.length>20?`<p class="hint" style="padding:8px 16px 12px">Còn ${moc.length-20} mốc nữa trong 30 ngày tới, xem đủ ở trang Lịch post.</p>`:''}` : `<div class="empty">Không có mốc nào trong 30 ngày tới.</div>`
   }</section>`;
   return h;
 }
@@ -2092,7 +2089,7 @@ function traLai(){
 /* ---------- xử lý trên trang ---------- */
 document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach()) openNew(); });
 /* Ô tìm nhanh: gõ để tìm hoạt động, việc, chương trình Lịch post, kỳ 2027 và các trang. Ctrl+K hoặc phím / để mở */
-const TRANG_TIM = [['Tổng quan','#tong-quan'],['Hoạt động','#hoat-dong'],['Lịch việc','#lich-viec'],['Lịch post','#lich-post'],['Lịch post 2027','#lich-post-2027'],
+const TRANG_TIM = [['Tổng quan','#tong-quan'],['Hoạt động','#hoat-dong'],['Lịch việc','#lich-viec'],['Lịch post','#lich-post'],
   ['Báo cáo Sell-in','#bc-sell-in'],['Báo cáo Sell-out','#bc-sell-out'],['Baseline bán trơn','#bc-baseline'],['Giá bán & TVP thu về','#bc-gia'],['Quy trình mẫu','#quy-trinh'],['Thành viên','#thanh-vien']];
 let timDs=[], timChon=0;
 function dsTim(){
@@ -2210,7 +2207,7 @@ main.addEventListener('change', e=>{
 main.addEventListener('input', e=>{ if(e.target.id==='fq'){ filters.q=e.target.value; clearTimeout(main._q); main._q=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const f=document.getElementById('fq'); if(f){ f.focus(); try{f.setSelectionRange(pos,pos);}catch(_){} } },250); } });
 
 /* ---------- điều hướng ---------- */
-function readHash(){ const [h,id]=location.hash.replace('#','').split('/'); if(h==='sell-out'){ location.replace('#bc-sell-out'); return; } // trang Số bán cũ đã chuyển sang Báo cáo MT
+function readHash(){ const [h,id]=location.hash.replace('#','').split('/'); if(h==='lich-post-2027'){ location.replace('#lich-post'); return; }   // trang đã gỡ if(h==='sell-out'){ location.replace('#bc-sell-out'); return; } // trang Số bán cũ đã chuyển sang Báo cáo MT
   view=VIEWS.includes(h)?h:'tong-quan'; if(view==='hoat-dong' && id) selectedId=decodeURIComponent(id); } // #hoat-dong/<mã> mở thẳng 1 hoạt động (dùng cho link trong email nhắc hạn)
 window.addEventListener('hashchange', ()=>{ readHash(); if(view!=='hoat-dong') selectedId=null; render(); });
 ['nav','thanhBen'].forEach(id=>document.getElementById(id)?.addEventListener('click', e=>{ const a=e.target.closest('a'); if(!a) return; if(a.dataset.v==='hoat-dong' && location.hash==='#hoat-dong'){ selectedId=null; render(); } else selectedId=null; }));
