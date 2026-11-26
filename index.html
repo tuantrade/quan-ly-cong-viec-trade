@@ -286,6 +286,23 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)}
 /* Hoàn tác */
 .toast{display:flex;align-items:center;gap:12px}.toast[hidden]{display:none}
 .toast-nut{border:0;background:transparent;color:var(--accent-soft);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;padding:2px 4px}
+/* Báo cáo tuần */
+.bct-nav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 16px 12px}.bct-nav .lp-goi{flex:1}
+.bct-phan{padding:12px 16px;border-top:1px solid var(--line);display:grid;gap:10px}.bct-phan h3{margin:0;font-size:16px}.bct-phan h4{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.bct-so{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.bct-so>div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px;background:var(--surface)}
+.bct-so span{font-size:12px;color:var(--muted)}.bct-so b{font-size:22px;font-family:var(--font-tieu-de)}.bct-so small{font-size:12px;color:var(--muted)}
+.bct .tang{color:var(--ok);font-weight:700}.bct .giam{color:var(--bad);font-weight:700}
+.bct-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:1100px){.bct-2{grid-template-columns:1fr}}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff!important;padding:0!important;color:#111}
+  header,#thanhBen,#tbNut,#tbNen,#nutDay,.toast,.khong-in,.mua-lop,.canh-dong,#banMoi,#chao{display:none!important}
+  main{padding:0!important;max-width:none!important}
+  .card{box-shadow:none!important;border:1px solid #ccc!important;background:#fff!important}
+  .bct-phan{break-inside:avoid}.bct .scroll{overflow:visible!important}
+  .bct table{font-size:11px}
+}
 .lp-nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 16px 10px}.lp-nav .lp-khoang{margin-left:6px;font-size:13px;color:var(--muted)}.lp-nav .lp-khoang b{color:var(--ink)}
 .g-bar.tt-neutral,.g-legend i.tt-neutral{background:var(--soft);color:var(--muted);border-color:var(--line)}
 .g-bar.tt-warn,.g-legend i.tt-warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
@@ -445,7 +462,7 @@ const TT_DB = {chua:'chua_lam', dang:'dang_lam', cho:'cho_duyet', xong:'xong', b
 const TT_APP = {chua_lam:'chua', dang_lam:'dang', cho_duyet:'cho', xong:'xong', khong_ap_dung:'bo'};
 const MOC_DB = {bd:'bat_dau', kt:'ket_thuc'}, MOC_APP = {bat_dau:'bd', ket_thuc:'kt'};
 const TTHD = {chuabd:['Chưa bắt đầu','neutral'], dangchay:['Đang chạy','info'], tre:['Có việc trễ','bad'], hoanthanh:['Hoàn thành','ok']};
-const VIEWS = ['tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','lich-post-2027','bc-sell-in','bc-sell-out','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
+const VIEWS = ['bao-cao-tuan','tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','lich-post-2027','bc-sell-in','bc-sell-out','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
 
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
 let giaBan = [], giaLoc = {ht:'', nhan:''};
@@ -746,6 +763,7 @@ function renderNow(){
   else if(view==='lich-post') html+=renderLichPost();
   else if(view==='lich-post-2027') html+=renderLichPost27();
   else if(view==='gia') html+=renderGia();
+  else if(view==='bao-cao-tuan') html+=renderBaoCaoTuan();
   else if(view==='quy-trinh') html+=renderTpls();
   else if(view==='thanh-vien') html+=renderMembers();
   else html+=renderOverview();
@@ -899,6 +917,56 @@ function renderBaoCao10(){
         : !o.b?`<span class="warn-t">Hoạt động chưa có bước báo cáo</span>`
         : conLai>=0?`<span class="warn-t">Chưa báo cáo · còn ${conLai} ngày</span>`:`<span class="late">Chưa báo cáo · trễ ${-conLai} ngày</span>`;
       return `<tr><td><button type="button" class="link" data-lp="${o.x.id}">${esc(dongDau(o.x.noi_dung))}</button>${o.hd.length?`<div class="sub">${o.hd.map(a=>`<button type="button" class="link" data-open="${esc(a.id)}">${esc(a.ten)}</button>`).join(', ')}</div>`:''}</td><td>${esc(o.x.chuoi)}</td><td>${brTag(o.x.nhan_hang)}</td><td class="num">${fd(o.x.ngay_ket_thuc)}</td><td class="num">${fd(o.han)}</td><td>${tinh}</td></tr>`; }).join('')}</tbody></table></div>`:'<div class="empty">Không có chương trình nào kết thúc trong 40 ngày qua.</div>'}
+  </section>`;
+}
+/* ===== BÁO CÁO TUẦN: 1 trang tóm tắt tuần (thứ Hai – Chủ nhật), in / lưu PDF gửi BOD ===== */
+let bctTuan = '', bctSi = {};   // bctTuan = ngày thứ Hai của tuần đang xem; bctSi[tuan] = số sell-in 2 tuần (tuần này + tuần trước)
+function taiSiTuan(dau){
+  if(bctSi[dau]) return; bctSi[dau]={dang:true};
+  layHet(()=>sb.from('sell_in_ngay').select('chuoi,nhan_hang,ngay,doanh_so,so_luong,tra_lai_sl').gte('ngay',addDays(dau,-7)).lte('ngay',addDays(dau,6)))
+    .then(r=>{ bctSi[dau]={rows:r}; }).catch(e=>{ console.warn(e); bctSi[dau]={loi:errText(e)}; }).finally(()=>{ if(view==='bao-cao-tuan') schedule(); });
+}
+function renderBaoCaoTuan(){
+  const t=todayStr(); if(!bctTuan) bctTuan=addDays(thuHai(t),-7);   // mặc định tuần vừa xong
+  const dau=bctTuan, cuoi=addDays(dau,6), dauT=addDays(dau,-7), cuoiT=addDays(dau,-1), trong=(d,a,b)=>d&&d>=a&&d<=b;
+  taiSiTuan(dau);
+  const tien=v=>Math.abs(v)>=1e9?(v/1e9).toLocaleString('vi-VN',{maximumFractionDigits:2})+' tỷ':(v/1e6).toLocaleString('vi-VN',{maximumFractionDigits:1})+' tr';
+  const ss=(a,b)=>!b?'<span class="muted">—</span>':`<span class="${a>=b?'tang':'giam'}">${a>=b?'▲':'▼'} ${Math.abs(Math.round((a/b-1)*1000)/10).toLocaleString('vi-VN')}%</span>`;
+  const nut=`<div class="bct-nav khong-in"><button class="btn sm" data-bct="-7" type="button">◀ Tuần trước</button><button class="btn sm" data-bct="0" type="button">Tuần vừa xong</button><button class="btn sm" data-bct="7" type="button" ${addDays(dau,7)>t?'disabled':''}>Tuần sau ▶</button><span class="lp-goi"></span><button class="btn pri sm" data-bct-in type="button">🖨 In / Lưu PDF</button></div>`;
+  // 1. Sell-in
+  const S=bctSi[dau]||{}; let siHtml;
+  if(S.dang||!S.rows&&!S.loi) siHtml='<div class="empty">Đang tải số sell-in…</div>';
+  else if(S.loi) siHtml=`<div class="empty">Chưa tải được số sell-in: ${esc(S.loi)}</div>`;
+  else {
+    const nay=S.rows.filter(r=>trong(String(r.ngay).slice(0,10),dau,cuoi)), truoc=S.rows.filter(r=>trong(String(r.ngay).slice(0,10),dauT,cuoiT));
+    const tong=a=>a.reduce((s,r)=>s+(+r.doanh_so||0),0), gom=(a,k)=>a.reduce((m,r)=>{ const x=r[k]||'Khác'; m[x]=(m[x]||0)+(+r.doanh_so||0); return m; },{});
+    const tN=tong(nay), tT=tong(truoc), hN=gom(nay,'chuoi'), hT=gom(truoc,'chuoi'), bN=gom(nay,'nhan_hang'), bT=gom(truoc,'nhan_hang');
+    const ngayCo=[...new Set(nay.map(r=>String(r.ngay).slice(0,10)))].sort();
+    const bang=(N,T,ten)=>{ const ks=[...new Set([...Object.keys(N),...Object.keys(T)])].sort((a,b)=>(N[b]||0)-(N[a]||0)); return `<table><thead><tr><th>${ten}</th><th class="num">Tuần này</th><th class="num">Tuần trước</th><th class="num">So sánh</th><th class="num">Tỷ trọng</th></tr></thead><tbody>${ks.map(k=>`<tr><td>${ten==='Brand'?brTag(k):esc(k)}</td><td class="num">${tien(N[k]||0)}</td><td class="num">${tien(T[k]||0)}</td><td class="num">${ss(N[k]||0,T[k]||0)}</td><td class="num">${tN?Math.round((N[k]||0)/tN*1000/10).toLocaleString('vi-VN')+'%':'—'}</td></tr>`).join('')}</tbody></table>`; };
+    siHtml=`<div class="bct-so"><div><span>Doanh số sell-in tuần</span><b>${ngayCo.length?tien(tN):'Chưa có số'}</b><small>${ngayCo.length?ss(tN,tT)+' so với tuần trước ('+tien(tT)+')':'Tuần trước: '+tien(tT)}</small></div><div><span>Ngày có số</span><b>${ngayCo.length}/7</b><small>${ngayCo.length?'đến '+fd(ngayCo[ngayCo.length-1]):'chưa có số tuần này'}</small></div></div>
+      <p class="hint">Doanh số đã trừ hàng trả lại, chưa trừ chiết khấu. Nguồn: Sổ chi tiết bán hàng, theo ngày chứng từ.${ngayCo.length<7&&ngayCo.length?' Tuần chưa đủ 7 ngày có số nên so sánh chỉ để tham khảo.':''}</p>
+      <div class="bct-2"><div class="scroll">${bang(hN,hT,'Hệ thống')}</div><div class="scroll">${bang(bN,bT,'Brand')}</div></div>`;
+  }
+  // 2. CTKM
+  const chay=lichPost.filter(x=>x.ngay_bat_dau<=cuoi && x.ngay_ket_thuc>=dau && ttCua(x)?.trang_thai!=='st_tu_choi').sort((a,b)=>a.ngay_bat_dau.localeCompare(b.ngay_bat_dau));
+  const sap=lichPost.filter(x=>x.ngay_bat_dau>cuoi && x.ngay_bat_dau<=addDays(cuoi,14)).sort((a,b)=>a.ngay_bat_dau.localeCompare(b.ngay_bat_dau));
+  const dongCt=x=>`<tr><td class="num">${fd(x.ngay_bat_dau)} – ${fd(x.ngay_ket_thuc)}</td><td>${esc(x.chuoi)}</td><td>${brTag(x.nhan_hang)}</td><td>${esc(dongDau(x.noi_dung))}</td><td>${pillTtLp(x)}${chipChot(x)}</td></tr>`;
+  const bangCt=(ds,rong)=>ds.length?`<div class="scroll"><table><thead><tr><th>Thời gian</th><th>Chuỗi</th><th>Nhãn</th><th>Chương trình</th><th>Trạng thái</th></tr></thead><tbody>${ds.map(dongCt).join('')}</tbody></table></div>`:`<div class="empty">${rong}</div>`;
+  // 3. Công việc
+  const steps=allSteps(), xongTuan=steps.filter(x=>x.s.trangThai==='xong' && trong(x.s.ngayXong,dau,cuoi)), dungHan=xongTuan.filter(x=>!x.s.han||x.s.ngayXong<=x.s.han).length;
+  const tre=steps.filter(x=>isLate(x.s)), tuanSau=steps.filter(x=>isOpen(x.s)&&trong(x.s.han,addDays(cuoi,1),addDays(cuoi,7)));
+  // 4. Audit
+  const phieu=[...phieuAudit.values()].filter(p=>trong(String(p.ngay||'').slice(0,10),dau,cuoi)), dem=k=>phieu.reduce((s,p)=>s+(p.san_pham||[]).filter(x=>x.tt===k).length,0), co=dem('co'), het=dem('het');
+  // 5. Cảnh báo
+  const cb=canhBao.filter(r=>r.thay_doi!=null && +r.thay_doi<=CB_GIAM).sort((a,b)=>a.thay_doi-b.thay_doi).slice(0,6);
+  return `<section class="card bct"><div class="card-h"><div><h2>Báo cáo tuần ${fd(dau)} – ${fd(cuoi)}</h2><p>Tóm tắt Trade MKT kênh MT · Trí Việt Phát · lập lúc ${new Date().toLocaleString('vi-VN')}</p></div></div>${nut}
+    <div class="bct-phan"><h3>1. Sell-in trong tuần</h3>${siHtml}</div>
+    <div class="bct-phan"><h3>2. Chương trình khuyến mãi</h3><div class="bct-so"><div><span>Chạy trong tuần</span><b>${chay.length}</b><small>chương trình (Lịch post)</small></div><div><span>Bắt đầu trong 14 ngày tới</span><b>${sap.length}</b><small>chương trình</small></div><div><span>Chờ CEO duyệt</span><b>${lichPost.filter(x=>ttCua(x)?.trang_thai==='cho_ceo').length}</b><small>chương trình</small></div><div><span>Chờ siêu thị duyệt</span><b>${lichPost.filter(x=>ttCua(x)?.trang_thai==='da_dang_ky' && x.ngay_ket_thuc>=dau).length}</b><small>chương trình</small></div></div>
+      <h4>Chạy trong tuần</h4>${bangCt(chay,'Không có chương trình nào chạy trong tuần.')}<h4>Sắp bắt đầu (14 ngày sau tuần)</h4>${bangCt(sap,'Không có chương trình nào sắp bắt đầu.')}</div>
+    <div class="bct-phan"><h3>3. Công việc của nhóm</h3><div class="bct-so"><div><span>Bước xong trong tuần</span><b>${xongTuan.length}</b><small>${xongTuan.length?Math.round(dungHan/xongTuan.length*100)+'% đúng hạn':'—'}</small></div><div><span>Bước đang trễ hạn</span><b class="${tre.length?'giam':''}">${tre.length}</b><small>tính đến hôm nay</small></div><div><span>Đến hạn tuần tới</span><b>${tuanSau.length}</b><small>${fd(addDays(cuoi,1))} – ${fd(addDays(cuoi,7))}</small></div></div>
+      ${tre.length?`<div class="scroll"><table><thead><tr><th>Bước trễ</th><th>Hoạt động</th><th>Người làm</th><th class="num">Hạn</th></tr></thead><tbody>${tre.sort((a,b)=>a.s.han.localeCompare(b.s.han)).slice(0,10).map(x=>`<tr><td>${esc(x.s.ten)}</td><td>${esc(x.a.ten)}</td><td>${esc(tenNguoi(phuTrach(x.s))||'Chưa giao')}</td><td class="num late">${fd(x.s.han)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>
+    <div class="bct-phan"><h3>4. Audit tại điểm bán</h3>${phieu.length?`<div class="bct-so"><div><span>Phiếu audit trong tuần</span><b>${phieu.length}</b><small>cửa hàng</small></div><div><span>Tỷ lệ có hàng trên kệ</span><b>${co+het?(Math.round(co/(co+het)*1000)/10).toLocaleString('vi-VN')+'%':'—'}</b><small>${co} lượt có hàng, ${het} lượt hết</small></div><div><span>Ghi nhận đối thủ</span><b>${phieu.filter(p=>(p.doi_thu||[]).length).length}</b><small>cửa hàng</small></div></div>`:'<div class="empty">Không có phiếu audit nào trong tuần.</div>'}</div>
+    <div class="bct-phan"><h3>5. Cảnh báo sụt giảm</h3>${cb.length?`<div class="scroll"><table><thead><tr><th>Loại</th><th>Chuỗi</th><th>Nhãn</th><th class="num">Kỳ này</th><th class="num">Kỳ trước</th><th class="num">Thay đổi</th></tr></thead><tbody>${cb.map(r=>`<tr><td>${r.loai==='sell_in'?'Sell-in':'Sell-out'}</td><td>${esc(r.chuoi)}</td><td>${brTag(r.nhan_hang)}</td><td class="num">${r.loai==='sell_in'?tien(+r.nay):Math.round(+r.nay).toLocaleString('vi-VN')}</td><td class="num">${r.loai==='sell_in'?tien(+r.truoc):Math.round(+r.truoc).toLocaleString('vi-VN')}</td><td class="num giam">${Math.round(r.thay_doi*100)}%</td></tr>`).join('')}</tbody></table></div><p class="hint">Kỳ so sánh theo cảnh báo ở trang Tổng quan (${fd(cb[0].tu_ngay)} – ${fd(cb[0].den_ngay)} so với cùng số ngày kỳ trước).</p>`:'<div class="empty">Không có cảnh báo sụt giảm.</div>'}</div>
   </section>`;
 }
 function renderOverview(){
@@ -1297,6 +1365,7 @@ function gonBang(){
 }
 document.getElementById('nutDay').addEventListener('click', e=>{ const a=e.target.closest('[data-nd]'); if(!a) return; calAudit = a.dataset.nd==='audit'; if(calAudit && view==='lich-viec'){ e.preventDefault(); render(); } });
 main.addEventListener('click', e=>{ if(e.target.closest('[data-bo-audit]')){ calAudit=false; render(); } });
+main.addEventListener('click', e=>{ const b=e.target.closest('[data-bct]'); if(b){ const n=+b.dataset.bct; bctTuan = n===0 ? addDays(thuHai(todayStr()),-7) : addDays(bctTuan,n); return render(); } if(e.target.closest('[data-bct-in]')) window.print(); });
 function danhDauNutDay(){ const nd=document.getElementById('nutDay'); if(!nd) return; const v=String(view||'');
   nd.querySelectorAll('a').forEach(a=>{ const k=a.dataset.nd, dung = k==='audit' ? (v==='lich-viec'&&calAudit) : k==='bao-cao' ? v.startsWith('bc-') : (k===v && !(v==='lich-viec')); a.setAttribute('aria-current', dung?'page':'false'); }); }
 main.addEventListener('click', e=>{ const b=e.target.closest('[data-xem-them]'); if(!b) return; const k=b.dataset.xemThem; moRong.has(k)?moRong.delete(k):moRong.add(k); render(); });

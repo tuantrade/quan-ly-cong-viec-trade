@@ -51,6 +51,7 @@
       { ten: 'Lịch post', trang: 'app', v: 'lich-post', href: './#lich-post', ic: 'post' },
       { ten: 'Lịch post 2027', trang: 'app', v: 'lich-post-2027', href: './#lich-post-2027', ic: 'sao' } ] },   // nay mở ngay trong app, trình bày như Lịch post
     { ten: 'Trang báo cáo', muc: [
+      { ten: 'Báo cáo tuần', trang: 'app', v: 'bao-cao-tuan', href: './#bao-cao-tuan', ic: 'lich' },
       { ten: 'Sell-in', trang: 'bao-cao', v: 'sell-in', href: 'bao-cao-mt.html#sell-in', ic: 'vao' },
       { ten: 'Sell-out', trang: 'bao-cao', v: 'sell-out', href: 'bao-cao-mt.html#sell-out', ic: 'ra' },
       { ten: 'Baseline bán trơn', trang: 'bao-cao', v: 'baseline', href: 'bao-cao-mt.html#baseline', ic: 'nen' },

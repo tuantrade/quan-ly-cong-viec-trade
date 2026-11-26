@@ -1311,3 +1311,20 @@ do $$ begin
   end if;
 exception when others then null; end $$;
 
+
+-- ===== Ghi chú lên biểu đồ (trang Báo cáo MT): thành viên thêm / xóa, ai đăng nhập cũng xem =====
+create table if not exists public.ghi_chu_bieu_do (
+  id uuid primary key default gen_random_uuid(),
+  ngay date not null, den date, noi_dung text not null check (length(noi_dung) between 1 and 200),
+  he_thong text not null default '', nguoi text not null default '', luc timestamptz not null default now()
+);
+alter table public.ghi_chu_bieu_do enable row level security;
+grant select, insert, update, delete on public.ghi_chu_bieu_do to authenticated;
+drop policy if exists "thanh_vien_xem" on public.ghi_chu_bieu_do;
+drop policy if exists "thanh_vien_them" on public.ghi_chu_bieu_do;
+drop policy if exists "thanh_vien_sua" on public.ghi_chu_bieu_do;
+drop policy if exists "thanh_vien_xoa" on public.ghi_chu_bieu_do;
+create policy "thanh_vien_xem" on public.ghi_chu_bieu_do for select to authenticated using (public.duoc_xem());
+create policy "thanh_vien_them" on public.ghi_chu_bieu_do for insert to authenticated with check (public.la_thanh_vien());
+create policy "thanh_vien_sua" on public.ghi_chu_bieu_do for update to authenticated using (public.la_thanh_vien()) with check (public.la_thanh_vien());
+create policy "thanh_vien_xoa" on public.ghi_chu_bieu_do for delete to authenticated using (public.la_thanh_vien());

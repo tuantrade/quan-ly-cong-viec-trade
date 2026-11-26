@@ -43,6 +43,22 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 .sv-tai:hover{border-color:var(--color-fg-muted)}.sv-tai:disabled{opacity:.6;cursor:wait}
 @media print{.sv-tai{display:none}}
 .sv-phu-thieu{white-space:normal!important;font-size:var(--cds-font-size-caption,12px);color:var(--color-fg-muted);background:var(--color-bg-subtle,transparent);line-height:1.5}
+:root{--gc-nen:rgba(224,130,61,.13);--gc-co:#e0823d}
+.sv-bam{cursor:pointer}.sv-card.sv-bam{transition:border-color .15s,transform .15s}.sv-card.sv-bam:hover{border-color:var(--color-fg-muted);transform:translateY(-1px)}
+.sv-card.sv-bam:focus-visible{outline:2px solid var(--color-fg-muted);outline-offset:2px}
+tr.sv-bam:hover td{background:var(--color-bg-subtle,rgba(127,127,127,.08))}
+@keyframes svNhay{0%{box-shadow:0 0 0 0 rgba(224,130,61,.55)}100%{box-shadow:0 0 0 12px rgba(224,130,61,0)}}
+.sv-nhay{animation:svNhay 1s ease-out 2}
+.gc-hop{margin-top:10px;display:grid;gap:6px;font-size:var(--cds-font-size-caption,12px)}
+.gc-dau{display:flex;align-items:center;gap:8px}.gc-dau .gc-nut{margin:0 0 0 auto}
+.gc-form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:8px;border:1px dashed var(--color-border-line);border-radius:8px}
+.gc-form[hidden]{display:none}
+.gc-form label{display:grid;gap:2px;color:var(--color-fg-muted)}.gc-form input{font:inherit;padding:4px 8px;border:1px solid var(--color-border-line);border-radius:6px;background:var(--color-bg);color:var(--color-fg)}
+.gc-form .gc-nd{flex:1 1 220px}.gc-form .gc-nd input{width:100%}.gc-form .sv-tai{margin:0}
+.gc-ds{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.gc-ds li{display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+.gc-so{flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:var(--gc-co);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.gc-ai{color:var(--color-fg-muted)}.gc-xoa{margin-left:auto;border:0;background:transparent;color:var(--color-fg-muted);cursor:pointer}
 </style>
 </head>
 <body>
@@ -57,6 +73,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
 /* ===== Lớp thay cho bộ máy dashboard: lấy số từ Supabase, chạy các phép tính của trang ===== */
 (function(){
   var CFG = window.CAU_HINH || {}, sb = window.supabase.createClient(CFG.url, CFG.khoa);
+  window.BC = { sb: sb, thanhVien: false, ten: '' };
   var NGUON = {   // bộ số của dashboard -> bảng trong Supabase
     sellin:      { bang:'nguon_sellin',  cot:'ngay,thang,he_thong,brand,ma_hang,ten_hang,dvt,sl_ban,sl_tra,sl_doi,doanh_so,chiet_khau,tra_lai', thu_tu:'id', luu:true },
     don_hang:    { bang:'nguon_don_hang', cot:'ngay,thang,he_thong,diem_nhan,so_chung_tu', thu_tu:'id', luu:true },
@@ -153,6 +170,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:
     if (x.error || !x.data) { loi.hidden = false; loi.textContent = 'Email ' + s.user.email + ' chưa có trong danh sách thành viên của app.'; return; }
     var tv = await sb.from('thanh_vien').select('ho_ten,vai_tro').eq('email', s.user.email.toLowerCase()).maybeSingle();
     laKhach = !!(tv.data && tv.data.vai_tro === 'khach');
+    window.BC.thanhVien = !laKhach; window.BC.ten = (tv.data && tv.data.ho_ten) || s.user.email; if (window.taiGhiChu) window.taiGhiChu();
     nguoiXem = s.user.email.toLowerCase() + (laKhach ? '#khach' : '');   // mỗi tài khoản một bản lưu riêng
     document.getElementById('bc-ai').textContent = ((tv.data && tv.data.ho_ten) || s.user.email) + (laKhach ? ' · Khách (chỉ xem; không có giá vốn, lãi gộp)' : '');
     await taiHet();
@@ -1139,7 +1157,7 @@ document.querySelectorAll('table.sv-table').forEach((tb) => {
 });
 
 // ---------- charts
-function drawSystems(el, rows, lab = 'he_thong', tot = 'thuan', unit = 'hệ thống') {
+function drawSystems(el, rows, lab = 'he_thong', tot = 'thuan', unit = 'hệ thống', bam = null) {
   el.replaceChildren(); el.classList.remove('dash-skeleton');
   const W = Math.max(el.clientWidth, 280), bh = 22, gap = 10, top = 4, bottom = 24;
   const H = top + rows.length * (bh + gap) + bottom;
@@ -1156,12 +1174,12 @@ function drawSystems(el, rows, lab = 'he_thong', tot = 'thuan', unit = 'hệ th�
     let x0 = 0;
     keys.forEach((k, i) => {
       const v = Math.max(r[k], 0); if (!v) return;
-      svg.append('rect').attr('x', x(x0)).attr('y', y(r[lab])).attr('width', Math.max(x(x0 + v) - x(x0), 0.5)).attr('height', y.bandwidth()).attr('fill', dash.colors[i])
+      svg.append('rect').attr('x', x(x0)).attr('y', y(r[lab])).attr('width', Math.max(x(x0 + v) - x(x0), 0.5)).attr('height', y.bandwidth()).attr('fill', dash.colors[i]).style('cursor', bam ? 'pointer' : null).on('click', bam ? () => bam(r[lab]) : null)
         .on('mousemove', (ev) => tipShow(el, tip, ev, [line(r[lab], 't'), line(`${BRANDS[i]}: ${ty(r[k])} (${pct(r[tot] ? r[k] / r[tot] : null)} của ${unit})`, null, dash.colors[i])]))
         .on('mouseleave', () => { tip.hidden = true; });
       x0 += v;
     });
-    svg.append('text').attr('x', left - 8).attr('y', y(r[lab]) + y.bandwidth() / 2).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').text(r[lab]);
+    svg.append('text').attr('x', left - 8).attr('y', y(r[lab]) + y.bandwidth() / 2).attr('dy', '0.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg)').attr('font-size', 'var(--cds-font-size-caption)').style('cursor', bam ? 'pointer' : null).on('click', bam ? () => bam(r[lab]) : null).text(r[lab]);
     svg.append('text').attr('x', x(Math.max(x0, 0)) + 6).attr('y', y(r[lab]) + y.bandwidth() / 2).attr('dy', '0.35em').attr('fill', 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text(ty(r[tot]));
   }
 }
@@ -1194,8 +1212,9 @@ function drawMonths(el, rows, sel) {
     svg.append('rect').attr('x', x(k)).attr('width', x.bandwidth()).attr('y', yS(Math.max(r.thuan, 0))).attr('height', Math.max(yS(0) - yS(Math.max(r.thuan, 0)), 0.5)).attr('rx', 4)
       .attr('fill', k === sel ? MAU_TONG : 'var(--cds-chart-muted)').style('cursor', 'pointer')
       .on('click', () => dash.setParams({ thang: k }))
-      .on('mousemove', (ev) => tipShow(el, tip, ev, [line(thangLabel(k) + (partial ? ` (đến ngày ${Number(r.ngay_cuoi.slice(8))})` : ''), 't'), line('Doanh thu thuần: ' + ty(r.thuan)), line('Doanh số bán: ' + ty(r.doanh_so))]))
+      .on('mousemove', (ev) => tipShow(el, tip, ev, [line(thangLabel(k) + (partial ? ` (đến ngày ${Number(r.ngay_cuoi.slice(8))})` : ''), 't'), line('Doanh thu thuần: ' + ty(r.thuan)), line('Doanh số bán: ' + ty(r.doanh_so)), ...ghiChuThang(k).slice(0, 4).map((n) => line('📌 ' + n.noi_dung))]))
       .on('mouseleave', () => { tip.hidden = true; });
+    if (ghiChuThang(k).length) svg.append('circle').attr('cx', x(k) + x.bandwidth() - 4).attr('cy', yS(Math.max(r.thuan, 0)) + 6).attr('r', 4).attr('fill', 'var(--gc-co)').append('title').text(ghiChuThang(k).length + ' ghi chú');
     if (showVal) svg.append('text').attr('x', cx).attr('y', yS(Math.max(r.thuan, 0)) - 6).attr('text-anchor', 'middle').attr('fill', k === sel ? 'var(--color-fg)' : 'var(--color-fg-muted)').attr('font-size', 'var(--cds-font-size-caption)').text(ty(r.thuan));
   }
 }
@@ -1217,8 +1236,64 @@ function drawDays(el, rows) {
   svg.append('g').selectAll('rect').data(rows).join('rect')
     .attr('x', (r) => x(r.ngay)).attr('width', x.bandwidth()).attr('y', (r) => yS(Math.max(r.thuan, 0))).attr('height', (r) => Math.max(Math.abs(yS(r.thuan) - yS(0)), 0.5))
     .attr('rx', 3).attr('fill', MAU_TONG)
-    .on('mousemove', (ev, r) => tipShow(el, tip, ev, [line(dmy(r.ngay), 't'), line('Doanh thu thuần: ' + ty(r.thuan))]))
+    .on('mousemove', (ev, r) => tipShow(el, tip, ev, [line(dmy(r.ngay), 't'), line('Doanh thu thuần: ' + ty(r.thuan)), ...ghiChuNgay(r.ngay).map((n) => line('📌 ' + n.noi_dung))]))
     .on('mouseleave', () => { tip.hidden = true; });
+  // ghi chú: dải nền nhạt cho khoảng ngày + cờ số thứ tự ở đầu
+  const mm = rows.length ? rows[0].ngay.slice(0, 7) : null; if (!mm) return;
+  const ngayDs = rows.map((r) => r.ngay), dau = ngayDs[0], cuoi = ngayDs[ngayDs.length - 1];
+  ghiChuThang(mm).forEach((n, i) => {
+    const a = String(n.ngay).slice(0, 10) < dau ? dau : String(n.ngay).slice(0, 10), b = String(n.den || n.ngay).slice(0, 10) > cuoi ? cuoi : String(n.den || n.ngay).slice(0, 10);
+    const trong = ngayDs.filter((d) => d >= a && d <= b); if (!trong.length) return;
+    const x1 = x(trong[0]) - x.step() * x.paddingInner() / 2, x2 = x(trong[trong.length - 1]) + x.bandwidth() + x.step() * x.paddingInner() / 2;
+    svg.insert('rect', ':first-child').attr('x', x1).attr('y', top).attr('width', Math.max(x2 - x1, 2)).attr('height', H - bottom - top).attr('fill', 'var(--gc-nen)').attr('rx', 3);
+    const g = svg.append('g').style('cursor', 'help').on('mousemove', (ev) => tipShow(el, tip, ev, [line(dmy(n.ngay) + (n.den && n.den !== n.ngay ? ' – ' + dmy(n.den) : ''), 't'), line('📌 ' + n.noi_dung)])).on('mouseleave', () => { tip.hidden = true; });
+    g.append('circle').attr('cx', x1 + 9).attr('cy', top + 9).attr('r', 8).attr('fill', 'var(--gc-co)');
+    g.append('text').attr('x', x1 + 9).attr('y', top + 9).attr('dy', '0.35em').attr('text-anchor', 'middle').attr('fill', '#fff').attr('font-size', 10).attr('font-weight', 700).text(i + 1);
+  });
+}
+const ghiChuNgay = (d) => ghiChu.filter((n) => ghiChuHop(n) && String(n.ngay).slice(0, 10) <= d && String(n.den || n.ngay).slice(0, 10) >= d);
+
+// Chọn một hệ thống từ biểu đồ / bảng: lọc bảng theo cửa hàng, theo SKU, độ phủ rồi cuộn tới bảng cửa hàng
+function chonHt(h) {
+  [['ch-ht', null], ['sku-ht', null], ['phu-ht', null]].forEach(([id]) => { const el = document.getElementById(id); if (el && [...el.options].some((o) => o.value === h)) { el.value = h; el.dispatchEvent(new Event('change')); } });
+  const dich = document.getElementById('bang-ch'); if (dich) { dich.scrollIntoView({ behavior: 'smooth', block: 'start' }); dich.classList.remove('sv-nhay'); void dich.offsetWidth; dich.classList.add('sv-nhay'); }
+}
+// Ô số bấm được: đi tới bảng chi tiết tương ứng
+[['k-thuan', 'bang-he-thong', 'Xem doanh thu theo hệ thống × brand'], ['k-ds', 'bang-sku', 'Xem từng mã (SKU)'], ['k-diem', 'bang-ch', 'Xem từng cửa hàng / điểm nhận hàng'], ['k-don', 'bang-ch', 'Xem từng cửa hàng / điểm nhận hàng']].forEach(([id, dich, goiY]) => {
+  const card = document.getElementById(id)?.closest('.sv-card'); if (!card) return;
+  card.classList.add('sv-bam'); card.tabIndex = 0; card.setAttribute('role', 'link'); card.title = goiY + ' →';
+  const di = () => { const d = document.getElementById(dich); d?.scrollIntoView({ behavior: 'smooth', block: 'start' }); d?.classList.remove('sv-nhay'); void d?.offsetWidth; d?.classList.add('sv-nhay'); };
+  card.addEventListener('click', di); card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); di(); } });
+});
+
+// ===== 10) Ghi chú lên biểu đồ (bảng ghi_chu_bieu_do; thành viên thêm / xóa, ai đăng nhập cũng xem) =====
+let ghiChu = [], ghiChuCo = false;
+window.taiGhiChu = async function () {
+  if (!window.BC || !BC.sb) return;
+  const r = await BC.sb.from('ghi_chu_bieu_do').select('*').order('ngay');
+  ghiChuCo = !r.error; ghiChu = r.error ? [] : (r.data || []);
+  try { drawSellIn(); } catch (e) { console.warn(e); }
+};
+const ghiChuHop = (n) => !gHt || !n.he_thong || nhomHt(n.he_thong) === gHt;
+const ghiChuThang = (m) => ghiChu.filter((n) => ghiChuHop(n) && String(n.ngay).slice(0, 7) <= m && String(n.den || n.ngay).slice(0, 7) >= m);
+function veGhiChuNgay(el, mm) {
+  let box = document.getElementById('gc-hop');
+  if (!box) { box = document.createElement('div'); box.id = 'gc-hop'; box.className = 'gc-hop'; el.after(box); }
+  if (!ghiChuCo) { box.innerHTML = window.BC && BC.thanhVien ? '<p class="sv-note">Chưa bật ghi chú biểu đồ (cần chạy SQL ghi chú trong Supabase).</p>' : ''; return; }
+  const ds = mm ? ghiChuThang(mm) : [], e = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const tv = window.BC && BC.thanhVien;
+  box.innerHTML = `<div class="gc-dau"><b>Ghi chú trên biểu đồ</b>${tv ? '<button type="button" class="sv-tai gc-nut" data-gc-mo>＋ Thêm ghi chú</button>' : ''}</div>
+    <form class="gc-form" hidden><label>Từ ngày<input type="date" name="ngay" required value="${mm ? mm + '-01' : ''}"></label><label>Đến ngày<input type="date" name="den"></label>
+      <label class="gc-nd">Nội dung<input name="noi_dung" required maxlength="140" placeholder="VD: Chạy CTKM Tết Co.op giảm 15%"></label>
+      <label>Hệ thống<input name="he_thong" placeholder="Để trống = tất cả" value="${e(gHt)}"></label><button type="submit" class="sv-tai">Lưu</button></form>
+    ${ds.length ? `<ol class="gc-ds">${ds.map((n, i) => `<li><span class="gc-so">${i + 1}</span><span><b>${dmy(n.ngay)}${n.den && n.den !== n.ngay ? ' – ' + dmy(n.den) : ''}</b>${n.he_thong ? ' · ' + e(n.he_thong) : ''}: ${e(n.noi_dung)} <span class="gc-ai">${e(n.nguoi || '')}</span></span>${tv ? `<button type="button" class="gc-xoa" data-gc-xoa="${e(n.id)}" aria-label="Xóa ghi chú">✕</button>` : ''}</li>`).join('')}</ol>` : '<p class="sv-note">Tháng này chưa có ghi chú. Ghi chú giúp nhớ vì sao số tăng / giảm (chạy CTKM, hết hàng, siêu thị khóa đơn…).</p>'}`;
+  box.querySelector('[data-gc-mo]')?.addEventListener('click', () => { const f = box.querySelector('.gc-form'); f.hidden = !f.hidden; if (!f.hidden) f.noi_dung.focus(); });
+  box.querySelector('.gc-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault(); const f = ev.target, row = { ngay: f.ngay.value, den: f.den.value || null, noi_dung: f.noi_dung.value.trim(), he_thong: f.he_thong.value.trim(), nguoi: BC.ten };
+    if (!row.ngay || !row.noi_dung) return; if (row.den && row.den < row.ngay) { alert('Đến ngày phải sau từ ngày.'); return; }
+    const r = await BC.sb.from('ghi_chu_bieu_do').insert(row); if (r.error) { alert('Chưa lưu được: ' + r.error.message); return; } window.taiGhiChu();
+  });
+  box.querySelectorAll('[data-gc-xoa]').forEach((b) => b.addEventListener('click', async () => { if (!confirm('Xóa ghi chú này?')) return; const r = await BC.sb.from('ghi_chu_bieu_do').delete().eq('id', b.dataset.gcXoa); if (r.error) alert(r.error.message); window.taiGhiChu(); }));
 }
 
 // ---------- legend
@@ -1284,15 +1359,15 @@ function drawSellIn() {
     const tbH = document.querySelector('#t-hethong tbody'), tbB = document.querySelector('#t-brand tbody');
     if (hs.status === 'ok' && mm) {
       const rows = hs.data.filter((x) => x.thang === mm);
-      drawSystems(elH, rows);
+      drawSystems(elH, rows, 'he_thong', 'thuan', 'hệ thống', chonHt);
       tbH.replaceChildren(...rows.map((x) => {
-        const t = document.createElement('tr'); t.dataset.key = enc(x.thang) + ',' + enc(x.he_thong);
+        const t = document.createElement('tr'); t.dataset.key = enc(x.thang) + ',' + enc(x.he_thong); t.className = 'sv-bam'; t.title = 'Bấm để xem từng cửa hàng và từng mã của ' + x.he_thong; t.addEventListener('click', () => chonHt(x.he_thong));
         const cells = [[x.he_thong, 'l'], [tr(x.wil)], [tr(x.gungon)], [tr(x.guyumi)], [tr(x.ma_bay)], [x.khac ? tr(x.khac) : '–'], [tr(x.thuan)], [pct(x.ty_trong)], [x.tang_truong == null ? 'Chưa có dữ liệu' : sgn(x.tang_truong), x.tang_truong == null ? '' : (x.tang_truong >= 0 ? 'sv-up' : 'sv-down')], [vi(x.so_don)], [vi(x.so_diem)]];
         for (const [v, c] of cells) { const td = document.createElement('td'); if (c) td.className = c; td.textContent = v; t.append(td); }
         return t;
       }));
     } else if (hs.status === 'error') { failBox(elH); tbH.replaceChildren(); }
-    if (ng.status === 'ok' && mm) drawDays(elN, ng.data.filter((x) => x.thang === mm));
+    if (ng.status === 'ok' && mm) { drawDays(elN, ng.data.filter((x) => x.thang === mm)); veGhiChuNgay(elN, mm); }
     else if (ng.status === 'error') failBox(elN);
     if (br.status === 'ok' && mm) {
       tbB.replaceChildren(...br.data.filter((x) => x.thang === mm).map((x, i) => {

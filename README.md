@@ -199,6 +199,11 @@ Khi chọn quy trình mẫu có chữ “Audit”, cửa sổ **Tạo hoạt đ�
 - **Thanh nút dưới đáy** (màn hình dưới 900px): Hôm nay · Lịch post · Audit (Lịch việc chỉ hiện lịch audit) · Báo cáo.
 - **Hoàn tác 5 giây**: xóa bước, xóa hoạt động, đánh dấu xong / gửi duyệt đều có nút Hoàn tác thay cho hộp xác nhận. Xóa chỉ ghi vào cơ sở dữ liệu sau 5 giây (hoặc khi có thông báo khác, khi rời trang).
 
+## Báo cáo tuần và báo cáo bấm xem chi tiết
+- **Báo cáo tuần** (`#bao-cao-tuan`, thanh bên → Trang báo cáo): tuần thứ Hai – Chủ nhật, mặc định tuần vừa xong, nút lùi / tới. Gồm sell-in tuần so tuần trước theo hệ thống và brand (bảng `sell_in_ngay`, đã trừ trả lại, chưa trừ chiết khấu), CTKM chạy trong tuần và 14 ngày tới, trạng thái chờ duyệt, công việc xong / trễ / đến hạn tuần tới, audit trong tuần, cảnh báo sụt giảm. Nút **In / Lưu PDF** in khổ A4 (ẩn menu, nút).
+- **Bấm để xem chi tiết** (Báo cáo MT, Sell-in): ô Doanh thu thuần → bảng hệ thống × brand; ô Doanh số → bảng SKU; ô Số điểm / Số đơn → bảng cửa hàng; bấm thanh hệ thống trên biểu đồ hoặc dòng trong bảng hệ thống → lọc sẵn bảng cửa hàng, SKU, độ phủ theo hệ thống đó và cuộn tới.
+- **Ghi chú lên biểu đồ** (bảng `ghi_chu_bieu_do`): dưới biểu đồ theo ngày, thành viên thêm ghi chú (từ ngày, đến ngày, nội dung, hệ thống); biểu đồ hiện dải nền + cờ số, rê chuột xem nội dung; biểu đồ theo tháng có chấm cam ở tháng có ghi chú.
+
 ## Kiểm soát CTKM ở trang Tổng quan
 - **Báo cáo kết quả CTKM trong 10 ngày** (Tờ trình 01/TTr-TM): chương trình Lịch post kết thúc trong 40 ngày qua (trừ bị siêu thị từ chối), hạn = ngày kết thúc + 10. Tính là đã báo cáo khi hoạt động trong app gắn với chương trình có bước tên chứa “báo cáo / đánh giá / nghiệm thu / kết quả” đã xong; đúng hạn khi ngày xong ≤ hạn.
 - **PO mở trước khi CEO duyệt** (thư BOD 2309): ngày PO bắt đầu theo quy tắc PO từng hệ thống; ngày duyệt = lần đầu trạng thái Lịch post chuyển sang “CEO đã duyệt” hoặc bước sau. Chỉ tính chương trình có PO từ ngày bắt đầu theo dõi trạng thái.
