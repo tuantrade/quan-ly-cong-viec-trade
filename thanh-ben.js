@@ -54,6 +54,7 @@
       { ten: 'Báo cáo tuần', trang: 'app', v: 'bao-cao-tuan', href: './#bao-cao-tuan', ic: 'lich' },
       { ten: 'Sell-in', trang: 'bao-cao', v: 'sell-in', href: 'bao-cao-mt.html#sell-in', ic: 'vao' },
       { ten: 'Sell-out', trang: 'bao-cao', v: 'sell-out', href: 'bao-cao-mt.html#sell-out', ic: 'ra' },
+      { ten: 'Sell-in & Sell-out', trang: 'bao-cao', v: 'so-sanh', href: 'bao-cao-mt.html#so-sanh', ic: 'vao' },
       { ten: 'Baseline bán trơn', trang: 'bao-cao', v: 'baseline', href: 'bao-cao-mt.html#baseline', ic: 'nen' },
       { ten: 'Giá bán & TVP thu về', trang: 'bao-cao', v: 'gia', href: 'bao-cao-mt.html#gia', ic: 'gia' } ] },
       // Bảng giá siêu thị (./#gia) đã ẩn: trùng nội dung với Giá bán & TVP thu về. Trang vẫn mở được bằng link ./#gia
