@@ -221,7 +221,7 @@ Mỗi bước “Audit: cửa hàng · hệ thống · giờ” (tạo từ mẫ
 
 ## Lịch post (lịch CTKM theo siêu thị)
 
-**Lịch post 2027 đã gỡ (26/11/2026)**: không còn trong menu, không tải, không hiện ở mốc Tổng quan / tìm nhanh; link cũ `#lich-post-2027` và `lich-post-2027.html` chuyển về Lịch post. Dữ liệu vẫn giữ ở `bo_so_tinh_san` bộ `lich_post_2027` (code vẽ trang còn trong index.html, bật lại được).
+**Lịch post 2027 đã gỡ (26/11/2026)**: không còn trong menu, không tải, không hiện ở mốc Tổng quan / tìm nhanh; link cũ `#lich-post-2027` và `lich-post-2027.html` chuyển về Lịch post. Dữ liệu (44 kỳ, bộ `lich_post_2027` trong `bo_so_tinh_san`) đã xóa hẳn theo yêu cầu ngày 26/11/2026.
 
 **Xem theo năm, kéo ngang**: chọn Năm 2026 / Năm 2027 (các năm có lịch); cả 12 tháng của năm nằm trên một dải, màn hình thấy 3 tháng (đổi được 6 hoặc 12). Kéo ngang bằng chuột, vuốt, Shift + lăn chuột, hoặc nút ◀ ▶ (mỗi lần 1 tháng), nút Hôm nay về tháng hiện tại. Cột tên chuỗi · nhãn đứng yên khi kéo. Trang Lịch post 2027 dùng cùng cách xem, mở sẵn năm 2027.
 
