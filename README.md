@@ -193,6 +193,12 @@ Mỗi sáng (khoảng 7h–8h, trừ Chủ nhật), một script Google gửi th
 ## Tạo hoạt động theo mẫu Audit
 Khi chọn quy trình mẫu có chữ “Audit”, cửa sổ **Tạo hoạt động mới** bỏ ô nhãn hàng, kênh, ngày bắt đầu, ngày kết thúc và thay bằng khung **Lịch audit**: mỗi dòng gồm hệ thống, tên cửa hàng (gõ để chọn từ danh sách điểm nhận hàng có sell-in 4 tháng gần nhất, hoặc gõ tên mới), ngày, giờ audit; nút **＋ Thêm lịch audit** để thêm dòng. Tạo 1 lần ra 1 hoạt động: bước “Đi audit tại điểm bán” của mẫu được tách thành 1 bước cho mỗi lịch (tên “Audit: cửa hàng · hệ thống · giờ”, hạn = ngày audit), các bước khác tính hạn theo ngày audit đầu tiên / cuối cùng. Leader giao người ở ô vai trò là mọi bước đi theo người đó.
 
+## Dùng nhanh
+- **Tìm nhanh (Ctrl+K hoặc phím /, nút 🔍 trên đầu)**: gõ để tìm hoạt động, việc đang mở, chương trình Lịch post, kỳ Lịch post 2027, các trang; ↑ ↓ chọn, Enter mở.
+- **Hôm nay cần làm** (đầu khung Việc của tôi ở Tổng quan; điện thoại xếp lên trên cùng): việc trễ, hạn hôm nay, chờ tôi duyệt, lịch audit hôm nay, mốc Lịch post đúng hôm nay, có nút làm ngay. Bảng bên dưới chỉ còn việc 7 ngày tới.
+- **Thanh nút dưới đáy** (màn hình dưới 900px): Hôm nay · Lịch post · Audit (Lịch việc chỉ hiện lịch audit) · Báo cáo.
+- **Hoàn tác 5 giây**: xóa bước, xóa hoạt động, đánh dấu xong / gửi duyệt đều có nút Hoàn tác thay cho hộp xác nhận. Xóa chỉ ghi vào cơ sở dữ liệu sau 5 giây (hoặc khi có thông báo khác, khi rời trang).
+
 ## Kiểm soát CTKM ở trang Tổng quan
 - **Báo cáo kết quả CTKM trong 10 ngày** (Tờ trình 01/TTr-TM): chương trình Lịch post kết thúc trong 40 ngày qua (trừ bị siêu thị từ chối), hạn = ngày kết thúc + 10. Tính là đã báo cáo khi hoạt động trong app gắn với chương trình có bước tên chứa “báo cáo / đánh giá / nghiệm thu / kết quả” đã xong; đúng hạn khi ngày xong ≤ hạn.
 - **PO mở trước khi CEO duyệt** (thư BOD 2309): ngày PO bắt đầu theo quy tắc PO từng hệ thống; ngày duyệt = lần đầu trạng thái Lịch post chuyển sang “CEO đã duyệt” hoặc bước sau. Chỉ tính chương trình có PO từ ngày bắt đầu theo dõi trạng thái.

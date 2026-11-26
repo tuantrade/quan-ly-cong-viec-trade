@@ -248,6 +248,44 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)}
 .xem-them{display:block;margin:10px auto 14px}
 .card table tbody tr:hover>td{background:color-mix(in srgb,var(--soft) 55%,transparent)}
 @media (max-width:640px){ .filters select{flex:1 1 calc(50% - 8px);min-width:0} .lp-nav .lp-goi{display:none} }
+/* Ô tìm nhanh */
+.nut-tim{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}.nut-tim kbd,.tim-o kbd{font:inherit;font-size:11px;padding:1px 6px;border:1px solid var(--line);border-radius:5px;background:var(--soft);color:var(--muted)}
+.tim-nen{position:fixed;inset:0;z-index:70;background:rgba(10,20,15,.45);backdrop-filter:blur(2px);display:flex;justify-content:center;align-items:flex-start;padding:10vh 16px 16px;animation:timHien .14s ease}
+@keyframes timHien{from{opacity:0}to{opacity:1}}
+.tim-hop{width:min(640px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden;display:flex;flex-direction:column;max-height:76vh}
+.tim-o{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.tim-o input{flex:1;border:0;outline:0;background:transparent;font:inherit;font-size:16px;color:var(--ink)}
+.tim-kq{list-style:none;margin:0;padding:6px;overflow:auto}
+.tim-kq li{display:grid;grid-template-columns:112px 1fr;gap:2px 10px;padding:8px 10px;border-radius:9px;cursor:pointer}
+.tim-kq li.on,.tim-kq li:hover{background:var(--accent-soft)}
+.tim-loai{grid-row:span 2;align-self:start;justify-self:start;font-size:11px;font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent-soft) 60%,transparent);border-radius:6px;padding:2px 7px;white-space:nowrap;margin-top:1px}
+.tim-ten{font-weight:600;line-height:1.3}.tim-phu{font-size:12px;color:var(--muted);line-height:1.3}
+.tim-rong{display:block!important;color:var(--muted);cursor:default!important;text-align:center;padding:18px!important}
+.tim-chan{padding:8px 14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+/* Hôm nay cần làm */
+.hn{margin:0 16px 14px;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--accent-soft) 45%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line))}
+.hn h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px}
+.hn-so{font-size:12px;min-width:22px;height:22px;border-radius:999px;background:var(--accent);color:var(--accent-ink);display:inline-grid;place-items:center;padding:0 6px}
+.hn-ds{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.hn-muc{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.hn-chu{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0;flex:1 1 260px}.hn-chu b{font-weight:600}.hn-chu .sub{flex-basis:100%}
+.hn-nut{display:flex;gap:6px;flex-wrap:wrap}
+.hn-xong{font-weight:600;color:var(--ok)}
+/* Thanh nút dưới đáy (điện thoại) */
+.nut-day{display:none}
+@media (max-width:899px){
+  .nut-day:not([hidden]){display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+  .nut-day a{display:grid;justify-items:center;gap:1px;padding:6px 2px;font-size:11.5px;font-weight:600;color:var(--muted);text-decoration:none;border-radius:10px}
+  .nut-day a span{font-size:19px;line-height:1.1}
+  .nut-day a[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
+  body:has(.nut-day:not([hidden])){padding-bottom:68px}
+  body:has(.nut-day:not([hidden])) .toast{bottom:80px}
+  .nut-tim span,.nut-tim kbd{display:none}
+}
+.loc-audit{display:flex;gap:10px;align-items:center;padding:10px 16px 0}
+/* Hoàn tác */
+.toast{display:flex;align-items:center;gap:12px}.toast[hidden]{display:none}
+.toast-nut{border:0;background:transparent;color:var(--accent-soft);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;padding:2px 4px}
 .lp-nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 16px 10px}.lp-nav .lp-khoang{margin-left:6px;font-size:13px;color:var(--muted)}.lp-nav .lp-khoang b{color:var(--ink)}
 .g-bar.tt-neutral,.g-legend i.tt-neutral{background:var(--soft);color:var(--muted);border-color:var(--line)}
 .g-bar.tt-warn,.g-legend i.tt-warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
@@ -376,6 +414,7 @@ body.mua-noel main, body.mua-noel #khungBc{position:relative;z-index:1}
       <a href="#quy-trinh" data-v="quy-trinh">Quy trình mẫu</a>
       <a href="#thanh-vien" data-v="thanh-vien">Thành viên</a>
     </nav>
+    <button class="btn nut-tim" id="btnTim" type="button" hidden title="Tìm nhanh hoạt động, việc, chương trình, trang (Ctrl+K)" aria-label="Tìm nhanh">🔍 <span>Tìm nhanh</span> <kbd>Ctrl K</kbd></button>
     <button class="btn pri" id="btnNew" type="button" hidden>+ Tạo hoạt động</button>
     <button class="btn sm ghost" id="nutMua" type="button" hidden></button>
     <button class="btn sm ghost" id="nutMau" type="button" title="Đổi giao diện sáng / tối" aria-label="Đổi giao diện sáng / tối"></button>
@@ -389,6 +428,12 @@ body.mua-noel main, body.mua-noel #khungBc{position:relative;z-index:1}
 <main id="main"><div class="sk" aria-label="Đang tải dữ liệu"><div class="h4"><div class="k"></div><div class="k"></div><div class="k"></div><div class="k"></div></div><div class="k cao"></div><div class="k vua"></div></div></main>
 <div id="khungBc" hidden></div>
 <div id="modal"></div>
+<nav id="nutDay" class="nut-day" aria-label="Chuyển nhanh" hidden>
+  <a href="#tong-quan" data-nd="tong-quan"><span aria-hidden="true">☀</span>Hôm nay</a>
+  <a href="#lich-post" data-nd="lich-post"><span aria-hidden="true">🗓</span>Lịch post</a>
+  <a href="#lich-viec" data-nd="audit"><span aria-hidden="true">📍</span>Audit</a>
+  <a href="#bc-sell-in" data-nd="bao-cao"><span aria-hidden="true">📊</span>Báo cáo</a>
+</nav>
 <div id="toast" class="toast" hidden></div>
 
 <script src="cau-hinh.js"></script>
@@ -440,7 +485,7 @@ const chipChot = x => chotCua(x)?' <span class="pill chot" title="Có trong file
 const pillTtLp = x => { const r=ttCua(x); return r?`<span class="pill tt-${TT_LP_CLS[r.trang_thai]}">${TT_LP_TEN[r.trang_thai]}</span>`:'<span class="pill neutral" style="opacity:.7">Chưa cập nhật</span>'; };
 let lanTai = 0, loaded = false, authed = false, inflight = 0, reloadTimer = null, channel = null;
 let view = 'tong-quan', selectedId = null, pendingRender = false, notice = '';
-let filters = {q:'', nhan:'', kenh:'', tt:''}, calPerson = '';
+let filters = {q:'', nhan:'', kenh:'', tt:''}, calPerson = '', calAudit = false;
 let modal = null, authMode = 'login', authMsg = {err:'', ok:''};
 const main = document.getElementById('main');
 
@@ -454,7 +499,21 @@ function fd(s){ if(!s) return '—'; const [y,m,d]=s.split('-'); return d+'/'+m+
 const isOpen = s => s.trangThai==='chua' || s.trangThai==='dang' || s.trangThai==='cho';
 const isLate = s => isOpen(s) && s.han && s.han < todayStr();
 function moTaMoc(b){ const n=Number(b.soNgay||0); const moc=b.moc==='kt'?'ngày kết thúc':'ngày bắt đầu'; if(n===0) return 'Đúng '+moc; return (n<0? (-n)+' ngày trước ':n+' ngày sau ')+moc; }
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,4500); }
+function toast(msg){ if(choChot){ const c=choChot; choChot=null; c(); } const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,4500); }
+/* Thông báo có nút Hoàn tác: bấm trong 5 giây thì chạy hoanTac; hết 5 giây (hoặc có thông báo khác đè lên) thì chạy chot */
+let choChot=null;
+function toastHoanTac(msg, hoanTac, chot){
+  if(choChot){ const c=choChot; choChot=null; c(); }   // việc chờ trước đó: chốt luôn
+  const t=document.getElementById('toast'); t.innerHTML=''; const sp=document.createElement('span'); sp.textContent=msg;
+  const b=document.createElement('button'); b.type='button'; b.className='toast-nut'; b.textContent='Hoàn tác';
+  t.append(sp,b); t.hidden=false; clearTimeout(toast._t);
+  let xong=false; const ketThuc=()=>{ if(xong) return; xong=true; choChot=null; chot&&chot(); };
+  choChot=ketThuc;
+  b.onclick=()=>{ if(xong) return; xong=true; choChot=null; clearTimeout(toast._t); t.hidden=true; hoanTac(); };
+  toast._t=setTimeout(()=>{ t.hidden=true; ketThuc(); },5000);
+}
+window.addEventListener('pagehide', ()=>{ if(choChot){ const c=choChot; choChot=null; c(); } });
+const choXoa=new Set();   // id hoạt động / bước đang chờ xóa (trong 5 giây hoàn tác): tải lại dữ liệu không làm chúng hiện lại
 const myEmail = () => (session?.user?.email||'').toLowerCase();
 const me = () => members.find(m=>m.email===myEmail());
 const isManager = () => me()?.vai_tro==='quan_ly';
@@ -540,7 +599,7 @@ async function loadAll(){
     const g={}; bc.forEach(b=>(g[b.hoat_dong_id] ||= []).push(b));
     acts=hd.map(h=>({id:h.id, ten:h.ten, quyTrinhId:h.quy_trinh_id, quyTrinhTen:h.quy_trinh_ten, nhanId:h.nhan_hang_id, kenhId:h.he_thong_id,
       nhan:nameOf(nh,h.nhan_hang_id), kenh:nameOf(ht,h.he_thong_id), bd:h.ngay_bat_dau, kt:h.ngay_ket_thuc,
-      buoc:(g[h.id]||[]).sort(byThuTu).map(stepFromDb)}));
+      buoc:(g[h.id]||[]).sort(byThuTu).map(stepFromDb).filter(b=>!choXoa.has(b.id))})).filter(a=>!choXoa.has(a.id));
     if(notice.startsWith('Không tải')) notice='';
   }catch(e){ console.error(e); notice='Không tải được dữ liệu: '+errText(e); }
   await Promise.all([   // các nguồn độc lập: tải cùng lúc cho nhanh
@@ -606,7 +665,8 @@ main.addEventListener('focusout', ()=>setTimeout(()=>{ if(pendingRender){ pendin
 
 function setChrome(){
   const show=authed;
-  document.getElementById('nav').hidden=!show; document.getElementById('btnNew').hidden=!show||laKhach();
+  document.getElementById('nav').hidden=!show; document.getElementById('btnNew').hidden=!show||laKhach(); document.getElementById('btnTim').hidden=!show;
+  const nd=document.getElementById('nutDay'); if(nd) nd.hidden=!show||laKhach();
   document.querySelectorAll('#nav a[data-v="thanh-vien"], #thanhBen a[data-v="thanh-vien"]').forEach(a=>a.hidden=laKhach());
   if(window.thanhBen) thanhBen.hien(show);
   const who=document.getElementById('who'); who.hidden=!session;
@@ -693,7 +753,7 @@ function renderNow(){
   if(laKhach()) khoaChiXem(main);
   if(view!==viewTruoc){ viewTruoc=view; main.classList.remove('chuyen'); void main.offsetWidth; main.classList.add('chuyen'); clearTimeout(window.__chuyen); window.__chuyen=setTimeout(()=>main.classList.remove('chuyen'),700); }
   if(view==='tong-quan'){ demLen(); gonBang(); }
-  apCuonLp();
+  apCuonLp(); danhDauNutDay();
   moChao();
 }
 
@@ -847,7 +907,7 @@ function renderOverview(){
   const steps=allSteps(); const tinh=steps.filter(x=>x.s.trangThai!=='bo'); const xong=tinh.filter(x=>x.s.trangThai==='xong').length;
   const late=steps.filter(x=>isLate(x.s)).sort((p,q)=>p.s.han.localeCompare(q.s.han));
   const soon=steps.filter(x=>isOpen(x.s)&&x.s.han>=t&&x.s.han<=in7);
-  let h=renderKpi()+renderToi()+renderCanhBao()+(laKhach()?'':renderBaoCao10()+renderKiemSoatPo())+`<div class="tiles">
+  let h=(innerWidth<700?renderToi()+renderKpi():renderKpi()+renderToi())+renderCanhBao()+(laKhach()?'':renderBaoCao10()+renderKiemSoatPo())+`<div class="tiles">
     <div class="tile"><span>Hoạt động đang chạy</span><b>${running.length}</b><small>trên tổng ${acts.length} hoạt động</small></div>
     <div class="tile"><span>Tiến độ chung</span><b>${tinh.length?Math.round(xong*100/tinh.length):0}%</b><small>${xong}/${tinh.length} bước đã xong</small></div>
     <div class="tile ${late.length?'bad':''}"><span>Bước đang trễ hạn</span><b>${late.length}</b><small>chưa xong mà đã quá hạn</small></div>
@@ -956,12 +1016,20 @@ function renderToi(){
     const k=khoaTen(ten);
     const cua=allSteps().filter(x=>isOpen(x.s) && khoaTen(phuTrach(x.s))===k);
     const nhom=[['Trễ hạn','bad',x=>x.s.han&&x.s.han<t],['Hạn hôm nay','warn',x=>x.s.han===t],['7 ngày tới','info',x=>x.s.han>t&&x.s.han<=in7],['Chờ tôi duyệt','neutral',x=>x.s.trangThai==='cho']];
-    const ds=cua.filter(x=>x.s.trangThai==='cho' || (x.s.han && x.s.han<=in7)).sort((p,q)=>(p.s.han||'9').localeCompare(q.s.han||'9'));
+    const ds=cua.filter(x=>x.s.trangThai!=='cho' && x.s.han && x.s.han>t && x.s.han<=in7).sort((p,q)=>(p.s.han||'9').localeCompare(q.s.han||'9'));
     const tinhTrang=s=>s.trangThai==='cho'?'<span class="pill neutral">Chờ tôi duyệt</span>':!s.han?'':s.han<t?`<span class="pill bad">Trễ ${diff(s.han,t)} ngày</span>`:s.han===t?'<span class="pill warn">Hôm nay</span>':`<span class="pill info">Còn ${diff(t,s.han)} ngày</span>`;
+    // Hôm nay cần làm: việc trễ, hạn hôm nay, chờ tôi duyệt + mốc Lịch post đúng hôm nay
+    const homNay=cua.filter(x=>x.s.trangThai==='cho' || (x.s.han && x.s.han<=t)).sort((p,q)=>((p.s.han||'9')).localeCompare(q.s.han||'9'));
+    const mocHn=mocSapToi(t,0);
+    const nhanHn=s=>s.trangThai==='cho'?'<span class="pill neutral">Chờ tôi duyệt</span>':s.han<t?`<span class="pill bad">Trễ ${diff(s.han,t)} ngày</span>`:laBuocAuditCh(s)?'<span class="pill info">📍 Audit hôm nay</span>':'<span class="pill warn">Hạn hôm nay</span>';
+    h+=`<div class="hn"><h3>Hôm nay cần làm <span class="hn-so">${homNay.length+mocHn.length}</span></h3>${homNay.length||mocHn.length?`<ul class="hn-ds">${
+      homNay.slice(0,12).map(x=>`<li class="hn-muc"><div class="hn-chu">${nhanHn(x.s)}<b>${esc(x.s.ten)}</b><span class="sub">${esc(x.a.ten)}</span></div><div class="hn-nut">${nutPhieu(x.a,x.s)}<button class="btn sm" data-open="${esc(x.a.id)}" type="button">Xem</button>${nutXuLy(x.a,x.i,x.s)}</div></li>`).join('')
+    }${mocHn.map(m=>`<li class="hn-muc"><div class="hn-chu"><span class="pill ${m.loai==='Hạn đăng ký'?'bad':m.loai==='Bắt đầu PO giảm giá'?'ok':'neutral'}">${m.loai}</span><b>${esc(m.ht)}${m.nd?' · '+esc(m.nd):''}</b><span class="sub">Lịch post · chạy ${fd(m.tu)} – ${fd(m.den)}</span></div><div class="hn-nut">${m.lp?`<button class="btn sm" data-lp="${m.lp}" type="button">Xem</button>`:`<button class="btn sm" data-lp27="${esc(m.tao27)}" type="button">Xem</button>`}${m.hd.length?'':(m.tao27?`<button class="btn sm" data-tao27="${esc(m.tao27)}" type="button">Tạo CTKM</button>`:`<button class="btn sm" data-tao-lp="${m.lp}" type="button">Tạo CTKM</button>`)}</div></li>`).join('')}</ul>${homNay.length>12?`<p class="hint" style="margin:6px 0 0">Còn ${homNay.length-12} việc nữa, bấm “Xem tất cả việc của tôi”.</p>`:''}`
+      :'<div class="hn-xong">✓ Hôm nay không có việc trễ, việc đến hạn hay mốc Lịch post nào. Làm tốt lắm!</div>'}</div>`;
     h+=`<div class="toi-dem">${nhom.map(([n,cls,fn])=>`<span class="pill ${cls}">${cua.filter(fn).length} · ${n}</span>`).join('')}<button class="link" data-xem-lich type="button">Xem tất cả việc của tôi →</button></div>`;
-    h+= ds.length ? `<div class="scroll"><table><thead><tr><th>Hạn</th><th>Việc</th><th>Tình trạng</th><th></th></tr></thead><tbody>${
+    h+= ds.length ? `<div class="scroll"><table><thead><tr><th>Hạn (7 ngày tới)</th><th>Việc</th><th>Tình trạng</th><th></th></tr></thead><tbody>${
       ds.slice(0,12).map(x=>`<tr><td class="num" style="width:100px">${fd(x.s.han)}</td><td><b>${esc(x.s.ten)}</b><div class="sub">${esc(x.a.ten)}</div></td><td>${tinhTrang(x.s)}</td><td style="text-align:right;white-space:nowrap">${nutPhieu(x.a,x.s)} <button class="btn sm" data-open="${esc(x.a.id)}" type="button">Xem</button> ${nutXuLy(x.a,x.i,x.s)}</td></tr>`).join('')
-    }</tbody></table></div>${ds.length>12?`<p class="hint" style="padding:8px 16px 12px">Còn ${ds.length-12} việc nữa, bấm “Xem tất cả việc của tôi”.</p>`:''}` : `<div class="empty">Không có việc nào trễ, đến hạn trong 7 ngày hay chờ bạn duyệt.</div>`;
+    }</tbody></table></div>${ds.length>12?`<p class="hint" style="padding:8px 16px 12px">Còn ${ds.length-12} việc nữa, bấm “Xem tất cả việc của tôi”.</p>`:''}` : `<div class="empty">7 ngày tới chưa có việc nào đến hạn.</div>`;
   }
   const choSt=lichPost.filter(x=>ttCua(x)?.trang_thai==='da_dang_ky' && x.ngay_ket_thuc>=t).sort((a,b)=>a.ngay_bat_dau.localeCompare(b.ngay_bat_dau));
   if(choSt.length) h+=`<div class="cho-st"><h3>Đã đăng ký, siêu thị chưa duyệt (${choSt.length})</h3><div class="scroll"><table><thead><tr><th>Bắt đầu chạy</th><th>Còn</th><th>Hệ thống · nhãn</th><th>Nội dung</th><th>KAM đăng ký</th></tr></thead><tbody>${
@@ -1166,11 +1234,11 @@ function renderDetail(a){
 
 function renderCal(){
   const t=todayStr(), in7=addDays(t,7); const ppl=people();
-  const open=allSteps().filter(x=>isOpen(x.s) && (!calPerson || tenNguoi(phuTrach(x.s))===calPerson || (calPerson==='__none' && !tenNguoi(phuTrach(x.s)))))
+  const open=allSteps().filter(x=>isOpen(x.s) && (!calAudit || laBuocAuditCh(x.s)) && (!calPerson || tenNguoi(phuTrach(x.s))===calPerson || (calPerson==='__none' && !tenNguoi(phuTrach(x.s)))))
     .sort((p,q)=>(p.s.han||'9').localeCompare(q.s.han||'9'));
   const groups=[['Trễ hạn','bad',x=>x.s.han&&x.s.han<t],['Hôm nay','warn',x=>x.s.han===t],['7 ngày tới','info',x=>x.s.han>t&&x.s.han<=in7],['Sau 7 ngày','neutral',x=>!x.s.han||x.s.han>in7]];
   let h=`<section class="card"><div class="card-h"><h2>Lịch việc</h2><p>Tất cả bước chưa xong, xếp theo hạn. Bước chờ duyệt nằm ở người duyệt.</p></div>
-  <div class="filters"><select id="fnguoi" aria-label="Lọc theo người"><option value="">Tất cả mọi người</option>${ppl.map(p=>`<option value="${esc(p)}" ${calPerson===p?'selected':''}>${esc(p)}</option>`).join('')}<option value="__none" ${calPerson==='__none'?'selected':''}>Chưa giao người</option></select></div>`;
+  ${calAudit?'<div class="loc-audit"><span class="pill info">📍 Đang xem riêng lịch audit</span><button type="button" class="link" data-bo-audit>Xem mọi việc</button></div>':''}<div class="filters"><select id="fnguoi" aria-label="Lọc theo người"><option value="">Tất cả mọi người</option>${ppl.map(p=>`<option value="${esc(p)}" ${calPerson===p?'selected':''}>${esc(p)}</option>`).join('')}<option value="__none" ${calPerson==='__none'?'selected':''}>Chưa giao người</option></select></div>`;
   groups.forEach(([ten,cls,fn])=>{ const rows=open.filter(fn);
     h+=`<div class="group"><h3><span class="pill ${cls}">${rows.length}</span>${ten}</h3>${rows.length?`<div class="scroll"><table><tbody>${
       rows.map(x=>`<tr><td class="num" style="width:110px">${fd(x.s.han)}${x.s.han&&x.s.han<t?`<div class="sub late">Trễ ${diff(x.s.han,t)} ngày</div>`:''}</td><td><b>${esc(x.s.ten)}</b><div class="sub">${esc(x.a.ten)}</div></td><td>${esc(tenNguoi(phuTrach(x.s))||'Chưa giao')}${x.s.trangThai==='cho'?' <span class="sub">(duyệt)</span>':''}</td><td><span class="st-${x.s.trangThai}">${TT[x.s.trangThai]}</span></td><td style="text-align:right;white-space:nowrap">${nutPhieu(x.a,x.s)} <button class="btn sm" data-open="${esc(x.a.id)}" type="button">Xem</button> ${nutXuLy(x.a,x.i,x.s)}</td></tr>`).join('')
@@ -1227,6 +1295,10 @@ function gonBang(){
     (tb.closest('.scroll')||tb.closest('table')).after(nut);
   });
 }
+document.getElementById('nutDay').addEventListener('click', e=>{ const a=e.target.closest('[data-nd]'); if(!a) return; calAudit = a.dataset.nd==='audit'; if(calAudit && view==='lich-viec'){ e.preventDefault(); render(); } });
+main.addEventListener('click', e=>{ if(e.target.closest('[data-bo-audit]')){ calAudit=false; render(); } });
+function danhDauNutDay(){ const nd=document.getElementById('nutDay'); if(!nd) return; const v=String(view||'');
+  nd.querySelectorAll('a').forEach(a=>{ const k=a.dataset.nd, dung = k==='audit' ? (v==='lich-viec'&&calAudit) : k==='bao-cao' ? v.startsWith('bc-') : (k===v && !(v==='lich-viec')); a.setAttribute('aria-current', dung?'page':'false'); }); }
 main.addEventListener('click', e=>{ const b=e.target.closest('[data-xem-them]'); if(!b) return; const k=b.dataset.xemThem; moRong.has(k)?moRong.delete(k):moRong.add(k); render(); });
 function apCuonLp(){
   document.querySelectorAll('.lp-cuon').forEach(el=>{
@@ -1901,6 +1973,7 @@ function saveTpl(){
 function updateStep(id,i,field,val){
   const a=acts.find(x=>x.id===id); const s=a?.buoc[i]; if(!s) return;
   if((s[field]??'')===val) return;
+  const cuTT=s.trangThai;
   if(field==='ten' && !val.trim()){ toast('Tên bước không được để trống.'); return render(); }
   const patch={};
   if(field==='ten'){ s.ten=val.trim(); patch.ten=s.ten; }
@@ -1927,8 +2000,9 @@ function updateStep(id,i,field,val){
   }
   render();
   run('b'+s.id, ()=>sb.from('buoc_cong_viec').update(patch).eq('id',s.id));
-  if(field==='trangThai' && s.trangThai==='xong') toast((s.nguoiDuyet?'Đã duyệt: ':'Đã đánh dấu xong: ')+s.ten);
-  if(field==='trangThai' && s.trangThai==='cho') toast(`Đã gửi ${tenNguoi(s.nguoiDuyet)} duyệt: ${s.ten}`);
+  if(field==='trangThai' && (s.trangThai==='xong'||s.trangThai==='cho') && cuTT!==s.trangThai){
+    const msg = s.trangThai==='cho' ? `Đã gửi ${tenNguoi(s.nguoiDuyet)} duyệt: ${s.ten}` : (s.nguoiDuyet?'Đã duyệt: ':'Đã đánh dấu xong: ')+s.ten;
+    if(!s.nguoiDuyet || coQuyenDuyet(s)) toastHoanTac(msg, ()=>updateStep(id,i,'trangThai',cuTT)); else toast(msg); }
 }
 function moTraLai(id,i){
   const a=acts.find(x=>x.id===id); const s=a?.buoc[i]; if(!s) return;
@@ -1946,6 +2020,51 @@ function traLai(){
 
 /* ---------- xử lý trên trang ---------- */
 document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach()) openNew(); });
+/* Ô tìm nhanh: gõ để tìm hoạt động, việc, chương trình Lịch post, kỳ 2027 và các trang. Ctrl+K hoặc phím / để mở */
+const TRANG_TIM = [['Tổng quan','#tong-quan'],['Hoạt động','#hoat-dong'],['Lịch việc','#lich-viec'],['Lịch post','#lich-post'],['Lịch post 2027','#lich-post-2027'],
+  ['Báo cáo Sell-in','#bc-sell-in'],['Báo cáo Sell-out','#bc-sell-out'],['Baseline bán trơn','#bc-baseline'],['Giá bán & TVP thu về','#bc-gia'],['Quy trình mẫu','#quy-trinh'],['Thành viên','#thanh-vien']];
+let timDs=[], timChon=0;
+function dsTim(){
+  const t=todayStr(), r=[];
+  if(!laKhach()) r.push({loai:'Thao tác', ten:'+ Tạo hoạt động mới', phu:'Mở cửa sổ tạo hoạt động', mo:()=>openNew()});
+  TRANG_TIM.forEach(([ten,h])=>{ if(h==='#thanh-vien'&&laKhach()) return; r.push({loai:'Trang', ten, phu:'Mở trang', mo:()=>{ location.hash=h.slice(1); }}); });
+  acts.forEach(a=>r.push({loai:'Hoạt động', ten:a.ten, phu:[a.kenh,a.nhan,a.bd?fd(a.bd)+' – '+fd(a.kt):''].filter(Boolean).join(' · '), mo:()=>{ selectedId=a.id; view='hoat-dong'; if(location.hash!=='#hoat-dong') location.hash='hoat-dong'; render(); }}));
+  allSteps().filter(x=>isOpen(x.s)).forEach(x=>r.push({loai:'Việc', ten:x.s.ten, phu:[x.a.ten, x.s.han?(x.s.han<t?'trễ hạn '+fd(x.s.han):'hạn '+fd(x.s.han)):'', tenNguoi(phuTrach(x.s))].filter(Boolean).join(' · '), mo:()=>{ selectedId=x.a.id; view='hoat-dong'; if(location.hash!=='#hoat-dong') location.hash='hoat-dong'; render(); }}));
+  lichPost.forEach(x=>r.push({loai:'Lịch post', ten:dongDau(x.noi_dung)||x.chuoi, phu:[x.chuoi,x.nhan_hang,fd(x.ngay_bat_dau)+' – '+fd(x.ngay_ket_thuc)].filter(Boolean).join(' · '), mo:()=>moLp(x.id)}));
+  ky27().forEach(x=>r.push({loai:'Lịch post 2027', ten:[x.he_thong,x.ma_ky,x.chu_de].filter(Boolean).join(' · '), phu:fd(x.bd)+' – '+fd(x.kt), mo:()=>{ modal={type:'lp27', d:{ma:x.ma_dong, nhan:''}}; renderModal(); }}));
+  return r.map(o=>({...o, khoa:boDau(o.ten+' '+o.phu+' '+o.loai), khoaTen:boDau(o.ten)}));
+}
+function moTim(){
+  if(!authed || document.getElementById('timNhanh')) return;
+  timDs=dsTim(); timChon=0;
+  const el=document.createElement('div'); el.id='timNhanh'; el.className='tim-nen';
+  el.innerHTML='<div class="tim-hop" role="dialog" aria-modal="true" aria-label="Tìm nhanh"><div class="tim-o"><span aria-hidden="true">🔍</span><input id="timO" placeholder="Gõ tên hoạt động, việc, chương trình, hệ thống, trang…" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="timKq"><kbd>Esc</kbd></div><ul id="timKq" class="tim-kq" role="listbox"></ul><div class="tim-chan">↑ ↓ để chọn · Enter để mở · Esc để đóng</div></div>';
+  document.body.appendChild(el);
+  const o=el.querySelector('#timO'), ul=el.querySelector('#timKq');
+  const ve=()=>{ const q=boDau(o.value), tu=String(o.value||'').trim().split(/\s+/).map(boDau).filter(Boolean);
+    let kq=tu.length? timDs.filter(x=>tu.every(w=>x.khoa.includes(w))) : timDs.filter(x=>x.loai==='Thao tác'||x.loai==='Trang');
+    if(tu.length) kq.sort((a,b)=>(b.khoaTen.startsWith(q)-a.khoaTen.startsWith(q)) || (b.khoaTen.includes(q)-a.khoaTen.includes(q)));
+    kq=kq.slice(0,40); timChon=Math.min(timChon, Math.max(0,kq.length-1)); ul._kq=kq;
+    ul.innerHTML=kq.length?kq.map((x,i)=>`<li role="option" id="tim${i}" aria-selected="${i===timChon}" class="${i===timChon?'on':''}" data-tim="${i}"><span class="tim-loai">${esc(x.loai)}</span><span class="tim-ten">${esc(x.ten)}</span><span class="tim-phu">${esc(x.phu)}</span></li>`).join('')
+      :'<li class="tim-rong">Không tìm thấy. Thử gõ ít chữ hơn hoặc tên hệ thống, nhãn hàng.</li>';
+    o.setAttribute('aria-activedescendant', kq.length?'tim'+timChon:''); ul.querySelector('.on')?.scrollIntoView({block:'nearest'}); };
+  const dong=()=>{ el.remove(); };
+  const mo=i=>{ const x=ul._kq?.[i]; if(!x) return; dong(); x.mo(); };
+  o.addEventListener('input',()=>{ timChon=0; ve(); });
+  o.addEventListener('keydown',e=>{ const n=ul._kq?.length||0;
+    if(e.key==='ArrowDown'){ e.preventDefault(); timChon=(timChon+1)%Math.max(1,n); ve(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); timChon=(timChon-1+Math.max(1,n))%Math.max(1,n); ve(); }
+    else if(e.key==='Enter'){ e.preventDefault(); mo(timChon); }
+    else if(e.key==='Escape'){ e.preventDefault(); dong(); } });
+  ul.addEventListener('click',e=>{ const li=e.target.closest('[data-tim]'); if(li) mo(+li.dataset.tim); });
+  el.addEventListener('mousedown',e=>{ if(e.target===el) dong(); });
+  ve(); o.focus();
+}
+document.getElementById('btnTim').addEventListener('click', moTim);
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && (e.key==='k'||e.key==='K')){ e.preventDefault(); return moTim(); }
+  if(e.key==='/' && !e.ctrlKey && !e.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'') && !modal){ e.preventDefault(); moTim(); }
+});
 main.addEventListener('click', e=>{
   if(!authed) return;
   const kp=e.target.closest('[data-kpi-lp]'); if(kp){ lichLoc.tt=kp.dataset.kpiLp; }
@@ -1971,13 +2090,15 @@ main.addEventListener('click', e=>{
   if(t.dataset.gop!=null) return gopTen(+t.dataset.gop);
   if(t.dataset.delMember){ const em=t.dataset.delMember; return askConfirm('Xóa thành viên?', `${em} sẽ không còn xem và sửa được dữ liệu.`, 'Xóa', ()=>run('tv'+em,()=>sb.from('thanh_vien').delete().eq('email',em))); }
   if(t.dataset.delstep!=null){ const i=+t.dataset.delstep; const a=acts.find(x=>x.id===selectedId); if(!a) return; const s=a.buoc[i];
-    return askConfirm('Xóa bước này?', `“${s.ten}” sẽ bị xóa khỏi hoạt động.`, 'Xóa', ()=>{ a.buoc.splice(i,1); render(); run('b'+s.id,()=>sb.from('buoc_cong_viec').delete().eq('id',s.id)); }); }
+    a.buoc.splice(i,1); choXoa.add(s.id); render();
+    return toastHoanTac(`Đã xóa bước “${s.ten}”.`, ()=>{ choXoa.delete(s.id); a.buoc.splice(Math.min(i,a.buoc.length),0,s); render(); }, ()=>{ Promise.resolve(run('b'+s.id,()=>sb.from('buoc_cong_viec').delete().eq('id',s.id))).finally(()=>setTimeout(()=>choXoa.delete(s.id),3000)); }); }
   if(t.dataset.suaQt){ const tp=templates.find(x=>x.id===t.dataset.suaQt); modal={type:'tpl', d:Object.assign({moTa:''},clone(tp))}; return renderModal(); }
   const act=t.dataset.act; const a=acts.find(x=>x.id===selectedId);
   if(act==='back'){ selectedId=null; if(location.hash!=='#hoat-dong') history.replaceState(null,'','#hoat-dong'); render(); }
   if(act==='them-buoc' && a){ const tt=Math.max(0,...(a.buoc||[]).map(b=>b.thuTu||0))+1; run('hd'+a.id,()=>sb.from('buoc_cong_viec').insert({hoat_dong_id:a.id, thu_tu:tt, ten:'Bước mới', han:a.bd||null})); }
   if(act==='sua-hd' && a){ modal={type:'edit', d:{id:a.id, ten:a.ten, nhan:a.nhanId!=null?String(a.nhanId):'', kenh:a.kenhId!=null?String(a.kenhId):'', bd:a.bd, kt:a.kt, re:false}}; renderModal(); }
-  if(act==='xoa-hd' && a){ askConfirm('Xóa hoạt động?', `“${a.ten}” và toàn bộ tiến độ các bước sẽ bị xóa, không khôi phục được.`, 'Xóa', ()=>{ acts=acts.filter(x=>x.id!==a.id); selectedId=null; render(); run('hd'+a.id,()=>sb.from('hoat_dong').delete().eq('id',a.id)); }); }
+  if(act==='xoa-hd' && a){ const vt=acts.indexOf(a); acts=acts.filter(x=>x.id!==a.id); choXoa.add(a.id); selectedId=null; render();
+    toastHoanTac(`Đã xóa hoạt động “${a.ten}”.`, ()=>{ choXoa.delete(a.id); acts.splice(Math.min(vt,acts.length),0,a); selectedId=a.id; view='hoat-dong'; render(); }, ()=>{ run('hd'+a.id,()=>sb.from('hoat_dong').delete().eq('id',a.id)); }); }
   if(act==='tao-qt'){ modal={type:'tpl', d:{ten:'',moTa:'',buoc:[{ten:'',vaiTro:'Trade MKT',moc:'bd',soNgay:-7,ketQua:'',nguoiLam:'',nguoiDuyet:''}]}}; renderModal(); }
   if(act==='them-tv'){ const ten=document.getElementById('mTen').value.trim(), em=document.getElementById('mEmail').value.trim().toLowerCase(), vt=document.getElementById('mRole').value;
     if(!ten||!/^\S+@\S+\.\S+$/.test(em)) return toast('Hãy nhập họ tên và email hợp lệ.');
