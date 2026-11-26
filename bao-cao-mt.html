@@ -81,6 +81,8 @@ button.ss-tag{cursor:pointer}button.ss-tag.chon{outline:2px solid currentColor;o
 .ss-tl b{position:relative;font-weight:600}
 .ss-chua{color:var(--color-fg-muted);font-style:italic}
 #t-ss-sp tfoot td{font-weight:700;border-top:2px solid var(--color-border-line);position:sticky;bottom:0;background:var(--color-bg)}
+#t-ss-ch.ss-an-vao th:nth-child(2),#t-ss-ch.ss-an-vao td:nth-child(2){display:none}
+#t-ss-ch.ss-an-vao th:nth-child(4),#t-ss-ch.ss-an-vao td:nth-child(4){display:none}
 </style>
 </head>
 <body>
@@ -2098,8 +2100,8 @@ function drawSS() {
   document.querySelector('#t-ss-ch tbody').replaceChildren(...rowsCh.map((x) => { const t = document.createElement('tr');
     t.append(td(x.cua_hang, 'l'), td(x.vao == null ? '—' : vi(x.vao)), td(vi(x.ban)), td(oTyLe(x.ty_le)), td(vi(x.bq, x.bq < 10 ? 1 : 0)), td(x.ton == null ? '—' : vi(x.ton)), td(x.ngay_ton == null ? '—' : vi(x.ngay_ton), x.ngay_ton != null && x.ngay_ton < 14 ? 'sv-down' : ''), td(x.ton == null ? '—' : vi(x.so_ma_het), x.so_ma_het ? 'sv-down' : ''), td(oTin(x.tin), 'l'));
     return t; }));
-  document.getElementById('ss-ch-note').textContent = `${G.ch.length} siêu thị có số bán ra. ${coVaoSi ? 'Số TVP giao vào chưa chia được theo từng siêu thị của ' + ht + ' nên cột Giao vào để trống.' : 'Giao vào = hàng nhập trong kỳ đếm của từng siêu thị.'} "Mã hết hàng" = số mã tồn cuối bằng 0.`;
-  ['ss-tin', 'ss-q'].forEach(() => {});
+  document.getElementById('ss-ch-note').textContent = `${G.ch.length} siêu thị có số bán ra. ${coVaoSi ? 'Số TVP giao vào của ' + ht + ' chưa chia được theo từng siêu thị nên bảng này chỉ có bán ra và tồn.' : 'Giao vào = hàng nhập trong kỳ đếm của từng siêu thị.'} "Mã hết hàng" = số mã tồn cuối bằng 0.`;
+  document.getElementById('t-ss-ch').classList.toggle('ss-an-vao', coVaoSi);   // Co.op, Emart: chưa có giao vào theo từng siêu thị -> ẩn 2 cột trống
 }
 function veSSChart(el, ds, chon, kyTen) {
   el.replaceChildren(); el.classList.remove('dash-skeleton'); if (!ds.length) return;
