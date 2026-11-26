@@ -221,6 +221,8 @@ Mỗi bước “Audit: cửa hàng · hệ thống · giờ” (tạo từ mẫ
 
 ## Lịch post (lịch CTKM theo siêu thị)
 
+**Lịch post 2027 đã gỡ (26/11/2026)**: không còn trong menu, không tải, không hiện ở mốc Tổng quan / tìm nhanh; link cũ `#lich-post-2027` và `lich-post-2027.html` chuyển về Lịch post. Dữ liệu vẫn giữ ở `bo_so_tinh_san` bộ `lich_post_2027` (code vẽ trang còn trong index.html, bật lại được).
+
 **Xem theo năm, kéo ngang**: chọn Năm 2026 / Năm 2027 (các năm có lịch); cả 12 tháng của năm nằm trên một dải, màn hình thấy 3 tháng (đổi được 6 hoặc 12). Kéo ngang bằng chuột, vuốt, Shift + lăn chuột, hoặc nút ◀ ▶ (mỗi lần 1 tháng), nút Hôm nay về tháng hiện tại. Cột tên chuỗi · nhãn đứng yên khi kéo. Trang Lịch post 2027 dùng cùng cách xem, mở sẵn năm 2027.
 
 **Đã chốt CTKM**: file Google Sheet *CẬP NHẬT CTKM KÊNH MT 2026* (mỗi tháng 1 tab T11.2026…) là CTKM chuẩn. Script `dongBoDuLieu` đọc file này (`docCtkm`, khóa `CTKM_SHEET_ID`) vào bộ số `ctkm_chot`. Chương trình Lịch post khớp cùng hệ thống, cùng brand và ngày chạy NTD trùng ít nhất 50% thì có dấu **◆ Đã chốt CTKM** (thanh có viền nhấn, chip ở bảng, ô lọc riêng). Cửa sổ chương trình hiện kỳ, thời gian PO giảm giá, thời gian giảm giá NTD và bảng sản phẩm: cơ cấu KM, giá thường, giá CK, FC số bán.
