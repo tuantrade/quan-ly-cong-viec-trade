@@ -193,6 +193,9 @@ Mỗi sáng (khoảng 7h–8h, trừ Chủ nhật), một script Google gửi th
 ## Tạo hoạt động theo mẫu Audit
 Khi chọn quy trình mẫu có chữ “Audit”, cửa sổ **Tạo hoạt động mới** bỏ ô nhãn hàng, kênh, ngày bắt đầu, ngày kết thúc và thay bằng khung **Lịch audit**: mỗi dòng gồm hệ thống, tên cửa hàng (gõ để chọn từ danh sách điểm nhận hàng có sell-in 4 tháng gần nhất, hoặc gõ tên mới), ngày, giờ audit; nút **＋ Thêm lịch audit** để thêm dòng. Tạo 1 lần ra 1 hoạt động: bước “Đi audit tại điểm bán” của mẫu được tách thành 1 bước cho mỗi lịch (tên “Audit: cửa hàng · hệ thống · giờ”, hạn = ngày audit), các bước khác tính hạn theo ngày audit đầu tiên / cuối cùng. Leader giao người ở ô vai trò là mọi bước đi theo người đó.
 
+## Hạn mức tự quyết (Trang làm việc, `#han-muc`)
+Theo Tờ trình 01/TTr-TM ngày 01/10/2026. **Dữ liệu không nằm trong code** (kho công khai): lưu ở bảng `tai_lieu_noi_bo`, khóa `han_muc_tu_quyet`, chỉ quản lý / thành viên đọc (khách và người chưa đăng nhập không đọc được), chỉ quản lý sửa. Trang gồm: trading term 6 hệ thống; kiểm tra nhanh (hệ thống + sản phẩm + % định giảm → trong hạn mức / vượt / KTQ / không kinh doanh / có lưu ý nên trình); bảng mức 27 sản phẩm × 6 hệ thống (lọc brand, tìm); cơ chế riêng GO/Big C (hệ số hòa vốn, nâng mức T+14); điều kiện áp dụng và lưu ý mục VII. 5 mã có lưu ý mục VII (Gungon xốt tiêu xanh, xốt kim quất mơ rừng, bột trứng muối; Má Bảy tôm kho, cá kho) mặc định “nên trình duyệt”. Cửa sổ chương trình Lịch post, phần CTKM đã chốt, có cột **Hạn mức tự quyết** so cơ cấu KM (0.08 = 8%) với bảng.
+
 ## Dùng nhanh
 - **Tìm nhanh (Ctrl+K hoặc phím /, nút 🔍 trên đầu)**: gõ để tìm hoạt động, việc đang mở, chương trình Lịch post, kỳ Lịch post 2027, các trang; ↑ ↓ chọn, Enter mở.
 - **Hôm nay cần làm** (đầu khung Việc của tôi ở Tổng quan; điện thoại xếp lên trên cùng): việc trễ, hạn hôm nay, chờ tôi duyệt, lịch audit hôm nay, mốc Lịch post đúng hôm nay, có nút làm ngay. Bảng bên dưới chỉ còn việc 7 ngày tới.

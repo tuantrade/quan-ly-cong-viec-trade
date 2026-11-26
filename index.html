@@ -303,6 +303,33 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)}
   .bct-phan{break-inside:avoid}.bct .scroll{overflow:visible!important}
   .bct table{font-size:11px}
 }
+/* Hạn mức tự quyết */
+.hm-ht{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;padding:0 16px 14px}
+.hm-the{display:grid;gap:2px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface);font:inherit;color:var(--ink);cursor:pointer;transition:border-color .15s,transform .15s}
+.hm-the:hover{border-color:var(--accent);transform:translateY(-1px)}.hm-the.chon{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent-soft) 40%,var(--surface))}
+.hm-the b{font-size:14px}.hm-the span{font-size:13px;font-weight:700;color:var(--accent)}.hm-the small{font-size:11.5px;color:var(--muted);line-height:1.35}
+.hm-md{padding:0 16px 14px}.hm-md summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--muted)}.hm-md p,.hm-md li{font-size:13.5px;line-height:1.55}
+.hm-kt{display:grid;grid-template-columns:180px minmax(0,1fr) 140px;gap:10px;padding:0 16px 12px;align-items:end}
+.hm-kt label{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}.hm-kt select,.hm-kt input{min-width:0;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+.hm-kq{margin:0 16px 16px;padding:12px 14px;border-radius:12px;display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line)}
+.hm-kq.rong{color:var(--muted);display:block}
+.hm-kq b{font-size:15px}.hm-kq p{margin:4px 0 0;font-size:13.5px;line-height:1.5}
+.hm-kq-icon{flex:0 0 auto;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;background:var(--muted)}
+.hm-kq.trong{background:var(--ok-soft);border-color:transparent}.hm-kq.trong .hm-kq-icon{background:var(--ok)}
+.hm-kq.vuot,.hm-kq.ktq{background:var(--bad-soft);border-color:transparent}.hm-kq.vuot .hm-kq-icon,.hm-kq.ktq .hm-kq-icon{background:var(--bad)}
+.hm-kq.trinh{background:var(--warn-soft);border-color:transparent}.hm-kq.trinh .hm-kq-icon{background:var(--warn)}
+.hm-kq.muc{background:var(--info-soft);border-color:transparent}.hm-kq.muc .hm-kq-icon{background:var(--info)}
+.hm-dk{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}.hm-go-1{color:var(--ink)}
+.hm-o{display:inline-block;min-width:44px;text-align:center;padding:2px 8px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.hm-o.co{background:var(--ok-soft);color:var(--ok)}.hm-o.ktq,.hm-o.vuot{background:var(--bad-soft);color:var(--bad)}.hm-o.trinh{background:var(--warn-soft);color:var(--warn)}.hm-o.khong{color:var(--muted);font-weight:400}
+.hm-o sup{font-size:9px;margin-left:1px}.hm-chu{margin-left:4px;cursor:help;color:var(--warn)}
+.hm-bang th.chon,.hm-bang td.chon{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}.hm-bang th[data-hm-ht]{cursor:pointer}
+.hm-bang tr[data-hm-sp]{cursor:pointer}.hm-bang tr.chon td{box-shadow:inset 0 1px 0 var(--accent),inset 0 -1px 0 var(--accent)}
+.hm-bang .hm-nhom td{background:var(--soft);font-weight:700;padding-top:6px;padding-bottom:6px}
+.hm-br{display:flex;flex-wrap:wrap;gap:6px}.hm-chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink)}.hm-chip.chon{border-color:var(--accent);background:var(--accent-soft)}
+.hm-than{padding:4px 16px 12px}.hm-than p{margin:0 0 8px;font-size:13.5px;line-height:1.55}
+.hm-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 16px 16px}.hm-2 h3{font-size:14px;margin:0 0 6px}.hm-2 li{font-size:13.5px;line-height:1.5;margin-bottom:4px}
+@media (max-width:760px){ .hm-kt{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .hm-kt-sp{grid-column:1 / -1;order:-1} .hm-2{grid-template-columns:1fr} }
 .lp-nav{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 16px 10px}.lp-nav .lp-khoang{margin-left:6px;font-size:13px;color:var(--muted)}.lp-nav .lp-khoang b{color:var(--ink)}
 .g-bar.tt-neutral,.g-legend i.tt-neutral{background:var(--soft);color:var(--muted);border-color:var(--line)}
 .g-bar.tt-warn,.g-legend i.tt-warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
@@ -461,7 +488,7 @@ const TT_DB = {chua:'chua_lam', dang:'dang_lam', cho:'cho_duyet', xong:'xong', b
 const TT_APP = {chua_lam:'chua', dang_lam:'dang', cho_duyet:'cho', xong:'xong', khong_ap_dung:'bo'};
 const MOC_DB = {bd:'bat_dau', kt:'ket_thuc'}, MOC_APP = {bat_dau:'bd', ket_thuc:'kt'};
 const TTHD = {chuabd:['Chưa bắt đầu','neutral'], dangchay:['Đang chạy','info'], tre:['Có việc trễ','bad'], hoanthanh:['Hoàn thành','ok']};
-const VIEWS = ['bao-cao-tuan','tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','bc-sell-in','bc-sell-out','bc-so-sanh','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
+const VIEWS = ['han-muc','bao-cao-tuan','tong-quan','hoat-dong','lich-viec','lich-post','gia','quy-trinh','thanh-vien','bc-sell-in','bc-sell-out','bc-so-sanh','bc-baseline','bc-gia'];   // bc-*: Trang báo cáo, mở bao-cao-mt.html ngay trong app
 
 let sb = null, session = null, members = [], NH = [], HT = [], templates = [], acts = [];
 let giaBan = [], giaLoc = {ht:'', nhan:''};
@@ -764,6 +791,7 @@ function renderNow(){
   else if(view==='lich-post-2027') html+=renderLichPost27();
   else if(view==='gia') html+=renderGia();
   else if(view==='bao-cao-tuan') html+=renderBaoCaoTuan();
+  else if(view==='han-muc') html+=renderHanMuc();
   else if(view==='quy-trinh') html+=renderTpls();
   else if(view==='thanh-vien') html+=renderMembers();
   else html+=renderOverview();
@@ -967,6 +995,69 @@ function renderBaoCaoTuan(){
       ${tre.length?`<div class="scroll"><table><thead><tr><th>Bước trễ</th><th>Hoạt động</th><th>Người làm</th><th class="num">Hạn</th></tr></thead><tbody>${tre.sort((a,b)=>a.s.han.localeCompare(b.s.han)).slice(0,10).map(x=>`<tr><td>${esc(x.s.ten)}</td><td>${esc(x.a.ten)}</td><td>${esc(tenNguoi(phuTrach(x.s))||'Chưa giao')}</td><td class="num late">${fd(x.s.han)}</td></tr>`).join('')}</tbody></table></div>`:''}</div>
     <div class="bct-phan"><h3>4. Audit tại điểm bán</h3>${phieu.length?`<div class="bct-so"><div><span>Phiếu audit trong tuần</span><b>${phieu.length}</b><small>cửa hàng</small></div><div><span>Tỷ lệ có hàng trên kệ</span><b>${co+het?(Math.round(co/(co+het)*1000)/10).toLocaleString('vi-VN')+'%':'—'}</b><small>${co} lượt có hàng, ${het} lượt hết</small></div><div><span>Ghi nhận đối thủ</span><b>${phieu.filter(p=>(p.doi_thu||[]).length).length}</b><small>cửa hàng</small></div></div>`:'<div class="empty">Không có phiếu audit nào trong tuần.</div>'}</div>
     <div class="bct-phan"><h3>5. Cảnh báo sụt giảm</h3>${cb.length?`<div class="scroll"><table><thead><tr><th>Loại</th><th>Chuỗi</th><th>Nhãn</th><th class="num">Kỳ này</th><th class="num">Kỳ trước</th><th class="num">Thay đổi</th></tr></thead><tbody>${cb.map(r=>`<tr><td>${r.loai==='sell_in'?'Sell-in':'Sell-out'}</td><td>${esc(r.chuoi)}</td><td>${brTag(r.nhan_hang)}</td><td class="num">${r.loai==='sell_in'?tien(+r.nay):Math.round(+r.nay).toLocaleString('vi-VN')}</td><td class="num">${r.loai==='sell_in'?tien(+r.truoc):Math.round(+r.truoc).toLocaleString('vi-VN')}</td><td class="num giam">${Math.round(r.thay_doi*100)}%</td></tr>`).join('')}</tbody></table></div><p class="hint">Kỳ so sánh theo cảnh báo ở trang Tổng quan (${fd(cb[0].tu_ngay)} – ${fd(cb[0].den_ngay)} so với cùng số ngày kỳ trước).</p>`:'<div class="empty">Không có cảnh báo sụt giảm.</div>'}</div>
+  </section>`;
+}
+/* ===== HẠN MỨC TỰ QUYẾT (Tờ trình 01/TTr-TM): dữ liệu ở bảng tai_lieu_noi_bo, chỉ thành viên đọc ===== */
+let hanMuc = null, hmLoc = {ht:'coop', sp:'', pct:'', br:'', q:''};
+function taiHanMuc(){
+  if(hanMuc) return; hanMuc={dang:true};
+  sb.from('tai_lieu_noi_bo').select('du_lieu,luc').eq('khoa','han_muc_tu_quyet').maybeSingle()
+    .then(r=>{ hanMuc = r.error ? {loi:errText(r.error)} : r.data ? {...r.data.du_lieu, luc:r.data.luc} : {loi:'Chưa có bảng hạn mức'}; })
+    .catch(e=>{ hanMuc={loi:errText(e)}; }).finally(()=>{ if(view==='han-muc') schedule(); if(modal?.type==='lp') rerenderKeepScroll(); });
+}
+const HM_KHONG='Không kinh doanh tại hệ thống này (theo tờ trình)';
+const chuHm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+// Xét một mức giảm: trả về {muc, loai: 'trong'|'vuot'|'ktq'|'khong'|'trinh', cau}
+function xetHanMuc(sp, ht, pct){
+  const H=hanMuc, he=(H.he_thong||[]).find(h=>h.k===ht), m=sp?.muc?.[ht];
+  if(!sp) return null;
+  if(m==null) return {muc:null, loai:'khong', cau:HM_KHONG};
+  if(m==='KTQ') return {muc:'KTQ', loai:'ktq', cau:'Không tự quyết: trình duyệt từng chương trình theo quy trình hiện hành.'};
+  const p=pct===''||pct==null?null:+String(pct).replace(',','.');
+  if(sp.nen_trinh) return {muc:m, loai:'trinh', cau:`Bảng ghi tối đa ${m}%, nhưng ${sp.luu_y.replace(/^Mục VII\.\d: /,'')} Nên trình duyệt.`};
+  if(p==null) return {muc:m, loai:'muc', cau:`Mức tối đa Trade tự quyết: ${m}% trên giá sell-in chưa VAT${he?` (trading term ${he.tt}%)`:''}.`};
+  if(p<=m) return {muc:m, loai:'trong', cau:`Giảm ${p}% ≤ mức tối đa ${m}%: Trade được tự quyết.`};
+  return {muc:m, loai:'vuot', cau:`Giảm ${p}% vượt mức tối đa ${m}%: phải trình duyệt theo quy trình hiện hành.`};
+}
+const hmO = (m, sp, ht) => { const luuY=sp.luu_y?`<span class="hm-chu" title="${esc(sp.luu_y)}">⚠</span>`:'', go=ht==='go'&&m!=null&&m!=='KTQ'?'<sup title="Theo cơ chế riêng tại GO/Big C (mục V)">*</sup>':'';
+  return m==null?'<span class="hm-o khong" title="'+HM_KHONG+'">–</span>':m==='KTQ'?'<span class="hm-o ktq" title="Không tự quyết">KTQ</span>':`<span class="hm-o ${sp.nen_trinh?'trinh':'co'}">${m}%${go}</span>${luuY}`; };
+function renderHanMuc(){
+  if(laKhach()) return '<section class="card"><div class="card-h"><h2>Hạn mức tự quyết</h2></div><div class="empty">Trang này chỉ dành cho thành viên trong nhóm.</div></section>';
+  taiHanMuc();
+  if(!hanMuc||hanMuc.dang) return '<section class="card"><div class="card-h"><h2>Hạn mức tự quyết</h2></div><div class="empty">Đang tải bảng hạn mức…</div></section>';
+  if(hanMuc.loi) return `<section class="card"><div class="card-h"><h2>Hạn mức tự quyết</h2></div><div class="empty">Chưa đọc được bảng hạn mức: ${esc(hanMuc.loi)}</div></section>`;
+  const H=hanMuc, L=hmLoc, hts=H.he_thong||[], sps=H.sp||[], vb=H.van_ban||{};
+  const sp=sps.find(x=>x.ma===L.sp), kq=sp?xetHanMuc(sp,L.ht,L.pct):null, heChon=hts.find(h=>h.k===L.ht);
+  const brs=[...new Set(sps.map(x=>x.brand))], q=chuHm(L.q);
+  const loc=sps.filter(x=>(!L.br||x.brand===L.br)&&(!q||chuHm(x.ten+' '+x.ma).includes(q)));
+  const goDs=(H.go&&H.go.ds)||[], goSp=sp&&L.ht==='go'?goDs.find(g=>g.ma===sp.ma):null;
+  const vnd=v=>Math.round(+v).toLocaleString('vi-VN');
+  return `<section class="card hm"><div class="card-h"><div><h2>Hạn mức Trade MKT tự quyết giảm giá · kênh MT</h2><p>Theo Tờ trình ${esc(vb.so||'')} ngày ${fd(vb.ngay)} · ${esc(vb.trang_thai||'')}. Mức là % giảm tối đa trên giá sell-in chưa VAT, chỉ áp cho <b>giảm giá trực tiếp</b>.</p></div></div>
+    <div class="hm-ht">${hts.map(h=>`<button type="button" class="hm-the ${h.k===L.ht?'chon':''}" data-hm-ht="${h.k}" title="${esc(h.cach)}"><b>${esc(h.ten)}</b><span>Trading term ${String(h.tt).replace('.',',')}%</span><small>${esc(h.cach)}</small></button>`).join('')}</div>
+    <details class="hm-md"><summary>Mục đích và nguyên tắc xác định mức</summary><p>${esc(H.muc_dich||'')}</p><ol>${(H.nguyen_tac||[]).map(t=>`<li>${esc(t)}</li>`).join('')}</ol></details>
+  </section>
+  <section class="card hm"><div class="card-h"><div><h2>Kiểm tra nhanh một mức giảm</h2><p>Chọn hệ thống, sản phẩm, gõ % định giảm: biết ngay được tự quyết hay phải trình duyệt.</p></div></div>
+    <div class="hm-kt">
+      <label>Hệ thống<select id="hmHt">${hts.map(h=>`<option value="${h.k}" ${h.k===L.ht?'selected':''}>${esc(h.ten)}</option>`).join('')}</select></label>
+      <label class="hm-kt-sp">Sản phẩm<select id="hmSp"><option value="">Chọn sản phẩm…</option>${brs.map(b=>`<optgroup label="${esc(b)}">${sps.filter(x=>x.brand===b).map(x=>`<option value="${esc(x.ma)}" ${x.ma===L.sp?'selected':''}>${esc(x.ten.replace(/\s*\(.*\)\s*$/,''))}${x.muc[L.ht]==null?' · không kinh doanh':x.muc[L.ht]==='KTQ'?' · KTQ':' · tối đa '+x.muc[L.ht]+'%'}</option>`).join('')}</optgroup>`).join('')}</select></label>
+      <label class="hm-kt-pct">Định giảm (%)<input id="hmPct" type="number" inputmode="decimal" min="0" max="100" step="0.5" value="${esc(L.pct)}" placeholder="VD: 12"></label>
+    </div>
+    ${kq?`<div class="hm-kq ${kq.loai}"><span class="hm-kq-icon">${{trong:'✓',vuot:'✕',ktq:'✕',khong:'–',trinh:'⚠',muc:'ℹ'}[kq.loai]}</span><div><b>${{trong:'Trong hạn mức: Trade được tự quyết',vuot:'Vượt hạn mức: phải trình duyệt',ktq:'Không tự quyết: phải trình duyệt',khong:'Không áp dụng',trinh:'Có lưu ý: nên trình duyệt',muc:'Mức tối đa '+kq.muc+'%'}[kq.loai]}</b><p>${esc(kq.cau)}</p>
+      ${goSp?`<p class="hm-go-1">GO/Big C, cơ chế tổng lãi gộp: lãi/sp không KM ${vnd(goSp.lai_khong_km)}đ → sau KM ${goSp.de_xuat}% còn ${vnd(goSp.lai_sau_km)}đ. Sell-out cần tăng ≥ <b>${String(goSp.he_so).replace('.',',')} lần</b> để giữ nguyên tổng lãi gộp; nghiệm thu T+14.</p>`:''}
+      ${kq.loai==='trong'?`<ul class="hm-dk"><li>Giảm giá trực tiếp trên giá sell-in (không phải tặng kèm, combo, hỗ trợ trưng bày)</li><li>Chương trình tối đa 4 tuần</li><li>Phiếu CTKM có sell-out 4 tuần trước chương trình làm cơ sở</li><li>Báo cáo kết quả gửi Giám đốc trong 10 ngày sau khi kết thúc</li></ul>`:''}</div></div>`:'<div class="hm-kq rong">Chọn một sản phẩm để xem mức tự quyết.</div>'}
+  </section>
+  <section class="card hm"><div class="card-h"><div><h2>Bảng mức tối đa theo hệ thống</h2><p>${sps.length} sản phẩm × ${hts.length} hệ thống. <span class="hm-o co">12%</span> được tự quyết đến mức này · <span class="hm-o ktq">KTQ</span> không tự quyết · <span class="hm-o khong">–</span> không kinh doanh · <span class="hm-o trinh">9%</span> có lưu ý, nên trình duyệt · <sup>*</sup> GO/Big C theo cơ chế riêng. Cột đậm là hệ thống đang chọn.</p></div></div>
+    <div class="filters"><div class="hm-br">${['',...brs].map(b=>`<button type="button" class="hm-chip ${L.br===b?'chon':''}" data-hm-br="${esc(b)}">${b?brTag(b):'Tất cả brand'}</button>`).join('')}</div><input id="hmQ" placeholder="Tìm sản phẩm hoặc mã" value="${esc(L.q)}"></div>
+    <div class="scroll"><table class="hm-bang"><thead><tr><th>Sản phẩm</th>${hts.map(h=>`<th class="n ${h.k===L.ht?'chon':''}" data-hm-ht="${h.k}" title="Bấm để chọn hệ thống">${esc(h.ten)}<div class="sub">TT ${String(h.tt).replace('.',',')}%</div></th>`).join('')}</tr></thead><tbody>${
+      loc.map((x,i)=>`${i===0||loc[i-1].brand!==x.brand?`<tr class="hm-nhom"><td colspan="${hts.length+1}">${brTag(x.brand)}</td></tr>`:''}<tr class="${x.ma===L.sp?'chon':''}" data-hm-sp="${esc(x.ma)}"><td><b>${esc(x.ten.replace(/\s*\(.*\)\s*$/,''))}</b><div class="sub">${esc(x.ma)}${x.ten.match(/\(.*\)/)?' · '+esc(x.ten.match(/\((.*)\)/)[1]):''}</div></td>${hts.map(h=>`<td class="n ${h.k===L.ht?'chon':''}">${hmO(x.muc[h.k],x,h.k)}</td>`).join('')}</tr>`).join('')
+    }</tbody></table></div>
+  </section>
+  ${H.go?`<section class="card hm"><div class="card-h"><div><h2>Cơ chế riêng tại GO/Big C</h2><p>${esc(H.go.ly_do)}</p></div></div>
+    <div class="hm-than"><p>${esc(H.go.co_che)}</p></div>
+    <div class="scroll"><table><thead><tr><th>Sản phẩm</th><th class="n">Lãi/sp không KM</th><th class="n">Trước đây</th><th class="n">Mức tự quyết</th><th class="n">Hệ số hòa vốn</th><th class="n">Lãi/sp sau KM</th></tr></thead><tbody>${goDs.map(g=>`<tr><td><b>${esc(g.ten)}</b><div class="sub">${esc(g.ma)}</div></td><td class="n">${vnd(g.lai_khong_km)}đ</td><td class="n muted">${esc(g.hien_tai)}</td><td class="n"><span class="hm-o co">${g.de_xuat}%</span></td><td class="n"><b>${String(g.he_so).replace('.',',')} lần</b></td><td class="n">${vnd(g.lai_sau_km)}đ</td></tr>`).join('')}</tbody></table></div>
+    <div class="hm-than"><p><b>Nâng mức theo kết quả.</b> ${esc(H.go.nang_muc.replace(/^Nâng cấp theo kết quả: /,''))}</p><p><b>Đàm phán.</b> ${esc(H.go.dam_phan.replace(/^Đàm phán song song: /,''))}</p></div></section>`:''}
+  <section class="card hm"><div class="card-h"><h2>Điều kiện áp dụng và lưu ý của Giám đốc</h2></div>
+    <div class="hm-2"><div><h3>Điều kiện áp dụng</h3><ol>${(H.dieu_kien||[]).map(t=>`<li>${esc(t)}</li>`).join('')}</ol></div><div><h3>Các vấn đề kính trình Giám đốc lưu ý</h3><ol>${(H.luu_y||[]).map(t=>`<li>${esc(t)}</li>`).join('')}</ol></div></div>
   </section>`;
 }
 function renderOverview(){
@@ -1367,6 +1458,10 @@ function gonBang(){
 }
 document.getElementById('nutDay').addEventListener('click', e=>{ const a=e.target.closest('[data-nd]'); if(!a) return; calAudit = a.dataset.nd==='audit'; if(calAudit && view==='lich-viec'){ e.preventDefault(); render(); } });
 main.addEventListener('click', e=>{ if(e.target.closest('[data-bo-audit]')){ calAudit=false; render(); } });
+main.addEventListener('click', e=>{ const a=e.target.closest('[data-hm-ht],[data-hm-br],[data-hm-sp]'); if(!a||view!=='han-muc') return;
+  if(a.dataset.hmHt) hmLoc.ht=a.dataset.hmHt; if(a.dataset.hmBr!=null) hmLoc.br=a.dataset.hmBr; if(a.dataset.hmSp){ hmLoc.sp=a.dataset.hmSp; window.scrollTo({top:0,behavior:'smooth'}); } render(); });
+main.addEventListener('change', e=>{ if(view!=='han-muc') return; const el=e.target; if(el.id==='hmHt'){ hmLoc.ht=el.value; render(); } if(el.id==='hmSp'){ hmLoc.sp=el.value; render(); } });
+main.addEventListener('input', e=>{ if(view!=='han-muc') return; const el=e.target; if(el.id==='hmPct'){ hmLoc.pct=el.value; const c=el.selectionStart; render(); const n=document.getElementById('hmPct'); if(n){ n.focus(); try{ n.setSelectionRange(c,c); }catch(_){} } } if(el.id==='hmQ'){ hmLoc.q=el.value; render(); const n=document.getElementById('hmQ'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } } });
 main.addEventListener('click', e=>{ const b=e.target.closest('[data-bct]'); if(b){ const n=+b.dataset.bct; bctTuan = n===0 ? addDays(thuHai(todayStr()),-7) : addDays(bctTuan,n); return render(); } if(e.target.closest('[data-bct-in]')) window.print(); });
 function danhDauNutDay(){ const nd=document.getElementById('nutDay'); if(!nd) return; const v=String(view||'');
   nd.querySelectorAll('a').forEach(a=>{ const k=a.dataset.nd, dung = k==='audit' ? (v==='lich-viec'&&calAudit) : k==='bao-cao' ? v.startsWith('bc-') : (k===v && !(v==='lich-viec')); a.setAttribute('aria-current', dung?'page':'false'); }); }
@@ -1671,13 +1766,30 @@ function renderTtLp(x){
     <ol class="tt-buoc">${TT_LP.filter(([k])=>k!=='st_tu_choi').map(([k,t],i)=>{ const idx=r?TT_LP.findIndex(z=>z[0]===r.trang_thai):-1, xong=r&&r.trang_thai!=='st_tu_choi'&&i<=idx; return `<li class="${xong?'xong':''} ${r&&r.trang_thai===k?'dang':''}">${t}</li>`; }).join('')}</ol>
     ${ls.length?`<details class="tt-ls"><summary>Lịch sử đổi trạng thái (${ls.length})</summary><ul>${ls.map(l=>`<li>${new Date(l.luc).toLocaleString('vi-VN')} · <b>${esc(l.nguoi||'')}</b> → ${esc(TT_LP_TEN[l.tt]||l.tt)}</li>`).join('')}</ul></details>`:''}</div>`;
 }
+// Cơ cấu KM trong file CTKM: số thập phân (0.08 = 8%) hoặc chữ có %; chữ không có % (tặng kèm, combo…) là hình thức khác
+const ptCoCau = c => { const s=String(c??'').trim(); if(!s) return null; if(/^\d*[.,]?\d+$/.test(s)){ const v=+s.replace(',','.'); return v<=1?Math.round(v*1000)/10:v; } const m=s.match(/(\d+(?:[.,]\d+)?)\s*%/); return m?+m[1].replace(',','.'):null; };
+const hienCoCau = c => { const p=ptCoCau(c); return p!=null && /^\d*[.,]?\d+$/.test(String(c).trim()) ? 'Giảm '+String(p).replace('.',',')+'%' : String(c||'—'); };
+function timSpHanMuc(ten, brand){
+  const sps=(hanMuc&&hanMuc.sp)||[], t=chuHm(ten).split(' ').filter(w=>w && !/^\d+(g|gr|ml)?$/.test(w)); if(!t.length) return null;
+  const ung=sps.filter(x=>(!brand||chuHm(x.brand)===chuHm(brand)) && t.every(w=>(' '+chuHm(x.ten)+' ').includes(' '+w+' ')));
+  return ung.sort((a,b)=>a.ten.length-b.ten.length)[0]||null;
+}
+function oHanMucCtkm(p, g){
+  if(!hanMuc||hanMuc.dang||hanMuc.loi||laKhach()) return '';
+  const ht=khoaHtCt(g.ht), sp=timSpHanMuc(p.san_pham, g.brand), pt=ptCoCau(p.co_cau);
+  if(!sp) return '<span class="muted" title="Chưa ghép được tên sản phẩm với bảng hạn mức">—</span>';
+  if(pt==null) return '<span class="hm-o trinh" title="Không phải giảm giá trực tiếp: trình duyệt riêng">Hình thức khác</span>';
+  const k=xetHanMuc(sp, ht, pt); if(!k) return '—';
+  const nhan={trong:`✓ ≤ ${k.muc}%`, vuot:`✕ vượt ${k.muc}%`, ktq:'✕ KTQ', khong:'Không KD', trinh:`⚠ tối đa ${k.muc}%`}[k.loai]||'';
+  return `<span class="hm-o ${{trong:'co',vuot:'vuot',ktq:'ktq',khong:'khong',trinh:'trinh'}[k.loai]||''}" title="${esc(k.cau)}">${nhan}</span>`;
+}
 function renderCtkmChot(x){
-  const ds=ctkmCua(x); const vnd=v=>v==null||v===''?'—':Math.round(+v).toLocaleString('vi-VN');
+  const ds=ctkmCua(x); const vnd=v=>v==null||v===''?'—':Math.round(+v).toLocaleString('vi-VN'); if(ds.length && !laKhach()) taiHanMuc();
   if(!ds.length) return `<div class="ct-chot chua"><b>CTKM đã chốt:</b> <span class="muted">chưa có trong file CẬP NHẬT CTKM KÊNH MT (khớp theo hệ thống, brand, ngày chạy)</span></div>`;
   return ds.map(g=>`<div class="ct-chot"><div class="ct-dau"><span class="pill chot">◆ Đã chốt CTKM</span> <b>${esc(g.ht)} · kỳ ${esc(g.ky||'—')} · ${brTag(g.brand)}</b></div>
     <div class="chips"><span class="chip num">PO giảm giá: ${g.po_tu?fd(g.po_tu)+' – '+fd(g.po_den):'—'}</span><span class="chip num">Giảm giá NTD: ${fd(g.ntd_tu)} – ${fd(g.ntd_den)}</span>${g.ghi_chu?`<span class="chip">${esc(g.ghi_chu)}</span>`:''}</div>
-    <div class="scroll"><table class="ct-bang"><thead><tr><th>Sản phẩm</th><th class="n">Cơ cấu KM</th><th class="n">Giá thường</th><th class="n">Giá CK</th><th class="n">FC số bán</th></tr></thead><tbody>${
-      g.sp.map(p=>`<tr><td>${esc(p.san_pham)}</td><td class="n"><b>${esc(p.co_cau||'—')}</b></td><td class="n">${vnd(p.gia_thuong)}</td><td class="n">${vnd(p.gia_ck)}</td><td class="n">${p.fc==null?'—':vnd(p.fc)}</td></tr>`).join('')}</tbody></table></div></div>`).join('');
+    <div class="scroll"><table class="ct-bang"><thead><tr><th>Sản phẩm</th><th class="n">Cơ cấu KM</th><th class="n">Giá thường</th><th class="n">Giá CK</th><th class="n">FC số bán</th>${laKhach()?'':'<th class="n" title="So cơ cấu KM với Tờ trình 01/TTr-TM">Hạn mức tự quyết</th>'}</tr></thead><tbody>${
+      g.sp.map(p=>`<tr><td>${esc(p.san_pham)}</td><td class="n"><b>${esc(hienCoCau(p.co_cau))}</b></td><td class="n">${vnd(p.gia_thuong)}</td><td class="n">${vnd(p.gia_ck)}</td><td class="n">${p.fc==null?'—':vnd(p.fc)}</td>${laKhach()?'':`<td class="n">${oHanMucCtkm(p,g)}</td>`}</tr>`).join('')}</tbody></table></div></div>`).join('');
 }
 function moLp(id){ const x=lichPost.find(v=>String(v.id)===String(id)); if(!x) return; modal={type:'lp', d:{id:x.id}}; renderModal(); }
 function taoTuLp(id){
@@ -2092,7 +2204,7 @@ function traLai(){
 /* ---------- xử lý trên trang ---------- */
 document.getElementById('btnNew').addEventListener('click', ()=>{ if(!laKhach()) openNew(); });
 /* Ô tìm nhanh: gõ để tìm hoạt động, việc, chương trình Lịch post, kỳ 2027 và các trang. Ctrl+K hoặc phím / để mở */
-const TRANG_TIM = [['Tổng quan','#tong-quan'],['Hoạt động','#hoat-dong'],['Lịch việc','#lich-viec'],['Lịch post','#lich-post'],
+const TRANG_TIM = [['Tổng quan','#tong-quan'],['Hoạt động','#hoat-dong'],['Lịch việc','#lich-viec'],['Lịch post','#lich-post'],['Hạn mức tự quyết','#han-muc'],
   ['Báo cáo Sell-in','#bc-sell-in'],['Báo cáo Sell-out','#bc-sell-out'],['Baseline bán trơn','#bc-baseline'],['Giá bán & TVP thu về','#bc-gia'],['Quy trình mẫu','#quy-trinh'],['Thành viên','#thanh-vien']];
 let timDs=[], timChon=0;
 function dsTim(){

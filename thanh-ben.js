@@ -48,7 +48,8 @@
       { ten: 'Tổng quan', trang: 'app', v: 'tong-quan', href: './#tong-quan', ic: 'nha' },
       { ten: 'Hoạt động', trang: 'app', v: 'hoat-dong', href: './#hoat-dong', ic: 'viec' },
       { ten: 'Lịch việc', trang: 'app', v: 'lich-viec', href: './#lich-viec', ic: 'lich' },
-      { ten: 'Lịch post', trang: 'app', v: 'lich-post', href: './#lich-post', ic: 'post' } ] },   // Lịch post 2027 đã gỡ
+      { ten: 'Lịch post', trang: 'app', v: 'lich-post', href: './#lich-post', ic: 'post' },
+      { ten: 'Hạn mức tự quyết', trang: 'app', v: 'han-muc', href: './#han-muc', ic: 'gia' } ] },   // Lịch post 2027 đã gỡ
     { ten: 'Trang báo cáo', muc: [
       { ten: 'Báo cáo tuần', trang: 'app', v: 'bao-cao-tuan', href: './#bao-cao-tuan', ic: 'lich' },
       { ten: 'Sell-in', trang: 'bao-cao', v: 'sell-in', href: 'bao-cao-mt.html#sell-in', ic: 'vao' },

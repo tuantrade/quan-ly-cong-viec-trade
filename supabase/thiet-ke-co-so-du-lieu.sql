@@ -1328,3 +1328,17 @@ create policy "thanh_vien_xem" on public.ghi_chu_bieu_do for select to authentic
 create policy "thanh_vien_them" on public.ghi_chu_bieu_do for insert to authenticated with check (public.la_thanh_vien());
 create policy "thanh_vien_sua" on public.ghi_chu_bieu_do for update to authenticated using (public.la_thanh_vien()) with check (public.la_thanh_vien());
 create policy "thanh_vien_xoa" on public.ghi_chu_bieu_do for delete to authenticated using (public.la_thanh_vien());
+-- ===== Tài liệu nội bộ (VD: hạn mức tự quyết theo tờ trình): chỉ quản lý / thành viên đọc, khách không đọc; chỉ quản lý sửa =====
+create table if not exists public.tai_lieu_noi_bo (
+  khoa text primary key, ten text not null default '', du_lieu jsonb not null default '{}'::jsonb, luc timestamptz not null default now()
+);
+alter table public.tai_lieu_noi_bo enable row level security;
+grant select, insert, update, delete on public.tai_lieu_noi_bo to authenticated;
+drop policy if exists "thanh_vien_xem" on public.tai_lieu_noi_bo;
+drop policy if exists "quan_ly_them" on public.tai_lieu_noi_bo;
+drop policy if exists "quan_ly_sua" on public.tai_lieu_noi_bo;
+drop policy if exists "quan_ly_xoa" on public.tai_lieu_noi_bo;
+create policy "thanh_vien_xem" on public.tai_lieu_noi_bo for select to authenticated using (public.la_thanh_vien());
+create policy "quan_ly_them" on public.tai_lieu_noi_bo for insert to authenticated with check (public.la_quan_ly());
+create policy "quan_ly_sua" on public.tai_lieu_noi_bo for update to authenticated using (public.la_quan_ly()) with check (public.la_quan_ly());
+create policy "quan_ly_xoa" on public.tai_lieu_noi_bo for delete to authenticated using (public.la_quan_ly());
